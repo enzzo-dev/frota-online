@@ -2,5 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\FrotaOnline.Domain\FrotaOnline.Domain.csproj" />
     <PackageReference Include="FluentValidation" Version="11.*" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.*" />
   </ItemGroup>
 </Project>

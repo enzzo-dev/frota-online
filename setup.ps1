@@ -1,6 +1,13 @@
-# Rode na raiz: .\setup.ps1
-dotnet new sln -n FrotaOnline --force
-Get-ChildItem -Recurse -Filter *.csproj | ForEach-Object { dotnet sln add $_.FullName }
-dotnet tool install --global dotnet-ef --version "9.*" 2>$null
+# Run from the repository root:  .\setup.ps1
+$ErrorActionPreference = "Stop"
+
+if (-not (Test-Path "FrotaOnline.sln")) {
+    dotnet new sln -n FrotaOnline
+}
+Get-ChildItem -Recurse -Filter *.csproj | ForEach-Object { dotnet sln add $_.FullName 2>$null }
+
+dotnet tool update --global dotnet-ef --version "9.*"
+
 docker compose up -d
 dotnet build
+dotnet test --no-build
