@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "FrotaOnline.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:62577;http://localhost:62578",
+      "launchUrl": "docs/index.html"
+    }
+  }
+}

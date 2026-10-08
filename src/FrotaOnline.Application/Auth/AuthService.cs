@@ -1,6 +1,9 @@
 using FluentValidation;
 using FluentValidation.Results;
-using FrotaOnline.Application.Abstractions;
+using FrotaOnline.Application.Abstractions.Auth;
+using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Time;
+using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Application.Auth.Dtos;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Domain.Entities;
@@ -10,7 +13,7 @@ namespace FrotaOnline.Application.Auth;
 public sealed class AuthService : IAuthService
 {
     private readonly IUserRepository _users;
-    private readonly IRefreshTokenRepository _refreshTokens;
+    private readonly IAuthRepository _authRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
@@ -22,7 +25,7 @@ public sealed class AuthService : IAuthService
 
     public AuthService(
         IUserRepository users,
-        IRefreshTokenRepository refreshTokens,
+        IAuthRepository authRepository,
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
@@ -33,7 +36,7 @@ public sealed class AuthService : IAuthService
         IValidator<LogoutRequest> logoutValidator)
     {
         _users = users;
-        _refreshTokens = refreshTokens;
+        _authRepository = authRepository;
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
@@ -111,7 +114,7 @@ public sealed class AuthService : IAuthService
         }
 
         var now = _clock.UtcNow;
-        var stored = await _refreshTokens.GetByHashAsync(_tokenService.HashRefreshToken(request.RefreshToken), cancellationToken);
+        var stored = await _authRepository.GetRefreshTokenByHashAsync(_tokenService.HashRefreshToken(request.RefreshToken), cancellationToken);
 
         if (stored is null)
         {
@@ -152,7 +155,7 @@ public sealed class AuthService : IAuthService
             return Result.Failure(ToError(validation));
         }
 
-        var stored = await _refreshTokens.GetByHashAsync(_tokenService.HashRefreshToken(request.RefreshToken), cancellationToken);
+        var stored = await _authRepository.GetRefreshTokenByHashAsync(_tokenService.HashRefreshToken(request.RefreshToken), cancellationToken);
         if (stored is not null)
         {
             stored.Revoke(_clock.UtcNow);
@@ -168,7 +171,7 @@ public sealed class AuthService : IAuthService
         var access = _tokenService.CreateAccessToken(user);
         var refresh = _tokenService.CreateRefreshToken();
 
-        await _refreshTokens.AddAsync(RefreshToken.Create(user.Id, refresh.Hash, refresh.ExpiresAt), cancellationToken);
+        await _authRepository.AddRefreshTokenAsync(RefreshToken.Create(user.Id, refresh.Hash, refresh.ExpiresAt), cancellationToken);
 
         return new AuthResponse(
             access.Token,
@@ -180,7 +183,7 @@ public sealed class AuthService : IAuthService
 
     private async Task RevokeAllAsync(Guid userId, DateTime now, CancellationToken cancellationToken)
     {
-        var active = await _refreshTokens.GetActiveByUserAsync(userId, now, cancellationToken);
+        var active = await _authRepository.GetActiveRefreshTokensByUserAsync(userId, now, cancellationToken);
         foreach (var token in active)
         {
             token.Revoke(now);

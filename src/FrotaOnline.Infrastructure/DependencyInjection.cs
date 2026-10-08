@@ -1,4 +1,7 @@
-using FrotaOnline.Application.Abstractions;
+using FrotaOnline.Application.Abstractions.Auth;
+using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Time;
+using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Infrastructure.Persistence;
 using FrotaOnline.Infrastructure.Repositories;
 using FrotaOnline.Infrastructure.Security;
@@ -13,12 +16,20 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("Default")));
+        var connectionString = configuration.GetConnectionString("Default");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "ConnectionStrings:Default is not configured for this environment. " +
+                "Set it in appsettings.{Environment}.json (Development) or through the " +
+                "ConnectionStrings__Default environment variable / secret manager (Staging, Production).");
+        }
+
+        services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IAuthRepository, AuthRepository>();
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))

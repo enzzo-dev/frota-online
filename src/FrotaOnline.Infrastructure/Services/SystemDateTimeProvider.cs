@@ -1,4 +1,4 @@
-using FrotaOnline.Application.Abstractions;
+using FrotaOnline.Application.Abstractions.Time;
 
 namespace FrotaOnline.Infrastructure.Services;
 

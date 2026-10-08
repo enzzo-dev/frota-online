@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frota Online API</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23D7141A'/%3E%3Crect x='14' y='3' width='4' height='7' fill='white'/%3E%3Crect x='14' y='12' width='4' height='7' fill='white'/%3E%3Crect x='14' y='21' width='4' height='7' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body>
+  <a class="skip" href="#start">Skip to content</a>
+
+  <aside class="rail" aria-label="Documentation navigation">
+    <a class="brand" href="#top" aria-label="Frota Online API, back to top">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#D7141A"/>
+        <rect x="14" y="3" width="4" height="7" fill="#fff"/>
+        <rect x="14" y="12" width="4" height="7" fill="#fff"/>
+        <rect x="14" y="21" width="4" height="7" fill="#fff"/>
+      </svg>
+      <span class="brand-name">Frota Online</span>
+    </a>
+
+    <nav class="rail-nav">
+      <a href="#start">Start here</a>
+      <a href="#tokens">How sessions work</a>
+      <a href="#endpoints">Endpoints</a>
+      <a href="#errors">Errors</a>
+    </nav>
+
+    <div class="rail-block">
+      <div class="status" id="api-status" role="status"><span class="dot"></span><span id="api-status-text">Checking the API</span></div>
+
+      <div class="session" id="session-box">
+        <p class="session-title">Your session</p>
+        <p class="session-line" id="session-line">Not signed in</p>
+        <p class="session-sub" id="session-sub">Create an account in step 1 to get a token.</p>
+        <button type="button" class="link-btn" id="clear-session" hidden>Clear session</button>
+      </div>
+    </div>
+
+    <div class="rail-links">
+      <a href="/swagger" target="_blank" rel="noopener">Open Swagger UI</a>
+      <a href="/openapi/v1.json" target="_blank" rel="noopener">Download OpenAPI JSON</a>
+    </div>
+  </aside>
+
+  <main id="top">
+    <header class="hero">
+      <h1>Drivers set the price.<br>This API moves the freight.</h1>
+      <p class="hero-lede">Sign people in today. Freight requests, proposals and deliveries are built on the same foundation and arrive next.</p>
+      <div class="hero-meta">
+        <div class="base-url">
+          <span class="base-label">Base URL</span>
+          <code id="base-url">/api/v1</code>
+          <button type="button" class="copy" data-copy-target="base-url">Copy</button>
+        </div>
+        <p class="roadmap"><strong>Available now:</strong> accounts and sessions. <strong>Next:</strong> driver onboarding, freight requests, proposals.</p>
+      </div>
+      <div class="roadline" aria-hidden="true"></div>
+    </header>
+
+    <section id="start" class="section">
+      <h2>Make your first call in four stops</h2>
+      <p class="section-lede">Each stop runs a real request against this server and keeps the result for the next one. Nothing here is mocked.</p>
+
+      <ol class="route" id="route">
+        <li class="stop" id="stop-1">
+          <span class="stop-pin" aria-hidden="true">1</span>
+          <div class="stop-body">
+            <h3>Create an account</h3>
+            <p>Pick Customer to ask for freight or Driver to carry it. The response already includes your first tokens.</p>
+            <form class="form-grid" id="form-register" autocomplete="off">
+              <label>Full name<input name="fullName" required value="Maria Souza"></label>
+              <label>E-mail<input name="email" type="email" required></label>
+              <label>Phone<input name="phoneNumber" required value="+5511999999999"></label>
+              <label>Password<input name="password" type="text" required value="Str0ngPass1"></label>
+              <label>Role
+                <select name="role"><option>Driver</option><option>Customer</option></select>
+              </label>
+              <div class="actions"><button type="submit" class="btn">Create account</button></div>
+            </form>
+            <div class="result" id="result-1" hidden></div>
+          </div>
+        </li>
+
+        <li class="stop" id="stop-2">
+          <span class="stop-pin" aria-hidden="true">2</span>
+          <div class="stop-body">
+            <h3>Sign in</h3>
+            <p>Use the same e-mail and password later, from any device. You get a fresh pair of tokens each time.</p>
+            <form class="form-grid" id="form-login" autocomplete="off">
+              <label>E-mail<input name="email" type="email" required></label>
+              <label>Password<input name="password" type="text" required value="Str0ngPass1"></label>
+              <div class="actions"><button type="submit" class="btn">Sign in</button></div>
+            </form>
+            <div class="result" id="result-2" hidden></div>
+          </div>
+        </li>
+
+        <li class="stop" id="stop-3">
+          <span class="stop-pin" aria-hidden="true">3</span>
+          <div class="stop-body">
+            <h3>Call a protected endpoint</h3>
+            <p>Send the access token in the <code>Authorization</code> header. This request asks who you are.</p>
+            <pre class="code" id="curl-3"></pre>
+            <div class="actions">
+              <button type="button" class="btn" id="run-3">Run GET /auth/me</button>
+              <button type="button" class="btn ghost" data-copy-target="curl-3">Copy curl</button>
+            </div>
+            <div class="result" id="result-3" hidden></div>
+          </div>
+        </li>
+
+        <li class="stop" id="stop-4">
+          <span class="stop-pin" aria-hidden="true">4</span>
+          <div class="stop-body">
+            <h3>Renew the session</h3>
+            <p>Access tokens last 15 minutes. Trade the refresh token for a new pair before it ends. The old refresh token stops working.</p>
+            <div class="actions">
+              <button type="button" class="btn" id="run-4">Refresh tokens</button>
+              <button type="button" class="btn ghost" id="run-4b">Replay the old refresh token</button>
+            </div>
+            <p class="hint" id="hint-4">Replaying a used token shows what happens when one leaks: the server revokes the whole session.</p>
+            <div class="result" id="result-4" hidden></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="tokens" class="section">
+      <h2>How sessions work</h2>
+      <div class="facts">
+        <div class="fact"><span class="fact-num">15 min</span><p>Access token lifetime. It is a signed JWT carrying your id, e-mail and role.</p></div>
+        <div class="fact"><span class="fact-num">30 days</span><p>Refresh token lifetime. It is random, shown once, and stored on our side only as a hash.</p></div>
+        <div class="fact"><span class="fact-num">1 use</span><p>Every refresh token works once. Using it again is treated as theft and ends the session.</p></div>
+      </div>
+      <p class="prose">Roles are <code>Customer</code>, <code>Driver</code> and <code>Admin</code>. Sign-up only creates the first two. Passwords need 8 to 128 characters with an upper case letter, a lower case letter and a digit.</p>
+    </section>
+
+    <section id="endpoints" class="section">
+      <h2>Endpoints</h2>
+      <p class="section-lede">Read live from <code>/openapi/v1.json</code>, so this list always matches the code. Open any endpoint to see its fields and try it.</p>
+      <div id="endpoint-list" class="endpoint-list"><p class="muted">Loading endpoints</p></div>
+    </section>
+
+    <section id="errors" class="section">
+      <h2>Errors</h2>
+      <p class="section-lede">Every failure comes back as JSON in the problem details format. Read the status code first, then <code>title</code> for a stable code you can branch on.</p>
+      <div class="two-col">
+        <div>
+          <h3 class="mini">A failed request</h3>
+          <pre class="code">HTTP/1.1 409 Conflict
+{
+  "title": "auth.email_in_use",
+  "detail": "This e-mail is already registered.",
+  "status": 409
+}</pre>
+        </div>
+        <div>
+          <h3 class="mini">A request with invalid fields</h3>
+          <pre class="code">HTTP/1.1 400 Bad Request
+{
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "Password": ["Password must contain a digit."]
+  }
+}</pre>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Status</th><th>Code</th><th>What it means and what to do</th></tr></thead>
+          <tbody>
+            <tr><td>400</td><td><code>validation_error</code></td><td>A field is missing or invalid. Read the <code>errors</code> object and fix those fields.</td></tr>
+            <tr><td>401</td><td><code>auth.invalid_credentials</code></td><td>Wrong e-mail or password. The message is the same for both on purpose.</td></tr>
+            <tr><td>401</td><td><code>auth.invalid_refresh_token</code></td><td>The refresh token is unknown, expired or already used. Ask the person to sign in again.</td></tr>
+            <tr><td>401</td><td>no body</td><td>The access token is missing, invalid or expired. Refresh it and retry once.</td></tr>
+            <tr><td>403</td><td><code>auth.user_inactive</code></td><td>The account is disabled. Contact support.</td></tr>
+            <tr><td>409</td><td><code>auth.email_in_use</code></td><td>That e-mail already has an account. Send the person to sign in.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>Frota Online API v1. This page is served only in Development.</p>
+    </footer>
+  </main>
+
+  <script src="docs.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using FrotaOnline.Application.Abstractions;
+using FrotaOnline.Application.Abstractions.Auth;
 
 namespace FrotaOnline.Infrastructure.Security;
 

@@ -1,4 +1,4 @@
-using FrotaOnline.Application.Abstractions;
+using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;

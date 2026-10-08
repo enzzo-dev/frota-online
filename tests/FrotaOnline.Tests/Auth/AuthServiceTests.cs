@@ -1,4 +1,7 @@
-using FrotaOnline.Application.Abstractions;
+using FrotaOnline.Application.Abstractions.Auth;
+using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Time;
+using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Application.Auth;
 using FrotaOnline.Application.Auth.Dtos;
 using FrotaOnline.Application.Auth.Validators;
@@ -13,7 +16,7 @@ public class AuthServiceTests
     private const string ValidPassword = "Str0ngPass";
 
     private readonly FakeUserRepository _users = new();
-    private readonly FakeRefreshTokenRepository _tokens = new();
+    private readonly FakeAuthRepository _tokens = new();
     private readonly FakeClock _clock = new();
     private readonly AuthService _sut;
 
@@ -169,18 +172,18 @@ internal sealed class FakeUserRepository : IUserRepository
     }
 }
 
-internal sealed class FakeRefreshTokenRepository : IRefreshTokenRepository
+internal sealed class FakeAuthRepository : IAuthRepository
 {
     public List<RefreshToken> Items { get; } = new();
 
-    public Task<RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
+    public Task<RefreshToken?> GetRefreshTokenByHashAsync(string tokenHash, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(t => t.TokenHash == tokenHash));
 
-    public Task<IReadOnlyList<RefreshToken>> GetActiveByUserAsync(Guid userId, DateTime utcNow, CancellationToken cancellationToken) =>
+    public Task<IReadOnlyList<RefreshToken>> GetActiveRefreshTokensByUserAsync(Guid userId, DateTime utcNow, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<RefreshToken>>(
             Items.Where(t => t.UserId == userId && t.IsActive(utcNow)).ToList());
 
-    public Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
+    public Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken)
     {
         Items.Add(refreshToken);
         return Task.CompletedTask;
