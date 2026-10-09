@@ -317,11 +317,6 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasMaxLength(11)
                         .HasColumnType("character varying(11)");
 
-                    b.Property<string>("CpfNumber")
-                        .IsRequired()
-                        .HasMaxLength(11)
-                        .HasColumnType("character varying(11)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -340,6 +335,11 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("TaxId")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -351,10 +351,10 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasIndex("CnhNumber")
                         .IsUnique();
 
-                    b.HasIndex("CpfNumber")
-                        .IsUnique();
-
                     b.HasIndex("Status");
+
+                    b.HasIndex("TaxId")
+                        .IsUnique();
 
                     b.HasIndex("UserId")
                         .IsUnique();
