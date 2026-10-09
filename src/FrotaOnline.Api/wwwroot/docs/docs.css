@@ -219,3 +219,35 @@ table.grid td { padding: 10px 14px; border-top: 1px solid var(--line); vertical-
   html { scroll-behavior: auto; }
   .roadline { animation: none; }
 }
+
+/* Front-end call order diagrams */
+.flow { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 20px; background: var(--white); overflow-x: auto; margin: 8px 0 28px; }
+.flow-svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: var(--font-body); }
+.flow-caption { font-size: 14px; color: var(--ink-soft); margin: 0 0 8px; }
+.fl-node { fill: #fff; stroke: #000; stroke-width: 1.5; }
+.fl-node.dashed { stroke-dasharray: 5 4; fill: var(--panel); }
+.fl-ok { fill: var(--red); stroke: var(--red-deep); stroke-width: 1.5; }
+.fl-dia { fill: var(--panel); stroke: #000; stroke-width: 1.5; }
+.fl-title { font-family: var(--font-mono); font-weight: 700; font-size: 13px; fill: #000; }
+.fl-title.ok { fill: #fff; }
+.fl-desc { font-size: 11.5px; fill: var(--ink-soft); }
+.fl-desc.ok { fill: #fff; }
+.fl-dtitle { font-family: var(--font-mono); font-weight: 700; font-size: 12px; fill: #000; }
+.fl-ddesc { font-size: 11.5px; fill: var(--ink-soft); }
+.fl-pill { stroke: #000; stroke-width: 1.2; }
+.fl-pill.get { fill: #fff; }
+.fl-pill.post { fill: var(--red); stroke: var(--red); }
+.fl-pill.put { fill: #000; }
+.fl-pill.del { fill: var(--red-deep); stroke: var(--red-deep); }
+.fl-method { font-family: var(--font-mono); font-weight: 700; font-size: 10.5px; fill: #000; }
+.fl-method.post, .fl-method.put, .fl-method.del { fill: #fff; }
+.fl-edge { fill: none; stroke: #000; stroke-width: 1.6; stroke-linejoin: round; }
+.fl-edge.red { stroke: var(--red); }
+.fl-edge.dash { stroke-dasharray: 6 5; }
+.fl-label { font-size: 11.5px; font-weight: 700; fill: #000; }
+.fl-label.red { fill: var(--red-deep); }
+.fl-lane.post { fill: var(--red); }
+.fl-lane.put { fill: #000; }
+.fl-lane.get { fill: #fff; stroke: #000; stroke-width: 1.4; }
+.fl-lane-t { font-family: var(--font-mono); font-weight: 700; font-size: 11.5px; fill: #fff; }
+.fl-lane-t.get { fill: #000; }

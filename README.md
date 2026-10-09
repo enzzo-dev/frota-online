@@ -245,6 +245,66 @@ Abstractions/
 
 Ao adicionar um módulo (por exemplo, Freight), crie `Abstractions/Freight/IFreightRepository.cs` e implemente em `Infrastructure/Repositories`.
 
+## Ordem de chamadas para o front-end
+
+Todo usuário começa pelos termos e por uma sessão. Depois o caminho se divide pelo perfil da conta. As setas tracejadas são laços de volta a um passo anterior.
+
+```mermaid
+flowchart TD
+    A["GET /terms/active<br/>termos antes do cadastro"] --> B["POST /auth/register ou /auth/login<br/>guarda accessToken e refreshToken"]
+    B --> C["GET /terms/pending"]
+    C --> D{"Sobrou algum termo?"}
+    D -- sim --> E["POST /terms/accept<br/>um por termo"]
+    E -.-> C
+    D -- não --> F{"Qual o perfil?"}
+
+    F -- Driver --> G["GET /driver/profile<br/>404 = ainda não existe"]
+    G --> H["PUT /driver/profile<br/>taxId, cnhNumber, cnhCategory"]
+    H --> I["POST /driver/vehicles<br/>pelo menos um veículo"]
+    I --> J["Envia o arquivo ao storage<br/>chave drivers/userId/arquivo"]
+    J --> K["POST /driver/documents<br/>registra a chave do arquivo"]
+    K --> L{"GET /driver/profile<br/>checklist.isReady?"}
+    L -. falta item .-> I
+    L -- sim --> M["POST /driver/submit<br/>status PendingReview, perfil trava"]
+    M --> N["GET /driver/profile<br/>consulta até sair de PendingReview"]
+    N --> O{"Status?"}
+    O -- Approved --> P["Pode operar<br/>propostas na próxima fase"]
+    O -. Rejected .-> Q["Mostra rejectionReason"]
+    Q -.-> H
+
+    F -- Admin --> R["POST /auth/login com conta Admin"]
+    R --> S["GET /admin/drivers<br/>fila PendingReview"]
+    S --> T["GET /admin/drivers/id<br/>perfil, veículos e arquivos"]
+    T --> U{"Decisão"}
+    U -- aprova --> V["POST /admin/drivers/id/approve<br/>e-mail ao motorista"]
+    U -- rejeita --> W["POST /admin/drivers/id/reject<br/>reason obrigatório, e-mail ao motorista"]
+    R -. quando houver nova versão .-> X["POST /admin/terms<br/>todos aceitam de novo"]
+
+    F -- Customer --> Y["Pedidos de frete<br/>próxima fase"]
+
+    style P fill:#d7141a,stroke:#8f0d12,color:#ffffff
+    style Q fill:#ffffff,stroke:#d7141a,color:#8f0d12
+    style X stroke-dasharray: 5 5
+    style Y stroke-dasharray: 5 5
+```
+
+### Renovação de sessão
+
+Qualquer chamada autenticada pode responder 401 quando o access token expira. Renove uma vez e repita a chamada. Cada refresh token vale uma única vez, então guarde o par novo: reutilizar um antigo encerra a sessão.
+
+```mermaid
+flowchart LR
+    A["Chamada autenticada<br/>Authorization: Bearer"] --> B{"Respondeu 401?"}
+    B -- não --> C["Usa a resposta"]
+    B -- sim --> D["POST /auth/refresh<br/>refreshToken guardado"]
+    D --> E{"Respondeu 200?"}
+    E -- sim --> F["Guarda o par novo<br/>e repete a chamada uma vez"]
+    E -. não .-> G["Apaga os tokens<br/>e volta ao login"]
+
+    style F fill:#d7141a,stroke:#8f0d12,color:#ffffff
+    style G stroke-dasharray: 5 5
+```
+
 ## Endpoints de autenticação (`/api/v1/auth`)
 
 | Método | Rota | Descrição |
