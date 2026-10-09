@@ -23,7 +23,7 @@ public static class BrazilianDocuments
         System.Text.RegularExpressions.Regex.IsMatch(NormalizePlate(value), "^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$");
 
     public static string NormalizePlate(string? value) =>
-        new((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        new string((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
     private static int CheckDigit(string digits, int length, int firstWeight)
     {
