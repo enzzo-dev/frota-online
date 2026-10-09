@@ -11,6 +11,7 @@ namespace FrotaOnline.Tests.Onboarding;
 public class DriverOnboardingTests
 {
     private const string ValidCpf = "529.982.247-25";
+    private const string ValidAlphanumericCnpj = "12.ABC.345/01DE-35";
 
     private readonly Guid _userId = Guid.NewGuid();
     private readonly FakeDriverRepository _drivers = new();
@@ -32,8 +33,8 @@ public class DriverOnboardingTests
         _documents = new DriverDocumentService(_drivers, _media, unitOfWork, new RegisterMediaRequestValidator());
     }
 
-    private static UpsertDriverProfileRequest ValidProfile(string cpf = ValidCpf, string cnh = "12345678901") =>
-        new(cpf, cnh, "b");
+    private static UpsertDriverProfileRequest ValidProfile(string taxId = ValidCpf, string cnh = "12345678901") =>
+        new(taxId, cnh, "b");
 
     private static RegisterVehicleRequest ValidVehicle(string plate = "ABC-1D23") =>
         new(VehicleType.Fiorino, plate, "Fiat Fiorino", 2020, 650);
@@ -55,7 +56,7 @@ public class DriverOnboardingTests
         var result = await CreateProfile();
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("52998224725", result.Value.CpfNumber);
+        Assert.Equal("52998224725", result.Value.TaxId);
         Assert.Equal("B", result.Value.CnhCategory);
         Assert.Equal(DriverStatus.Draft, result.Value.Status);
     }
@@ -63,20 +64,43 @@ public class DriverOnboardingTests
     [Fact]
     public async Task Upsert_WithInvalidCpf_IsRejected()
     {
-        var result = await _profile.UpsertAsync(_userId, ValidProfile(cpf: "111.111.111-11"), CancellationToken.None);
+        var result = await _profile.UpsertAsync(_userId, ValidProfile(taxId: "111.111.111-11"), CancellationToken.None);
 
         Assert.Equal(ErrorType.Validation, result.Error!.Type);
         Assert.Empty(_drivers.Items);
     }
 
     [Fact]
-    public async Task Upsert_WithCpfOfAnotherDriver_ReturnsConflict()
+    public async Task Upsert_WithTaxIdOfAnotherDriver_ReturnsConflict()
     {
         await CreateProfile();
 
         var result = await _profile.UpsertAsync(Guid.NewGuid(), ValidProfile(cnh: "10987654321"), CancellationToken.None);
 
-        Assert.Equal("driver.cpf_in_use", result.Error!.Code);
+        Assert.Equal("driver.tax_id_in_use", result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Upsert_AcceptsAlphanumericCnpj_AndNormalizesIt()
+    {
+        var result = await _profile.UpsertAsync(_userId, ValidProfile(taxId: ValidAlphanumericCnpj), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("12ABC34501DE35", result.Value.TaxId);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("12.ABC.345/01DE-36")]
+    [InlineData("12ABC34501DE3")]
+    public async Task Upsert_WithMissingOrInvalidTaxId_ReturnsValidationErrorAndSavesNothing(string taxId)
+    {
+        var result = await _profile.UpsertAsync(_userId, ValidProfile(taxId: taxId), CancellationToken.None);
+
+        Assert.Equal(ErrorType.Validation, result.Error!.Type);
+        Assert.Contains("TaxId", result.Error.ValidationErrors!.Keys);
+        Assert.Empty(_drivers.Items);
     }
 
     [Fact]
@@ -225,6 +249,20 @@ public class DriverOnboardingTests
         Assert.False(BrazilianDocuments.IsValidCpf("00000000000"));
         Assert.False(BrazilianDocuments.IsValidCpf("123"));
     }
+
+    [Theory]
+    [InlineData("11.222.333/0001-81", true)]
+    [InlineData("12.ABC.345/01DE-35", true)]
+    [InlineData("12ABC34501DE35", true)]
+    [InlineData("12abc34501de35", true)]
+    [InlineData("12.ABC.345/01DE-36", false)]
+    [InlineData("11.222.333/0001-82", false)]
+    [InlineData("00.000.000/0000-00", false)]
+    [InlineData("12ABC34501DEAB", false)]
+    [InlineData("529.982.247-25", true)]
+    [InlineData("ABCDEFGHIJK", false)]
+    public void TaxId_AcceptsCpfAndNumericOrAlphanumericCnpj(string value, bool expected) =>
+        Assert.Equal(expected, BrazilianDocuments.IsValidTaxId(value));
 
     [Theory]
     [InlineData("ABC-1234", true)]

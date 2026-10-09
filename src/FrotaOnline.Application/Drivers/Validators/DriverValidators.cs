@@ -11,8 +11,10 @@ public sealed class UpsertDriverProfileRequestValidator : AbstractValidator<Upse
 
     public UpsertDriverProfileRequestValidator()
     {
-        RuleFor(x => x.CpfNumber).NotEmpty().Must(BrazilianDocuments.IsValidCpf)
-            .WithMessage("CPF is invalid.");
+        RuleFor(x => x.TaxId).Cascade(CascadeMode.Stop)
+            .NotEmpty().WithMessage("CPF or CNPJ is required for drivers.")
+            .Must(BrazilianDocuments.IsValidTaxId)
+            .WithMessage("CPF or CNPJ is invalid. Check the number and its verification digits.");
         RuleFor(x => x.CnhNumber).NotEmpty()
             .Must(value => BrazilianDocuments.OnlyDigits(value).Length == 11)
             .WithMessage("CNH must have 11 digits.");

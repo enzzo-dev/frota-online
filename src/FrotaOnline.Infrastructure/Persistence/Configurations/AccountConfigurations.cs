@@ -44,9 +44,9 @@ internal sealed class DriverProfileConfiguration : IEntityTypeConfiguration<Driv
     {
         builder.HasIndex(x => x.UserId).IsUnique();
         builder.HasIndex(x => x.Status);
-        builder.HasIndex(x => x.CpfNumber).IsUnique();
+        builder.HasIndex(x => x.TaxId).IsUnique();
         builder.HasIndex(x => x.CnhNumber).IsUnique();
-        builder.Property(x => x.CpfNumber).HasMaxLength(11).IsRequired();
+        builder.Property(x => x.TaxId).HasMaxLength(14).IsRequired();
         builder.Property(x => x.CnhNumber).HasMaxLength(11).IsRequired();
         builder.Property(x => x.CnhCategory).HasMaxLength(2).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(1000);

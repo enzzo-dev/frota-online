@@ -13,8 +13,8 @@ public static class DriverErrors
     public static readonly Error InvalidStatusForSubmit =
         new("driver.invalid_status", "Only draft or rejected profiles can be submitted for review.", ErrorType.Conflict);
 
-    public static readonly Error CpfInUse =
-        new("driver.cpf_in_use", "This CPF is already registered.", ErrorType.Conflict);
+    public static readonly Error TaxIdInUse =
+        new("driver.tax_id_in_use", "This CPF or CNPJ is already registered.", ErrorType.Conflict);
 
     public static readonly Error CnhInUse =
         new("driver.cnh_in_use", "This CNH is already registered.", ErrorType.Conflict);

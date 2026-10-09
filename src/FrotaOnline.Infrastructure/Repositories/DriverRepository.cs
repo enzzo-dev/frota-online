@@ -24,8 +24,8 @@ internal sealed class DriverRepository : IDriverRepository
             .OrderBy(d => d.UpdatedAt ?? d.CreatedAt)
             .ToListAsync(cancellationToken);
 
-    public Task<bool> CpfInUseAsync(string cpfNumber, Guid exceptUserId, CancellationToken cancellationToken) =>
-        _db.DriverProfiles.AnyAsync(d => d.CpfNumber == cpfNumber && d.UserId != exceptUserId, cancellationToken);
+    public Task<bool> TaxIdInUseAsync(string taxId, Guid exceptUserId, CancellationToken cancellationToken) =>
+        _db.DriverProfiles.AnyAsync(d => d.TaxId == taxId && d.UserId != exceptUserId, cancellationToken);
 
     public Task<bool> CnhInUseAsync(string cnhNumber, Guid exceptUserId, CancellationToken cancellationToken) =>
         _db.DriverProfiles.AnyAsync(d => d.CnhNumber == cnhNumber && d.UserId != exceptUserId, cancellationToken);

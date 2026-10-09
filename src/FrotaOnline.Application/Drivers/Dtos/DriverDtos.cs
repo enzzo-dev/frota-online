@@ -2,7 +2,7 @@ using FrotaOnline.Domain.Enums;
 
 namespace FrotaOnline.Application.Drivers.Dtos;
 
-public sealed record UpsertDriverProfileRequest(string CpfNumber, string CnhNumber, string CnhCategory);
+public sealed record UpsertDriverProfileRequest(string TaxId, string CnhNumber, string CnhCategory);
 
 /// <summary>What is still missing before the profile can be sent to review.</summary>
 public sealed record SubmissionChecklist(bool TermsAccepted, bool HasActiveVehicle, bool HasDocument)
@@ -12,7 +12,7 @@ public sealed record SubmissionChecklist(bool TermsAccepted, bool HasActiveVehic
 
 public sealed record DriverProfileResponse(
     Guid Id,
-    string CpfNumber,
+    string TaxId,
     string CnhNumber,
     string CnhCategory,
     DriverStatus Status,

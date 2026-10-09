@@ -14,7 +14,7 @@ A página é um guia com um passo a passo em quatro paradas e uma lista de endpo
 | Domínio: 18 entidades com máquinas de estado de motorista, pedido, proposta e entrega | Pronto |
 | Auth: cadastro, login, refresh com rotação, logout e usuário atual | Pronto |
 | Termos: versões ativas, aceite com data e IP, publicação de nova versão (admin) | Pronto |
-| Motorista: perfil (CPF/CNH), veículos, documentos, checklist e envio para análise | Pronto |
+| Motorista: perfil (CPF ou CNPJ, inclusive alfanumérico, e CNH), veículos, documentos, checklist e envio para análise | Pronto |
 | Admin: fila de análise, aprovar e rejeitar com motivo, e-mail ao motorista | Pronto |
 | Pedidos de frete, propostas, entregas e pagamentos | Próximo |
 
@@ -272,7 +272,7 @@ As senhas precisam ter de 8 a 128 caracteres, com letra maiúscula, letra minús
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | GET | `/profile` | Perfil, status e checklist do que falta para enviar à análise. |
-| PUT | `/profile` | Cria ou atualiza CPF, CNH e categoria. Só editável em rascunho ou depois de uma rejeição. |
+| PUT | `/profile` | Cria ou atualiza `taxId` (CPF ou CNPJ, numérico ou alfanumérico), CNH e categoria. O `taxId` é obrigatório para motorista e validado pelos dígitos verificadores antes de gravar. Só editável em rascunho ou depois de uma rejeição. |
 | POST | `/submit` | Envia para análise (`PendingReview`). Exige termos aceitos, um veículo ativo e um documento. |
 | GET / POST | `/vehicles` | Lista e cadastra veículos. Placa no formato `ABC1234` ou `ABC1D23`. |
 | DELETE | `/vehicles/{id}` | Desativa um veículo. Um motorista aprovado mantém pelo menos um ativo. |
@@ -290,12 +290,14 @@ As senhas precisam ter de 8 a 128 caracteres, com letra maiúscula, letra minús
 
 Em Development, a API cria na primeira execução um admin (`Seed:Admin` em `appsettings.Development.json`) e a versão 1.0 dos termos. O upload de arquivos (URL pré-assinada) e o provedor real de e-mail ainda não existem: hoje o e-mail é gravado no log (`IEmailSender`).
 
-Depois de atualizar, gere a migration dos novos índices (CPF, CNH e chave de arquivo únicos):
+A coluna `CpfNumber` do motorista virou `TaxId` (14 caracteres, único). Depois de atualizar, gere a migration:
 
 ```powershell
-dotnet ef migrations add Phase1Onboarding -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api -o Persistence/Migrations
+dotnet ef migrations add DriverTaxId -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api -o Persistence/Migrations
 dotnet ef database update -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api
 ```
+
+Se já existirem motoristas no banco, troque no arquivo gerado o `DropColumn`/`AddColumn` por `migrationBuilder.RenameColumn(name: "CpfNumber", table: "DriverProfiles", newName: "TaxId")` e o índice por `RenameIndex`, para não perder os dados.
 
 ## Erros
 
@@ -312,7 +314,7 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 403 | sem corpo | O perfil do usuário não pode usar o endpoint. |
 | 404 | `driver.profile_not_found` | Crie o perfil do motorista primeiro. |
 | 409 | `driver.profile_locked` | Perfil em análise ou aprovado não pode ser editado. |
-| 409 | `driver.cpf_in_use`, `driver.cnh_in_use`, `driver.plate_in_use` | Documento ou placa já cadastrados. |
+| 409 | `driver.tax_id_in_use`, `driver.cnh_in_use`, `driver.plate_in_use` | Documento ou placa já cadastrados. |
 | 409 | `admin.not_pending_review` | Só motoristas em análise podem ser aprovados ou rejeitados. |
 | 409 | `terms.not_active` | A versão do termo foi substituída. Aceite a atual. |
 

@@ -57,12 +57,12 @@ public sealed class DriverProfileService : IDriverProfileService
             return Result.Failure<DriverProfileResponse>(ValidationMapper.ToError(validation));
         }
 
-        var cpf = BrazilianDocuments.OnlyDigits(request.CpfNumber);
+        var taxId = BrazilianDocuments.NormalizeTaxId(request.TaxId);
         var cnh = BrazilianDocuments.OnlyDigits(request.CnhNumber);
 
-        if (await _drivers.CpfInUseAsync(cpf, userId, cancellationToken))
+        if (await _drivers.TaxIdInUseAsync(taxId, userId, cancellationToken))
         {
-            return Result.Failure<DriverProfileResponse>(DriverErrors.CpfInUse);
+            return Result.Failure<DriverProfileResponse>(DriverErrors.TaxIdInUse);
         }
 
         if (await _drivers.CnhInUseAsync(cnh, userId, cancellationToken))
@@ -73,12 +73,12 @@ public sealed class DriverProfileService : IDriverProfileService
         var profile = await _drivers.GetByUserIdAsync(userId, cancellationToken);
         if (profile is null)
         {
-            profile = DriverProfile.Create(userId, cpf, cnh, request.CnhCategory);
+            profile = DriverProfile.Create(userId, taxId, cnh, request.CnhCategory);
             await _drivers.AddAsync(profile, cancellationToken);
         }
         else if (profile.IsEditable)
         {
-            profile.UpdateDetails(cpf, cnh, request.CnhCategory);
+            profile.UpdateDetails(taxId, cnh, request.CnhCategory);
         }
         else
         {
@@ -131,7 +131,7 @@ public sealed class DriverProfileService : IDriverProfileService
     {
         var checklist = await BuildChecklistAsync(profile, cancellationToken);
         return new DriverProfileResponse(
-            profile.Id, profile.CpfNumber, profile.CnhNumber, profile.CnhCategory,
+            profile.Id, profile.TaxId, profile.CnhNumber, profile.CnhCategory,
             profile.Status, profile.RejectionReason, profile.ReviewedAt, checklist);
     }
 

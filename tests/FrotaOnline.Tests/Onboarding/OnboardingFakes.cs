@@ -56,8 +56,8 @@ internal sealed class FakeDriverRepository : IDriverRepository
     public Task<IReadOnlyList<DriverProfile>> ListByStatusAsync(DriverStatus status, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<DriverProfile>>(Items.Where(d => d.Status == status).ToList());
 
-    public Task<bool> CpfInUseAsync(string cpfNumber, Guid exceptUserId, CancellationToken cancellationToken) =>
-        Task.FromResult(Items.Any(d => d.CpfNumber == cpfNumber && d.UserId != exceptUserId));
+    public Task<bool> TaxIdInUseAsync(string taxId, Guid exceptUserId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Any(d => d.TaxId == taxId && d.UserId != exceptUserId));
 
     public Task<bool> CnhInUseAsync(string cnhNumber, Guid exceptUserId, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Any(d => d.CnhNumber == cnhNumber && d.UserId != exceptUserId));

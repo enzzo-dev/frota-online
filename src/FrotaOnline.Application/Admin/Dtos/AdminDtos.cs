@@ -18,7 +18,7 @@ public sealed record DriverReviewDetail(
     string FullName,
     string Email,
     string PhoneNumber,
-    string CpfNumber,
+    string TaxId,
     string CnhNumber,
     string CnhCategory,
     DriverStatus Status,

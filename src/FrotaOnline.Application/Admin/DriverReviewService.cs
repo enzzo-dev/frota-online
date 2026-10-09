@@ -78,7 +78,7 @@ public sealed class DriverReviewService : IDriverReviewService
 
         return Result.Success(new DriverReviewDetail(
             profile.Id, user.Id, user.FullName, user.Email, user.PhoneNumber,
-            profile.CpfNumber, profile.CnhNumber, profile.CnhCategory,
+            profile.TaxId, profile.CnhNumber, profile.CnhCategory,
             profile.Status, profile.RejectionReason, profile.ReviewedAt,
             vehicles.Select(v => new VehicleResponse(v.Id, v.Type, v.Plate, v.Model, v.Year, v.CapacityKg, v.IsActive)).ToList(),
             files.Select(f => new MediaFileResponse(f.Id, f.Kind, f.StorageKey, f.ContentType, f.SizeBytes, f.CreatedAt)).ToList()));

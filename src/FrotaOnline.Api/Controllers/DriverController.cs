@@ -31,7 +31,7 @@ public sealed class DriverController : ApiControllerBase
 
     [HttpPut("profile")]
     [EndpointSummary("Create or update the driver profile")]
-    [EndpointDescription("CPF is validated by its check digits; punctuation is optional. Editable only while Draft or Rejected.")]
+    [EndpointDescription("TaxId is a CPF or a CNPJ (letters allowed, as in the 2026 alphanumeric CNPJ). It is required for drivers and validated by its check digits before anything is saved; punctuation is optional. Editable only while Draft or Rejected.")]
     [ProducesResponseType<DriverProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]

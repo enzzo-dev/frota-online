@@ -11,7 +11,8 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
 
     public Guid UserId { get; private set; }
 
-    public string CpfNumber { get; private set; } = string.Empty;
+    /// <summary>CPF (11 digits) or CNPJ (14 characters, letters allowed), normalized to upper-case without punctuation.</summary>
+    public string TaxId { get; private set; } = string.Empty;
 
     public string CnhNumber { get; private set; } = string.Empty;
 
@@ -27,24 +28,24 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
 
     public bool CanOperate => Status == DriverStatus.Approved;
 
-    public static DriverProfile Create(Guid userId, string cpfNumber, string cnhNumber, string cnhCategory) => new()
+    public static DriverProfile Create(Guid userId, string taxId, string cnhNumber, string cnhCategory) => new()
     {
         UserId = Guard.NotEmpty(userId, nameof(userId)),
-        CpfNumber = Guard.NotNullOrWhiteSpace(cpfNumber, nameof(cpfNumber)),
+        TaxId = Guard.NotNullOrWhiteSpace(taxId, nameof(taxId)).ToUpperInvariant(),
         CnhNumber = Guard.NotNullOrWhiteSpace(cnhNumber, nameof(cnhNumber)),
         CnhCategory = Guard.NotNullOrWhiteSpace(cnhCategory, nameof(cnhCategory)).ToUpperInvariant()
     };
 
     public bool IsEditable => Status is DriverStatus.Draft or DriverStatus.Rejected;
 
-    public void UpdateDetails(string cpfNumber, string cnhNumber, string cnhCategory)
+    public void UpdateDetails(string taxId, string cnhNumber, string cnhCategory)
     {
         if (!IsEditable)
         {
             throw new DomainException($"A driver in status {Status} cannot change their details.");
         }
 
-        CpfNumber = Guard.NotNullOrWhiteSpace(cpfNumber, nameof(cpfNumber));
+        TaxId = Guard.NotNullOrWhiteSpace(taxId, nameof(taxId)).ToUpperInvariant();
         CnhNumber = Guard.NotNullOrWhiteSpace(cnhNumber, nameof(cnhNumber));
         CnhCategory = Guard.NotNullOrWhiteSpace(cnhCategory, nameof(cnhCategory)).ToUpperInvariant();
     }
