@@ -1,7 +1,11 @@
 using FrotaOnline.Application.Abstractions.Auth;
+using FrotaOnline.Application.Abstractions.Drivers;
+using FrotaOnline.Application.Abstractions.Notifications;
+using FrotaOnline.Application.Abstractions.Terms;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
+using FrotaOnline.Infrastructure.Notifications;
 using FrotaOnline.Infrastructure.Persistence;
 using FrotaOnline.Infrastructure.Repositories;
 using FrotaOnline.Infrastructure.Security;
@@ -30,6 +34,11 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuthRepository, AuthRepository>();
+        services.AddScoped<ITermRepository, TermRepository>();
+        services.AddScoped<IConsentRepository, ConsentRepository>();
+        services.AddScoped<IDriverRepository, DriverRepository>();
+        services.AddScoped<IVehicleRepository, VehicleRepository>();
+        services.AddScoped<IMediaFileRepository, MediaFileRepository>();
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
@@ -39,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
+        services.AddSingleton<IEmailSender, LoggingEmailSender>();
 
         return services;
     }

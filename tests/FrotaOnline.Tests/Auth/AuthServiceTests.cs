@@ -159,6 +159,9 @@ internal sealed class FakeUserRepository : IUserRepository
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(u => u.Id == id));
 
+    public Task<IReadOnlyList<User>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<User>>(Items.Where(u => ids.Contains(u.Id)).ToList());
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(u => u.Email == email.Trim().ToLowerInvariant()));
 

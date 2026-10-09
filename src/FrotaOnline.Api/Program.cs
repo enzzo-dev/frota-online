@@ -3,6 +3,7 @@ using FrotaOnline.Api.Extensions;
 using FrotaOnline.Api.OpenApi;
 using FrotaOnline.Application;
 using FrotaOnline.Infrastructure;
+using FrotaOnline.Infrastructure.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +31,9 @@ app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
+    // First admin (Seed:Admin) and terms v1.0. Skipped with a warning until the migrations are applied.
+    await DevelopmentDataSeeder.SeedAsync(app.Services);
+
     // Default page: / and /docs both open the guide at /docs/index.html.
     // Swagger UI: /swagger  |  Raw OpenAPI document: /openapi/v1.json
     app.MapOpenApi();

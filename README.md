@@ -13,7 +13,10 @@ A página é um guia com um passo a passo em quatro paradas e uma lista de endpo
 | --- | --- |
 | Domínio: 18 entidades com máquinas de estado de motorista, pedido, proposta e entrega | Pronto |
 | Auth: cadastro, login, refresh com rotação, logout e usuário atual | Pronto |
-| Cadastro e análise do motorista, veículos, pedidos de frete, propostas, entregas e pagamentos | Próximo |
+| Termos: versões ativas, aceite com data e IP, publicação de nova versão (admin) | Pronto |
+| Motorista: perfil (CPF/CNH), veículos, documentos, checklist e envio para análise | Pronto |
+| Admin: fila de análise, aprovar e rejeitar com motivo, e-mail ao motorista | Pronto |
+| Pedidos de frete, propostas, entregas e pagamentos | Próximo |
 
 ## Diagramas
 
@@ -255,6 +258,45 @@ Ao adicionar um módulo (por exemplo, Freight), crie `Abstractions/Freight/IFrei
 Os access tokens são JWTs de 15 minutos. Os refresh tokens duram 30 dias, são aleatórios, ficam guardados apenas como hash SHA-256 e funcionam uma única vez.
 As senhas precisam ter de 8 a 128 caracteres, com letra maiúscula, letra minúscula e dígito.
 
+## Endpoints de termos (`/api/v1/terms`)
+
+| Método | Rota | Acesso | Descrição |
+| --- | --- | --- | --- |
+| GET | `/active` | Público | Versão atual dos termos de uso e da política de privacidade. |
+| GET | `/pending` | Logado | Termos ativos que o usuário ainda não aceitou. |
+| GET | `/consents` | Logado | Histórico de aceites do usuário. |
+| POST | `/accept` | Logado | Registra o aceite (data e IP). Aceitar duas vezes devolve o aceite original. |
+
+## Endpoints do motorista (`/api/v1/driver`, perfil Driver)
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| GET | `/profile` | Perfil, status e checklist do que falta para enviar à análise. |
+| PUT | `/profile` | Cria ou atualiza CPF, CNH e categoria. Só editável em rascunho ou depois de uma rejeição. |
+| POST | `/submit` | Envia para análise (`PendingReview`). Exige termos aceitos, um veículo ativo e um documento. |
+| GET / POST | `/vehicles` | Lista e cadastra veículos. Placa no formato `ABC1234` ou `ABC1D23`. |
+| DELETE | `/vehicles/{id}` | Desativa um veículo. Um motorista aprovado mantém pelo menos um ativo. |
+| GET / POST | `/documents` | Lista e registra arquivos já enviados ao storage. A chave precisa começar com `drivers/{userId}/`. |
+
+## Endpoints de administração (`/api/v1/admin`, perfil Admin)
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| GET | `/drivers?status=PendingReview` | Fila de análise, do mais antigo para o mais novo. |
+| GET | `/drivers/{id}` | Dossiê completo: perfil, contato, veículos e arquivos. |
+| POST | `/drivers/{id}/approve` | Aprova e envia e-mail. |
+| POST | `/drivers/{id}/reject` | Rejeita com motivo obrigatório e envia e-mail. O motorista corrige e reenvia. |
+| POST | `/terms` | Publica nova versão de um termo e desativa a anterior do mesmo tipo. |
+
+Em Development, a API cria na primeira execução um admin (`Seed:Admin` em `appsettings.Development.json`) e a versão 1.0 dos termos. O upload de arquivos (URL pré-assinada) e o provedor real de e-mail ainda não existem: hoje o e-mail é gravado no log (`IEmailSender`).
+
+Depois de atualizar, gere a migration dos novos índices (CPF, CNH e chave de arquivo únicos):
+
+```powershell
+dotnet ef migrations add Phase1Onboarding -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api -o Persistence/Migrations
+dotnet ef database update -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api
+```
+
 ## Erros
 
 As falhas retornam problem details (RFC 7807). Leia o código de status e depois o `title`, que é um código estável:
@@ -266,6 +308,13 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 401 | `auth.invalid_refresh_token` | Refresh token desconhecido, expirado ou já usado. |
 | 403 | `auth.user_inactive` | A conta está desativada. |
 | 409 | `auth.email_in_use` | Esse e-mail já tem uma conta. |
+| 400 | `driver.submission_incomplete` | Falta termo, veículo ou documento. `errors` diz o que. |
+| 403 | sem corpo | O perfil do usuário não pode usar o endpoint. |
+| 404 | `driver.profile_not_found` | Crie o perfil do motorista primeiro. |
+| 409 | `driver.profile_locked` | Perfil em análise ou aprovado não pode ser editado. |
+| 409 | `driver.cpf_in_use`, `driver.cnh_in_use`, `driver.plate_in_use` | Documento ou placa já cadastrados. |
+| 409 | `admin.not_pending_review` | Só motoristas em análise podem ser aprovados ou rejeitados. |
+| 409 | `terms.not_active` | A versão do termo foi substituída. Aceite a atual. |
 
 ## Testes
 

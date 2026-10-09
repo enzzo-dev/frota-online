@@ -44,6 +44,11 @@ internal sealed class DriverProfileConfiguration : IEntityTypeConfiguration<Driv
     {
         builder.HasIndex(x => x.UserId).IsUnique();
         builder.HasIndex(x => x.Status);
+        builder.HasIndex(x => x.CpfNumber).IsUnique();
+        builder.HasIndex(x => x.CnhNumber).IsUnique();
+        builder.Property(x => x.CpfNumber).HasMaxLength(11).IsRequired();
+        builder.Property(x => x.CnhNumber).HasMaxLength(11).IsRequired();
+        builder.Property(x => x.CnhCategory).HasMaxLength(2).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(1000);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
     }
@@ -73,7 +78,10 @@ internal sealed class MediaFileConfiguration : IEntityTypeConfiguration<MediaFil
 {
     public void Configure(EntityTypeBuilder<MediaFile> builder)
     {
+        builder.HasIndex(x => x.StorageKey).IsUnique();
+        builder.HasIndex(x => new { x.OwnerUserId, x.Kind });
         builder.Property(x => x.StorageKey).HasMaxLength(512).IsRequired();
+        builder.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId);
     }
 }

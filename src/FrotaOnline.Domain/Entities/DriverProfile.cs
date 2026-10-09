@@ -35,6 +35,20 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
         CnhCategory = Guard.NotNullOrWhiteSpace(cnhCategory, nameof(cnhCategory)).ToUpperInvariant()
     };
 
+    public bool IsEditable => Status is DriverStatus.Draft or DriverStatus.Rejected;
+
+    public void UpdateDetails(string cpfNumber, string cnhNumber, string cnhCategory)
+    {
+        if (!IsEditable)
+        {
+            throw new DomainException($"A driver in status {Status} cannot change their details.");
+        }
+
+        CpfNumber = Guard.NotNullOrWhiteSpace(cpfNumber, nameof(cpfNumber));
+        CnhNumber = Guard.NotNullOrWhiteSpace(cnhNumber, nameof(cnhNumber));
+        CnhCategory = Guard.NotNullOrWhiteSpace(cnhCategory, nameof(cnhCategory)).ToUpperInvariant();
+    }
+
     public void SubmitForReview()
     {
         if (Status is not (DriverStatus.Draft or DriverStatus.Rejected))

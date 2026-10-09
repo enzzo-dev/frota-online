@@ -27,6 +27,7 @@
     <nav class="rail-nav">
       <a href="#start">Start here</a>
       <a href="#tokens">How sessions work</a>
+      <a href="#onboarding">Driver onboarding</a>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Errors</a>
     </nav>
@@ -141,6 +142,26 @@
       <p class="prose">Roles are <code>Customer</code>, <code>Driver</code> and <code>Admin</code>. Sign-up only creates the first two. Passwords need 8 to 128 characters with an upper case letter, a lower case letter and a digit.</p>
     </section>
 
+    <section id="onboarding" class="section">
+      <h2>Driver onboarding</h2>
+      <p class="section-lede">A driver cannot send proposals until an admin approves the profile. These are the calls, in order. Authenticate as a <code>Driver</code> for steps 1 to 6 and as an <code>Admin</code> for step 7.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Step</th><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>GET /terms/pending</code> then <code>POST /terms/accept</code></td><td>Accept every active term. Each acceptance stores the time and IP address.</td></tr>
+            <tr><td>2</td><td><code>PUT /driver/profile</code></td><td>Send CPF, CNH and category. CPF is checked by its digits. Repeat the call to correct data while the profile is a draft or rejected.</td></tr>
+            <tr><td>3</td><td><code>POST /driver/vehicles</code></td><td>Register at least one vehicle. Plates accept <code>ABC1234</code> and <code>ABC1D23</code>.</td></tr>
+            <tr><td>4</td><td><code>POST /driver/documents</code></td><td>Register the files you already uploaded. The storage key must start with <code>drivers/{your user id}/</code>.</td></tr>
+            <tr><td>5</td><td><code>GET /driver/profile</code></td><td>The <code>checklist</code> shows what is still missing: terms, vehicle, document.</td></tr>
+            <tr><td>6</td><td><code>POST /driver/submit</code></td><td>Moves the status to <code>PendingReview</code> and locks the profile. An incomplete checklist returns the missing items.</td></tr>
+            <tr><td>7</td><td><code>GET /admin/drivers</code>, then <code>approve</code> or <code>reject</code></td><td>The admin reviews the file. Approval or rejection (with a reason) sends an e-mail. A rejected driver edits and submits again.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">In Development the API creates an admin on first start (<code>admin@frotaonline.local</code>, password from <code>Seed:Admin:Password</code> in <code>appsettings.Development.json</code>) and publishes version 1.0 of the terms. Sign in with it to try step 7.</p>
+    </section>
+
     <section id="endpoints" class="section">
       <h2>Endpoints</h2>
       <p class="section-lede">Read live from <code>/openapi/v1.json</code>, so this list always matches the code. Open any endpoint to see its fields and try it.</p>
@@ -182,6 +203,10 @@
             <tr><td>401</td><td>no body</td><td>The access token is missing, invalid or expired. Refresh it and retry once.</td></tr>
             <tr><td>403</td><td><code>auth.user_inactive</code></td><td>The account is disabled. Contact support.</td></tr>
             <tr><td>409</td><td><code>auth.email_in_use</code></td><td>That e-mail already has an account. Send the person to sign in.</td></tr>
+            <tr><td>409</td><td><code>driver.profile_locked</code></td><td>The profile is under review or approved. It can only be edited while draft or rejected.</td></tr>
+            <tr><td>409</td><td><code>driver.cpf_in_use</code> / <code>driver.cnh_in_use</code> / <code>driver.plate_in_use</code></td><td>Another account already registered that document or plate.</td></tr>
+            <tr><td>400</td><td><code>driver.submission_incomplete</code></td><td>Terms, vehicle or document is missing. The <code>errors</code> object names each one.</td></tr>
+            <tr><td>403</td><td>no body</td><td>The signed-in role cannot use this endpoint, for example a Driver calling <code>/admin</code>.</td></tr>
           </tbody>
         </table>
       </div>

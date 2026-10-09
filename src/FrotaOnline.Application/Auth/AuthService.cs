@@ -190,14 +190,5 @@ public sealed class AuthService : IAuthService
         }
     }
 
-    private static Error ToError(ValidationResult validation)
-    {
-        var errors = validation.Errors
-            .GroupBy(failure => failure.PropertyName)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(failure => failure.ErrorMessage).Distinct().ToArray());
-
-        return new Error("validation_error", "One or more validation errors occurred.", ErrorType.Validation, errors);
-    }
+    private static Error ToError(ValidationResult validation) => ValidationMapper.ToError(validation);
 }

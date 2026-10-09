@@ -6,6 +6,12 @@ namespace FrotaOnline.Api.Controllers;
 [ApiController]
 public abstract class ApiControllerBase : ControllerBase
 {
+    /// <summary>Id of the authenticated user, taken from the JWT "sub" claim.</summary>
+    protected Guid CurrentUserId =>
+        Guid.TryParse(User.FindFirst("sub")?.Value, out var id) ? id : Guid.Empty;
+
+    protected string? ClientIpAddress => HttpContext.Connection.RemoteIpAddress?.ToString();
+
     protected IActionResult Handle<T>(Result<T> result, Func<T, IActionResult> onSuccess) =>
         result.IsSuccess ? onSuccess(result.Value) : ToProblem(result.Error!);
 
