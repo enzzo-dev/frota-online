@@ -11,11 +11,11 @@ public interface IProposalRepository
 
     Task<IReadOnlyList<Proposal>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<Proposal>> ListPendingDueAsync(DateTime utcNow, CancellationToken cancellationToken);
-
-    /// <summary>Number of pending proposals per freight id (ids without proposals are absent).</summary>
-    Task<IReadOnlyDictionary<Guid, int>> CountPendingByFreightAsync(
-        IReadOnlyCollection<Guid> freightRequestIds, CancellationToken cancellationToken);
+    /// <summary>
+    /// Moves every pending proposal whose window ended to Expired with one UPDATE statement.
+    /// Returns the number of rows changed. Bypasses the change tracker on purpose.
+    /// </summary>
+    Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken);
 
     Task<bool> HasPendingAsync(Guid freightRequestId, Guid driverProfileId, CancellationToken cancellationToken);
 

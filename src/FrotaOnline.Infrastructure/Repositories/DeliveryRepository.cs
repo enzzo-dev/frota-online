@@ -14,12 +14,6 @@ internal sealed class DeliveryRepository : IDeliveryRepository
     public Task<Delivery?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         _db.Deliveries.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<Delivery>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
-        await _db.Deliveries
-            .Where(d => d.DriverProfileId == driverProfileId)
-            .OrderByDescending(d => d.CreatedAt)
-            .ToListAsync(cancellationToken);
-
     public async Task AddAsync(Delivery delivery, CancellationToken cancellationToken) =>
         await _db.Deliveries.AddAsync(delivery, cancellationToken);
 

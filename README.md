@@ -243,6 +243,8 @@ As interfaces ficam em `Application/Abstractions`, um arquivo por interface e um
 Abstractions/
   Auth/         IAuthRepository, IPasswordHasher, ITokenService, AccessTokenResult, RefreshTokenResult
   Users/        IUserRepository
+  Marketplace/  IFreightRepository, IProposalRepository, IDeliveryRepository, IDriverAgendaRepository
+  Queries/      IFreightQueries, IDeliveryQueries, IDriverReviewQueries (lado de leitura)
   Persistence/  IUnitOfWork
   Time/         IDateTimeProvider
 ```
@@ -438,6 +440,16 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 409 | `proposal.driver_unavailable`, `proposal.vehicle_unavailable`, `proposal.driver_busy` | Motorista ou veículo inativo, ou agenda ocupada na aprovação. |
 | 400 | `proposal.vehicle_not_eligible` | Veículo de outro tipo ou sem capacidade para o peso. |
 
+## Consultas e desempenho
+
+Escrita e leitura seguem caminhos diferentes:
+
+- **Repositórios** carregam o agregado rastreado (`GetByIdAsync`) para quem vai alterá-lo e salvar. Listas só de leitura usam `AsNoTracking()`.
+- **Consultas (`Application/Abstractions/Queries`, implementadas em `Infrastructure/Queries`)** montam um `IQueryable`, filtram, juntam, ordenam, contam e projetam direto para o DTO no PostgreSQL. A aplicação não carrega entidades para depois filtrar ou ordenar em memória. Exemplos: o quadro de fretes abertos, a lista de fretes do cliente com o contador de propostas pendentes (subconsulta), o ranking de propostas (join com motorista, usuário e veículo, `ORDER BY` preço) e a rota da entrega (a parada "Next" é escolhida no SQL).
+- **Expiração em lote:** `ExpireDueAsync` roda dois `UPDATE` (`ExecuteUpdateAsync`) em vez de carregar e alterar um a um.
+- **Termos aceitos:** `NOT EXISTS` em uma consulta só, em vez de carregar todos os termos e consentimentos.
+- Índice novo em `Proposal (Status, ExpiresAt)` para a varredura de expiração.
+
 ## Testes
 
 ```powershell
@@ -450,4 +462,5 @@ dotnet test
 - **As regras de domínio ficam nas entidades:** setters privados, métodos de criação e transições explícitas. Movimentos inválidos lançam `DomainException`.
 - **Constantes de negócio:** taxa da plataforma de R$ 4,90 por frete, janelas de proposta de 5 minutos (mesmo dia) e 24 horas (agendado), assinaturas de R$ 79,90 e R$ 99,90.
 - **Falhas esperadas usam `Result<T>`;** a API as converte em respostas de problem details.
+- **Consultas pesadas rodam no banco** (`IQueryable` + projeção para DTO); os testes unitários usam fakes em memória, então o SQL real precisa de teste de integração com PostgreSQL.
 - **As chaves estrangeiras nunca apagam em cascata,** para que registros financeiros e de auditoria sobrevivam.

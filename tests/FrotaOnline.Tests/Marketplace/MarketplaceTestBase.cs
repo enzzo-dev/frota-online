@@ -23,20 +23,23 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeDriverAgendaRepository Agenda = new();
     private protected readonly FakeTermAcceptanceChecker Terms = new();
 
+    private protected FakeFreightQueries FreightQueries => new(Freights, Proposals, Addresses, Drivers, Users, Vehicles);
+    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses);
+
     protected readonly Guid CustomerId = Guid.NewGuid();
 
     protected FreightService FreightService => new(
-        Freights, Proposals, Addresses, Terms, UnitOfWork, Clock, new CreateFreightRequestValidator());
+        Freights, Proposals, Addresses, FreightQueries, Terms, UnitOfWork, Clock, new CreateFreightRequestValidator());
 
     protected DriverMarketplaceService DriverMarketplace => new(
-        Drivers, Vehicles, Freights, Proposals, Addresses, Agenda, UnitOfWork, Clock, new SubmitProposalRequestValidator());
+        Drivers, Vehicles, Freights, Proposals, FreightQueries, Agenda, UnitOfWork, Clock, new SubmitProposalRequestValidator());
 
     protected ProposalSelectionService Selection => new(
-        Freights, Proposals, Drivers, Vehicles, Users, Deliveries, Agenda, UnitOfWork, Clock);
+        Freights, Proposals, Drivers, Vehicles, FreightQueries, Deliveries, Agenda, UnitOfWork, Clock);
 
-    protected DriverDeliveryService DriverDelivery => new(Drivers, Deliveries, Freights, Addresses);
+    protected DriverDeliveryService DriverDelivery => new(Drivers, DeliveryQueries);
 
-    protected FreightExpirationService Expiration => new(Freights, Proposals, UnitOfWork, Clock);
+    protected FreightExpirationService Expiration => new(Freights, Proposals, Clock);
 
     protected (Address Pickup, Address Delivery) AddAddresses(Guid ownerId)
     {

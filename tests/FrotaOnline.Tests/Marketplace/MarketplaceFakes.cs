@@ -33,21 +33,8 @@ internal sealed class FakeFreightRepository : IFreightRepository
     public Task<FreightRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
 
-    public Task<IReadOnlyList<FreightRequest>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<FreightRequest>>(Items.Where(f => ids.Contains(f.Id)).ToList());
-
-    public Task<IReadOnlyList<FreightRequest>> ListByCustomerAsync(Guid customerId, FreightStatus? status, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<FreightRequest>>(
-            Items.Where(f => f.CustomerId == customerId && (status is null || f.Status == status)).ToList());
-
-    public Task<IReadOnlyList<FreightRequest>> ListOpenAsync(
-        DateTime utcNow, IReadOnlyCollection<VehicleType> vehicleTypes, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<FreightRequest>>(
-            Items.Where(f => f.Status == FreightStatus.Open && f.ProposalDeadline > utcNow && vehicleTypes.Contains(f.RequiredVehicleType)).ToList());
-
-    public Task<IReadOnlyList<FreightRequest>> ListOpenDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<FreightRequest>>(
-            Items.Where(f => f.Status == FreightStatus.Open && f.ProposalDeadline <= utcNow).ToList());
+    public Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.ToList().Count(f => f.ExpireIfDue(utcNow)));
 
     public Task AddAsync(FreightRequest freight, CancellationToken cancellationToken)
     {
@@ -70,16 +57,8 @@ internal sealed class FakeProposalRepository : IProposalRepository
     public Task<IReadOnlyList<Proposal>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Proposal>>(Items.Where(p => p.DriverProfileId == driverProfileId).ToList());
 
-    public Task<IReadOnlyList<Proposal>> ListPendingDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<Proposal>>(
-            Items.Where(p => p.Status == ProposalStatus.Pending && p.ExpiresAt <= utcNow).ToList());
-
-    public Task<IReadOnlyDictionary<Guid, int>> CountPendingByFreightAsync(
-        IReadOnlyCollection<Guid> freightRequestIds, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyDictionary<Guid, int>>(
-            Items.Where(p => p.Status == ProposalStatus.Pending && freightRequestIds.Contains(p.FreightRequestId))
-                .GroupBy(p => p.FreightRequestId)
-                .ToDictionary(g => g.Key, g => g.Count()));
+    public Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.ToList().Count(p => p.ExpireIfDue(utcNow)));
 
     public Task<bool> HasPendingAsync(Guid freightRequestId, Guid driverProfileId, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Any(p =>
@@ -100,9 +79,6 @@ internal sealed class FakeDeliveryRepository : IDeliveryRepository
 
     public Task<Delivery?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(d => d.Id == id));
-
-    public Task<IReadOnlyList<Delivery>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<Delivery>>(Items.Where(d => d.DriverProfileId == driverProfileId).ToList());
 
     public Task AddAsync(Delivery delivery, CancellationToken cancellationToken)
     {

@@ -1,4 +1,5 @@
 using FrotaOnline.Application.Admin;
+using FrotaOnline.Tests.Marketplace;
 using FrotaOnline.Application.Admin.Dtos;
 using FrotaOnline.Application.Admin.Validators;
 using FrotaOnline.Application.Common;
@@ -22,7 +23,7 @@ public class DriverReviewServiceTests
     public DriverReviewServiceTests()
     {
         _sut = new DriverReviewService(
-            _drivers, _users, _vehicles, _media, _email,
+            _drivers, new FakeDriverReviewQueries(_drivers, _users), _users, _vehicles, _media, _email,
             new FakeUnitOfWork(), _clock, new RejectDriverRequestValidator());
     }
 

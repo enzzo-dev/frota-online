@@ -15,6 +15,7 @@ internal sealed class MediaFileRepository : IMediaFileRepository
     public async Task<IReadOnlyList<MediaFile>> ListByOwnerAsync(
         Guid ownerUserId, IReadOnlyCollection<MediaKind> kinds, CancellationToken cancellationToken) =>
         await _db.MediaFiles
+            .AsNoTracking()
             .Where(m => m.OwnerUserId == ownerUserId && kinds.Contains(m.Kind))
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(cancellationToken);

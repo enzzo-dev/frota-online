@@ -22,22 +22,20 @@ internal sealed class ProposalRepository : IProposalRepository
 
     public async Task<IReadOnlyList<Proposal>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
         await _db.Proposals
+            .AsNoTracking()
             .Where(p => p.DriverProfileId == driverProfileId)
             .OrderByDescending(p => p.CreatedAt)
+            .ThenBy(p => p.Id)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Proposal>> ListPendingDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
-        await _db.Proposals
+    public Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
+        _db.Proposals
             .Where(p => p.Status == ProposalStatus.Pending && p.ExpiresAt <= utcNow)
-            .ToListAsync(cancellationToken);
-
-    public async Task<IReadOnlyDictionary<Guid, int>> CountPendingByFreightAsync(
-        IReadOnlyCollection<Guid> freightRequestIds, CancellationToken cancellationToken) =>
-        await _db.Proposals
-            .Where(p => p.Status == ProposalStatus.Pending && freightRequestIds.Contains(p.FreightRequestId))
-            .GroupBy(p => p.FreightRequestId)
-            .Select(g => new { FreightRequestId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.FreightRequestId, x => x.Count, cancellationToken);
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(p => p.Status, ProposalStatus.Expired)
+                    .SetProperty(p => p.UpdatedAt, utcNow),
+                cancellationToken);
 
     public Task<bool> HasPendingAsync(Guid freightRequestId, Guid driverProfileId, CancellationToken cancellationToken) =>
         _db.Proposals.AnyAsync(

@@ -43,6 +43,8 @@ internal sealed class ProposalConfiguration : IEntityTypeConfiguration<Proposal>
     public void Configure(EntityTypeBuilder<Proposal> builder)
     {
         builder.HasIndex(x => new { x.FreightRequestId, x.Price });
+        // Serves the expiration sweep: WHERE Status = 'Pending' AND ExpiresAt <= now.
+        builder.HasIndex(x => new { x.Status, x.ExpiresAt });
         // A driver can have only one pending proposal per freight.
         builder.HasIndex(x => new { x.FreightRequestId, x.DriverProfileId })
             .IsUnique()

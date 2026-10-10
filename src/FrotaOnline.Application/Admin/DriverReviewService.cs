@@ -2,6 +2,7 @@ using FluentValidation;
 using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Application.Admin.Dtos;
@@ -17,6 +18,7 @@ public sealed class DriverReviewService : IDriverReviewService
     private static readonly MediaKind[] DriverKinds = { MediaKind.DriverDocument, MediaKind.VehiclePhoto };
 
     private readonly IDriverRepository _drivers;
+    private readonly IDriverReviewQueries _queries;
     private readonly IUserRepository _users;
     private readonly IVehicleRepository _vehicles;
     private readonly IMediaFileRepository _media;
@@ -27,6 +29,7 @@ public sealed class DriverReviewService : IDriverReviewService
 
     public DriverReviewService(
         IDriverRepository drivers,
+        IDriverReviewQueries queries,
         IUserRepository users,
         IVehicleRepository vehicles,
         IMediaFileRepository media,
@@ -36,6 +39,7 @@ public sealed class DriverReviewService : IDriverReviewService
         IValidator<RejectDriverRequest> rejectValidator)
     {
         _drivers = drivers;
+        _queries = queries;
         _users = users;
         _vehicles = vehicles;
         _media = media;
@@ -47,21 +51,8 @@ public sealed class DriverReviewService : IDriverReviewService
 
     public async Task<Result<IReadOnlyList<DriverReviewSummary>>> ListAsync(DriverStatus status, CancellationToken cancellationToken)
     {
-        var profiles = await _drivers.ListByStatusAsync(status, cancellationToken);
-        var users = await _users.ListByIdsAsync(profiles.Select(p => p.UserId).ToList(), cancellationToken);
-        var usersById = users.ToDictionary(u => u.Id);
-
-        var summaries = profiles
-            .Where(p => usersById.ContainsKey(p.UserId))
-            .Select(p =>
-            {
-                var user = usersById[p.UserId];
-                return new DriverReviewSummary(
-                    p.Id, user.Id, user.FullName, user.Email, user.PhoneNumber, p.Status, p.UpdatedAt ?? p.CreatedAt);
-            })
-            .ToList();
-
-        return Result.Success<IReadOnlyList<DriverReviewSummary>>(summaries);
+        var summaries = await _queries.ListByStatusAsync(status, cancellationToken);
+        return Result.Success(summaries);
     }
 
     public async Task<Result<DriverReviewDetail>> GetAsync(Guid driverId, CancellationToken cancellationToken)

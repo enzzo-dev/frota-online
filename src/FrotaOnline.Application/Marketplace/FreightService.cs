@@ -2,6 +2,7 @@ using FluentValidation;
 using FrotaOnline.Application.Abstractions.Addresses;
 using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Common;
@@ -17,6 +18,7 @@ public sealed class FreightService : IFreightService
     private readonly IFreightRepository _freights;
     private readonly IProposalRepository _proposals;
     private readonly IAddressRepository _addresses;
+    private readonly IFreightQueries _queries;
     private readonly ITermAcceptanceChecker _terms;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
@@ -26,6 +28,7 @@ public sealed class FreightService : IFreightService
         IFreightRepository freights,
         IProposalRepository proposals,
         IAddressRepository addresses,
+        IFreightQueries queries,
         ITermAcceptanceChecker terms,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
@@ -34,6 +37,7 @@ public sealed class FreightService : IFreightService
         _freights = freights;
         _proposals = proposals;
         _addresses = addresses;
+        _queries = queries;
         _terms = terms;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -90,21 +94,16 @@ public sealed class FreightService : IFreightService
     public async Task<Result<IReadOnlyList<FreightResponse>>> ListAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken)
     {
-        var freights = await _freights.ListByCustomerAsync(customerId, status, cancellationToken);
-        var responses = await BuildResponsesAsync(freights, cancellationToken);
+        var responses = await _queries.ListByCustomerAsync(customerId, status, cancellationToken);
         return Result.Success(responses);
     }
 
     public async Task<Result<FreightResponse>> GetAsync(Guid customerId, Guid freightId, CancellationToken cancellationToken)
     {
-        var freight = await _freights.GetByIdAsync(freightId, cancellationToken);
-        if (freight is null || freight.CustomerId != customerId)
-        {
-            return Result.Failure<FreightResponse>(MarketplaceErrors.FreightNotFound);
-        }
-
-        var responses = await BuildResponsesAsync(new[] { freight }, cancellationToken);
-        return Result.Success(responses[0]);
+        var response = await _queries.GetForCustomerAsync(customerId, freightId, cancellationToken);
+        return response is null
+            ? Result.Failure<FreightResponse>(MarketplaceErrors.FreightNotFound)
+            : Result.Success(response);
     }
 
     public async Task<Result> CancelAsync(Guid customerId, Guid freightId, CancellationToken cancellationToken)
@@ -128,22 +127,5 @@ public sealed class FreightService : IFreightService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
-    }
-
-    private async Task<IReadOnlyList<FreightResponse>> BuildResponsesAsync(
-        IReadOnlyCollection<FreightRequest> freights, CancellationToken cancellationToken)
-    {
-        if (freights.Count == 0)
-        {
-            return Array.Empty<FreightResponse>();
-        }
-
-        var addresses = (await _addresses.ListByIdsAsync(FreightMapper.AddressIds(freights), cancellationToken))
-            .ToDictionary(a => a.Id);
-        var counts = await _proposals.CountPendingByFreightAsync(freights.Select(f => f.Id).ToList(), cancellationToken);
-
-        return freights
-            .Select(f => FreightMapper.ToResponse(f, addresses, counts.TryGetValue(f.Id, out var count) ? count : 0))
-            .ToList();
     }
 }

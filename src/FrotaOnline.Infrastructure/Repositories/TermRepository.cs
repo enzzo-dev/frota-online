@@ -20,7 +20,7 @@ internal sealed class TermRepository : ITermRepository
 
     public async Task<IReadOnlyList<TermDocument>> ListByIdsAsync(
         IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
-        await _db.TermDocuments.Where(t => ids.Contains(t.Id)).ToListAsync(cancellationToken);
+        await _db.TermDocuments.AsNoTracking().Where(t => ids.Contains(t.Id)).ToListAsync(cancellationToken);
 
     public Task<bool> VersionExistsAsync(TermType type, string version, CancellationToken cancellationToken) =>
         _db.TermDocuments.AnyAsync(t => t.Type == type && t.Version == version, cancellationToken);

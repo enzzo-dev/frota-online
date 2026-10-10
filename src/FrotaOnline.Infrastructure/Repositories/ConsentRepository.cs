@@ -12,7 +12,7 @@ internal sealed class ConsentRepository : IConsentRepository
     public ConsentRepository(AppDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<UserConsent>> ListByUserAsync(Guid userId, CancellationToken cancellationToken) =>
-        await _db.UserConsents.Where(c => c.UserId == userId).ToListAsync(cancellationToken);
+        await _db.UserConsents.AsNoTracking().Where(c => c.UserId == userId).ToListAsync(cancellationToken);
 
     public async Task AddAsync(UserConsent consent, CancellationToken cancellationToken) =>
         await _db.UserConsents.AddAsync(consent, cancellationToken);

@@ -1,5 +1,4 @@
 using FrotaOnline.Domain.Entities;
-using FrotaOnline.Domain.Enums;
 
 namespace FrotaOnline.Application.Abstractions.Drivers;
 
@@ -7,11 +6,7 @@ public interface IDriverRepository
 {
     Task<DriverProfile?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<DriverProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
-
     Task<DriverProfile?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
-
-    Task<IReadOnlyList<DriverProfile>> ListByStatusAsync(DriverStatus status, CancellationToken cancellationToken);
 
     /// <summary>True when another user already registered this CPF or CNPJ.</summary>
     Task<bool> TaxIdInUseAsync(string taxId, Guid exceptUserId, CancellationToken cancellationToken);

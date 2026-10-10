@@ -1,8 +1,8 @@
 using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Time;
-using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Domain.Common;
@@ -17,7 +17,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
     private readonly IProposalRepository _proposals;
     private readonly IDriverRepository _drivers;
     private readonly IVehicleRepository _vehicles;
-    private readonly IUserRepository _users;
+    private readonly IFreightQueries _queries;
     private readonly IDeliveryRepository _deliveries;
     private readonly IDriverAgendaRepository _agenda;
     private readonly IUnitOfWork _unitOfWork;
@@ -28,7 +28,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         IProposalRepository proposals,
         IDriverRepository drivers,
         IVehicleRepository vehicles,
-        IUserRepository users,
+        IFreightQueries queries,
         IDeliveryRepository deliveries,
         IDriverAgendaRepository agenda,
         IUnitOfWork unitOfWork,
@@ -38,7 +38,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         _proposals = proposals;
         _drivers = drivers;
         _vehicles = vehicles;
-        _users = users;
+        _queries = queries;
         _deliveries = deliveries;
         _agenda = agenda;
         _unitOfWork = unitOfWork;
@@ -48,47 +48,10 @@ public sealed class ProposalSelectionService : IProposalSelectionService
     public async Task<Result<IReadOnlyList<RankedProposalResponse>>> ListRankedAsync(
         Guid customerId, Guid freightId, CancellationToken cancellationToken)
     {
-        var freight = await _freights.GetByIdAsync(freightId, cancellationToken);
-        if (freight is null || freight.CustomerId != customerId)
-        {
-            return Result.Failure<IReadOnlyList<RankedProposalResponse>>(MarketplaceErrors.FreightNotFound);
-        }
-
-        var now = _clock.UtcNow;
-        var proposals = (await _proposals.ListPendingByFreightAsync(freight.Id, cancellationToken))
-            .Where(p => now < p.ExpiresAt)
-            .OrderBy(p => p.Price)
-            .ThenBy(p => p.CreatedAt)
-            .ToList();
-
-        if (proposals.Count == 0)
-        {
-            return Result.Success<IReadOnlyList<RankedProposalResponse>>(Array.Empty<RankedProposalResponse>());
-        }
-
-        var drivers = (await _drivers.ListByIdsAsync(proposals.Select(p => p.DriverProfileId).Distinct().ToList(), cancellationToken))
-            .ToDictionary(d => d.Id);
-        var users = (await _users.ListByIdsAsync(drivers.Values.Select(d => d.UserId).ToList(), cancellationToken))
-            .ToDictionary(u => u.Id);
-        var vehicles = (await _vehicles.ListByIdsAsync(proposals.Select(p => p.VehicleId).Distinct().ToList(), cancellationToken))
-            .ToDictionary(v => v.Id);
-
-        var ranked = new List<RankedProposalResponse>();
-        foreach (var proposal in proposals)
-        {
-            if (!drivers.TryGetValue(proposal.DriverProfileId, out var driver)
-                || !users.TryGetValue(driver.UserId, out var user)
-                || !vehicles.TryGetValue(proposal.VehicleId, out var vehicle))
-            {
-                continue;
-            }
-
-            ranked.Add(new RankedProposalResponse(
-                ranked.Count + 1, proposal.Id, proposal.Price, proposal.Message, user.FullName,
-                vehicle.Type, vehicle.Model, proposal.ExpiresAt, proposal.CreatedAt));
-        }
-
-        return Result.Success<IReadOnlyList<RankedProposalResponse>>(ranked);
+        var ranked = await _queries.ListRankedProposalsAsync(customerId, freightId, _clock.UtcNow, cancellationToken);
+        return ranked is null
+            ? Result.Failure<IReadOnlyList<RankedProposalResponse>>(MarketplaceErrors.FreightNotFound)
+            : Result.Success(ranked);
     }
 
     public async Task<Result<ApprovedDeliveryResponse>> ApproveAsync(

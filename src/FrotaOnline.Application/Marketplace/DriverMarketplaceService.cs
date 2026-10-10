@@ -1,8 +1,8 @@
 using FluentValidation;
-using FrotaOnline.Application.Abstractions.Addresses;
 using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Drivers;
@@ -19,7 +19,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
     private readonly IVehicleRepository _vehicles;
     private readonly IFreightRepository _freights;
     private readonly IProposalRepository _proposals;
-    private readonly IAddressRepository _addresses;
+    private readonly IFreightQueries _queries;
     private readonly IDriverAgendaRepository _agenda;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
@@ -30,7 +30,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         IVehicleRepository vehicles,
         IFreightRepository freights,
         IProposalRepository proposals,
-        IAddressRepository addresses,
+        IFreightQueries queries,
         IDriverAgendaRepository agenda,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
@@ -40,7 +40,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         _vehicles = vehicles;
         _freights = freights;
         _proposals = proposals;
-        _addresses = addresses;
+        _queries = queries;
         _agenda = agenda;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -68,21 +68,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
             return Result.Success<IReadOnlyList<OpenFreightResponse>>(Array.Empty<OpenFreightResponse>());
         }
 
-        var freights = await _freights.ListOpenAsync(_clock.UtcNow, types, cancellationToken);
-        var addresses = (await _addresses.ListByIdsAsync(FreightMapper.AddressIds(freights), cancellationToken))
-            .ToDictionary(a => a.Id);
-
-        var response = freights.Select(f => new OpenFreightResponse(
-            f.Id, f.CargoDescription, f.CargoWeightKg, f.RequiredVehicleType, f.ScheduledPickupAt, f.ProposalDeadline,
-            f.PickupCount, f.DeliveryCount,
-            f.Stops
-                .OrderBy(s => s.Sequence)
-                .Select(s =>
-                {
-                    var address = addresses[s.AddressId];
-                    return new OpenStopResponse(s.Sequence, s.Type, address.District, address.City, address.State, FreightMapper.ToItems(s));
-                })
-                .ToList())).ToList();
+        var response = await _queries.ListOpenAsync(_clock.UtcNow, types, cancellationToken);
 
         return Result.Success<IReadOnlyList<OpenFreightResponse>>(response);
     }

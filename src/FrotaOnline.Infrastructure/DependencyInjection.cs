@@ -5,11 +5,14 @@ using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Terms;
 using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Queries;
+using FrotaOnline.Application.Terms;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Infrastructure.Background;
 using FrotaOnline.Infrastructure.Notifications;
 using FrotaOnline.Infrastructure.Persistence;
+using FrotaOnline.Infrastructure.Queries;
 using FrotaOnline.Infrastructure.Repositories;
 using FrotaOnline.Infrastructure.Security;
 using FrotaOnline.Infrastructure.Services;
@@ -47,6 +50,12 @@ public static class DependencyInjection
         services.AddScoped<IProposalRepository, ProposalRepository>();
         services.AddScoped<IDeliveryRepository, DeliveryRepository>();
         services.AddScoped<IDriverAgendaRepository, DriverAgendaRepository>();
+
+        // Read side: IQueryable projections executed by PostgreSQL.
+        services.AddScoped<IFreightQueries, FreightQueries>();
+        services.AddScoped<IDeliveryQueries, DeliveryQueries>();
+        services.AddScoped<IDriverReviewQueries, DriverReviewQueries>();
+        services.AddScoped<ITermAcceptanceChecker, SqlTermAcceptanceChecker>();
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
