@@ -15,6 +15,10 @@ internal sealed class DriverRepository : IDriverRepository
     public Task<DriverProfile?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         _db.DriverProfiles.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<DriverProfile>> ListByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
+        await _db.DriverProfiles.Where(d => ids.Contains(d.Id)).ToListAsync(cancellationToken);
+
     public Task<DriverProfile?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) =>
         _db.DriverProfiles.FirstOrDefaultAsync(d => d.UserId == userId, cancellationToken);
 

@@ -6,6 +6,8 @@ public interface IVehicleRepository
 {
     Task<Vehicle?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Vehicle>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Vehicle>> ListActiveByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken);
 
     Task<bool> PlateInUseAsync(string plate, CancellationToken cancellationToken);

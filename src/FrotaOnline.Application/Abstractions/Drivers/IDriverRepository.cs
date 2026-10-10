@@ -7,6 +7,8 @@ public interface IDriverRepository
 {
     Task<DriverProfile?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<DriverProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task<DriverProfile?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<DriverProfile>> ListByStatusAsync(DriverStatus status, CancellationToken cancellationToken);

@@ -14,6 +14,10 @@ internal sealed class VehicleRepository : IVehicleRepository
     public Task<Vehicle?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Vehicle>> ListByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
+        await _db.Vehicles.Where(v => ids.Contains(v.Id)).ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Vehicle>> ListActiveByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
         await _db.Vehicles
             .Where(v => v.DriverProfileId == driverProfileId && v.IsActive)

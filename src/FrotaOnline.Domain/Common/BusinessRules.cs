@@ -13,6 +13,12 @@ public static class ProposalWindows
     public static readonly TimeSpan Scheduled = TimeSpan.FromHours(24);
 }
 
+public static class DeliveryPlanning
+{
+    /// <summary>Time reserved in the driver's agenda for one delivery, starting at the pickup.</summary>
+    public static readonly TimeSpan AgendaWindow = TimeSpan.FromHours(4);
+}
+
 public static class SubscriptionPricing
 {
     public const decimal Basic = 79.90m;
