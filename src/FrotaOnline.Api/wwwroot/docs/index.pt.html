@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frota Online API (Português)</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23D7141A'/%3E%3Crect x='14' y='3' width='4' height='7' fill='white'/%3E%3Crect x='14' y='12' width='4' height='7' fill='white'/%3E%3Crect x='14' y='21' width='4' height='7' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+</head>
+<body>
+  <a class="skip" href="#start">Ir para o conteúdo</a>
+
+  <aside class="rail" aria-label="Navegação da documentação">
+    <a class="brand" href="#top" aria-label="Frota Online API, voltar ao topo">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#D7141A"/>
+        <rect x="14" y="3" width="4" height="7" fill="#fff"/>
+        <rect x="14" y="12" width="4" height="7" fill="#fff"/>
+        <rect x="14" y="21" width="4" height="7" fill="#fff"/>
+      </svg>
+      <span class="brand-name">Frota Online</span>
+    </a>
+
+    <nav class="rail-nav">
+      <a href="#start">Comece aqui</a>
+      <a href="#tokens">Como funcionam as sessões</a>
+      <a href="#flow">Ordem das chamadas</a>
+      <a href="#onboarding">Cadastro do motorista</a>
+      <a href="#marketplace">Marketplace</a>
+      <a href="#endpoints">Endpoints</a>
+      <a href="#errors">Erros</a>
+    </nav>
+
+    <div class="rail-block">
+      <div class="status" id="api-status" role="status"><span class="dot"></span><span id="api-status-text">Verificando a API</span></div>
+
+      <div class="session" id="session-box">
+        <p class="session-title">Sua sessão</p>
+        <p class="session-line" id="session-line">Não conectado</p>
+        <p class="session-sub" id="session-sub">Crie uma conta na etapa 1 para obter um token.</p>
+        <button type="button" class="link-btn" id="clear-session" hidden>Limpar sessão</button>
+      </div>
+    </div>
+
+    <div class="rail-links">
+      <a href="index.html" hreflang="en" lang="en">English</a>
+      <a href="/swagger" target="_blank" rel="noopener">Abrir o Swagger UI</a>
+      <a href="/openapi/v1.json" target="_blank" rel="noopener">Baixar o OpenAPI JSON</a>
+    </div>
+  </aside>
+
+  <main id="top">
+    <header class="hero">
+      <h1>O motorista define o preço.<br>Esta API move o frete.</h1>
+      <p class="hero-lede">Cadastro, login, análise de motoristas, pedidos de frete e propostas já funcionam. O andamento da entrega e o pagamento vêm na mesma base.</p>
+      <div class="hero-meta">
+        <div class="base-url">
+          <span class="base-label">URL base</span>
+          <code id="base-url">/api/v1</code>
+          <button type="button" class="copy" data-copy-target="base-url">Copiar</button>
+        </div>
+        <p class="roadmap"><strong>Disponível:</strong> contas, cadastro do motorista, pedidos de frete, propostas e aprovação. <strong>Próximo:</strong> coleta e entrega, comprovante e registro do pagamento.</p>
+      </div>
+      <div class="roadline" aria-hidden="true"></div>
+    </header>
+
+    <section id="start" class="section">
+      <h2>Faça sua primeira chamada em quatro paradas</h2>
+      <p class="section-lede">Cada parada faz uma requisição de verdade neste servidor e guarda o resultado para a próxima. Nada aqui é simulado.</p>
+
+      <ol class="route" id="route">
+        <li class="stop" id="stop-1">
+          <span class="stop-pin" aria-hidden="true">1</span>
+          <div class="stop-body">
+            <h3>Crie uma conta</h3>
+            <p>Escolha Customer para pedir frete ou Driver para transportar. A resposta já traz seus primeiros tokens.</p>
+            <form class="form-grid" id="form-register" autocomplete="off">
+              <label>Nome completo<input name="fullName" required value="Maria Souza"></label>
+              <label>E-mail<input name="email" type="email" required></label>
+              <label>Telefone<input name="phoneNumber" required value="+5511999999999"></label>
+              <label>Senha<input name="password" type="text" required value="Str0ngPass1"></label>
+              <label>Perfil
+                <select name="role"><option>Driver</option><option>Customer</option></select>
+              </label>
+              <div class="actions"><button type="submit" class="btn">Criar conta</button></div>
+            </form>
+            <div class="result" id="result-1" hidden></div>
+          </div>
+        </li>
+
+        <li class="stop" id="stop-2">
+          <span class="stop-pin" aria-hidden="true">2</span>
+          <div class="stop-body">
+            <h3>Entre</h3>
+            <p>Use o mesmo e-mail e senha depois, de qualquer dispositivo. A cada login você recebe um novo par de tokens.</p>
+            <form class="form-grid" id="form-login" autocomplete="off">
+              <label>E-mail<input name="email" type="email" required></label>
+              <label>Senha<input name="password" type="text" required value="Str0ngPass1"></label>
+              <div class="actions"><button type="submit" class="btn">Entrar</button></div>
+            </form>
+            <div class="result" id="result-2" hidden></div>
+          </div>
+        </li>
+
+        <li class="stop" id="stop-3">
+          <span class="stop-pin" aria-hidden="true">3</span>
+          <div class="stop-body">
+            <h3>Chame um endpoint protegido</h3>
+            <p>Envie o access token no cabeçalho <code>Authorization</code>. Esta requisição pergunta quem é você.</p>
+            <pre class="code" id="curl-3"></pre>
+            <div class="actions">
+              <button type="button" class="btn" id="run-3">Executar GET /auth/me</button>
+              <button type="button" class="btn ghost" data-copy-target="curl-3">Copiar curl</button>
+            </div>
+            <div class="result" id="result-3" hidden></div>
+          </div>
+        </li>
+
+        <li class="stop" id="stop-4">
+          <span class="stop-pin" aria-hidden="true">4</span>
+          <div class="stop-body">
+            <h3>Renove a sessão</h3>
+            <p>O access token dura 15 minutos. Troque o refresh token por um novo par antes de acabar. O refresh token antigo deixa de funcionar.</p>
+            <div class="actions">
+              <button type="button" class="btn" id="run-4">Renovar tokens</button>
+              <button type="button" class="btn ghost" id="run-4b">Reenviar o refresh token antigo</button>
+            </div>
+            <p class="hint" id="hint-4">Reenviar um token já usado mostra o que acontece quando um vaza: o servidor revoga a sessão inteira.</p>
+            <div class="result" id="result-4" hidden></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="tokens" class="section">
+      <h2>Como funcionam as sessões</h2>
+      <div class="facts">
+        <div class="fact"><span class="fact-num">15 min</span><p>Duração do access token. É um JWT assinado com seu id, e-mail e perfil.</p></div>
+        <div class="fact"><span class="fact-num">30 dias</span><p>Duração do refresh token. É aleatório, aparece uma vez e fica guardado do nosso lado apenas como hash.</p></div>
+        <div class="fact"><span class="fact-num">1 uso</span><p>Todo refresh token funciona uma vez. Usá-lo de novo é tratado como roubo e encerra a sessão.</p></div>
+      </div>
+      <p class="prose">Os perfis são <code>Customer</code>, <code>Driver</code> e <code>Admin</code>. O cadastro só cria os dois primeiros. A senha precisa ter de 8 a 128 caracteres, com letra maiúscula, letra minúscula e um dígito.</p>
+    </section>
+
+    <section id="flow" class="section">
+      <h2>Ordem das chamadas para o front-end</h2>
+      <p class="section-lede">Escolha um perfil e aperte Play para seguir o caminho principal chamada por chamada. Clique em qualquer passo para ver o que enviar, o que volta e o que observar. Setas vermelhas tracejadas voltam a um passo anterior.</p>
+      <div class="flow-app" id="flow-app">
+        <div class="flow-tabs" id="flow-tabs" role="tablist" aria-label="Escolha um fluxo"></div>
+        <p class="flow-intro" id="flow-intro"></p>
+        <div class="flow-bar">
+          <button type="button" class="btn" id="flow-play">Play</button>
+          <button type="button" class="btn ghost" id="flow-back">Voltar</button>
+          <button type="button" class="btn ghost" id="flow-next">Avançar</button>
+          <button type="button" class="btn ghost" id="flow-reset">Reiniciar</button>
+          <span class="flow-step" id="flow-step" role="status" aria-live="polite"></span>
+        </div>
+        <div class="flow-stage"><canvas id="flow-canvas" tabindex="0" role="img" aria-label="Diagrama da ordem das chamadas"></canvas></div>
+        <ul class="flow-legend" aria-hidden="true">
+          <li><i class="lg-solid"></i>próxima chamada</li>
+          <li><i class="lg-loop"></i>volta</li>
+          <li><i class="lg-opt"></i>opcional</li>
+          <li><i class="lg-dec"></i>decisão do front-end</li>
+          <li><i class="lg-go"></i>destino</li>
+        </ul>
+        <div class="flow-detail" id="flow-detail"></div>
+        <ol class="sr-only" id="flow-text" aria-label="Passos em ordem"></ol>
+        <noscript><p class="muted">O diagrama interativo precisa de JavaScript. A lista de endpoints abaixo traz todas as chamadas.</p></noscript>
+      </div>
+    </section>
+
+    <section id="onboarding" class="section">
+      <h2>Cadastro do motorista</h2>
+      <p class="section-lede">O motorista só envia propostas depois que um admin aprova o perfil. Estas são as chamadas, em ordem. Autentique-se como <code>Driver</code> nas etapas 1 a 6 e como <code>Admin</code> na etapa 7.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Etapa</th><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>GET /terms/pending</code> e depois <code>POST /terms/accept</code></td><td>Aceite todos os termos ativos. Cada aceite grava a data e o endereço IP.</td></tr>
+            <tr><td>2</td><td><code>PUT /driver/profile</code></td><td>Envie <code>taxId</code> (CPF ou CNPJ, letras permitidas), CNH e categoria. O taxId é obrigatório e validado pelos dígitos antes de gravar. Repita a chamada para corrigir dados enquanto o perfil estiver em rascunho ou rejeitado.</td></tr>
+            <tr><td>3</td><td><code>POST /driver/vehicles</code></td><td>Cadastre pelo menos um veículo. A placa aceita <code>ABC1234</code> e <code>ABC1D23</code>.</td></tr>
+            <tr><td>4</td><td><code>POST /driver/documents</code></td><td>Registre os arquivos que você já enviou. A chave do storage precisa começar com <code>drivers/{seu id de usuário}/</code>.</td></tr>
+            <tr><td>5</td><td><code>GET /driver/profile</code></td><td>O <code>checklist</code> mostra o que ainda falta: termos, veículo, documento.</td></tr>
+            <tr><td>6</td><td><code>POST /driver/submit</code></td><td>Muda o status para <code>PendingReview</code> e trava o perfil. Se o checklist estiver incompleto, devolve os itens que faltam.</td></tr>
+            <tr><td>7</td><td><code>GET /admin/drivers</code> e depois <code>approve</code> ou <code>reject</code></td><td>O admin analisa o dossiê. Aprovação ou rejeição (com motivo) envia um e-mail. O motorista rejeitado edita e envia de novo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">Em Development a API cria um admin na primeira execução (<code>admin@frotaonline.local</code>, senha em <code>Seed:Admin:Password</code> do <code>appsettings.Development.json</code>) e publica a versão 1.0 dos termos. Entre com ele para testar a etapa 7.</p>
+    </section>
+
+    <section id="marketplace" class="section">
+      <h2>Marketplace</h2>
+      <p class="section-lede">O cliente publica um frete, motoristas aprovados propõem o próprio preço e o cliente escolhe um. A plataforma nunca toca no dinheiro do frete.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Etapa</th><th>Quem</th><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Cliente</td><td><code>POST /addresses</code></td><td>Cadastre os endereços de coleta e de entrega. O estado precisa ser uma UF válida e o CEP tem 8 dígitos.</td></tr>
+            <tr><td>2</td><td>Cliente</td><td><code>POST /freights</code></td><td>Exige todos os termos ativos aceitos. Sem <code>scheduledPickupAt</code> o frete é do dia e recebe propostas por 5 minutos; agendado, por 24 horas. Envie a data em UTC, terminando em <code>Z</code>.</td></tr>
+            <tr><td>3</td><td>Motorista</td><td><code>GET /driver/freights/open</code></td><td>Só fretes cujo tipo de veículo bate com um dos seus veículos ativos. O endereço completo fica oculto até a aprovação.</td></tr>
+            <tr><td>4</td><td>Motorista</td><td><code>POST /driver/freights/{id}/proposals</code></td><td>Escolha um veículo do tipo certo que comporte o peso e defina o preço. Uma proposta pendente por frete; retire-a para mudar de ideia.</td></tr>
+            <tr><td>5</td><td>Cliente</td><td><code>GET /freights/{id}/proposals</code></td><td>Propostas pendentes ordenadas por preço, a menor primeiro. Empate vai para a mais antiga.</td></tr>
+            <tr><td>6</td><td>Cliente</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Cria a entrega, reserva a agenda do motorista por 4 horas a partir da coleta, rejeita as outras propostas e fecha o frete. Se o motorista já estiver ocupado nesse período, devolve <code>proposal.driver_busy</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">Uma rotina em segundo plano roda a cada 30 segundos e expira fretes e propostas fora da janela. Enquanto ela não roda, a API já recusa propostas que chegam atrasadas.</p>
+    </section>
+
+    <section id="endpoints" class="section">
+      <h2>Endpoints</h2>
+      <p class="section-lede">Lida ao vivo de <code>/openapi/v1.json</code>, então a lista sempre bate com o código. Abra um endpoint para ver os campos e testar. As descrições vêm da API e ficam em inglês.</p>
+      <div id="endpoint-list" class="endpoint-list"><p class="muted">Carregando endpoints</p></div>
+    </section>
+
+    <section id="errors" class="section">
+      <h2>Erros</h2>
+      <p class="section-lede">Toda falha volta como JSON no formato problem details. Leia primeiro o código de status e depois o <code>title</code>, um código estável para você tratar.</p>
+      <div class="two-col">
+        <div>
+          <h3 class="mini">Uma requisição que falhou</h3>
+          <pre class="code">HTTP/1.1 409 Conflict
+{
+  "title": "auth.email_in_use",
+  "detail": "This e-mail is already registered.",
+  "status": 409
+}</pre>
+        </div>
+        <div>
+          <h3 class="mini">Uma requisição com campos inválidos</h3>
+          <pre class="code">HTTP/1.1 400 Bad Request
+{
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "Password": ["Password must contain a digit."]
+  }
+}</pre>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Status</th><th>Código</th><th>O que significa e o que fazer</th></tr></thead>
+          <tbody>
+            <tr><td>400</td><td><code>validation_error</code></td><td>Falta um campo ou ele é inválido. Leia o objeto <code>errors</code> e corrija esses campos.</td></tr>
+            <tr><td>401</td><td><code>auth.invalid_credentials</code></td><td>E-mail ou senha incorretos. A mensagem é a mesma para os dois de propósito.</td></tr>
+            <tr><td>401</td><td><code>auth.invalid_refresh_token</code></td><td>O refresh token é desconhecido, expirou ou já foi usado. Peça para a pessoa entrar de novo.</td></tr>
+            <tr><td>401</td><td>sem corpo</td><td>O access token não foi enviado, é inválido ou expirou. Renove-o e tente uma vez de novo.</td></tr>
+            <tr><td>403</td><td><code>auth.user_inactive</code></td><td>A conta está desativada. Fale com o suporte.</td></tr>
+            <tr><td>409</td><td><code>auth.email_in_use</code></td><td>Esse e-mail já tem conta. Leve a pessoa para o login.</td></tr>
+            <tr><td>409</td><td><code>driver.profile_locked</code></td><td>O perfil está em análise ou aprovado. Só pode ser editado em rascunho ou rejeitado.</td></tr>
+            <tr><td>409</td><td><code>driver.tax_id_in_use</code> / <code>driver.cnh_in_use</code> / <code>driver.plate_in_use</code></td><td>Outra conta já cadastrou esse documento ou placa.</td></tr>
+            <tr><td>400</td><td><code>driver.submission_incomplete</code></td><td>Falta termo, veículo ou documento. O objeto <code>errors</code> diz quais.</td></tr>
+            <tr><td>403</td><td>sem corpo</td><td>O perfil conectado não pode usar este endpoint, por exemplo um Driver chamando <code>/admin</code>.</td></tr>
+            <tr><td>403</td><td><code>freight.terms_not_accepted</code></td><td>O cliente precisa aceitar os termos ativos antes de publicar um frete.</td></tr>
+            <tr><td>404</td><td><code>freight.not_found</code>, <code>proposal.not_found</code></td><td>O frete ou a proposta não existe ou é de outra pessoa.</td></tr>
+            <tr><td>409</td><td><code>freight.not_open</code>, <code>freight.window_closed</code></td><td>O frete está fechado, cancelado, expirado ou fora da janela de propostas. Recarregue a lista.</td></tr>
+            <tr><td>409</td><td><code>proposal.not_pending</code>, <code>proposal.already_submitted</code></td><td>A proposta já foi decidida, ou você já tem uma pendente neste frete.</td></tr>
+            <tr><td>403</td><td><code>proposal.driver_not_approved</code></td><td>Só motoristas aprovados enviam propostas.</td></tr>
+            <tr><td>409</td><td><code>proposal.driver_unavailable</code>, <code>proposal.vehicle_unavailable</code>, <code>proposal.driver_busy</code></td><td>O motorista ou o veículo está inativo, ou a agenda do motorista está ocupada nesse horário. Escolha outra proposta.</td></tr>
+            <tr><td>400</td><td><code>proposal.vehicle_not_eligible</code></td><td>O veículo é do tipo errado ou não comporta o peso.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>Frota Online API v1. Esta página só é servida em Development.</p>
+    </footer>
+  </main>
+
+  <script src="docs.js"></script>
+  <script src="flow.js" charset="utf-8"></script>
+</body>
+</html>

@@ -10,6 +10,8 @@
 
   const ctx = canvas.getContext('2d');
   const stage = canvas.parentElement;
+  const PT = document.documentElement.lang.toLowerCase().startsWith('pt');
+  const tr = (en, pt) => (PT ? pt : en);
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const css = getComputedStyle(document.documentElement);
@@ -220,6 +222,126 @@
       seq: ['t1', 't2', 't3', 't4', 't5']
     }
   ];
+
+
+  /* ------------------------------------------------------ Portuguese texts */
+
+  const WHO_PT = {
+    'Anyone': 'Qualquer pessoa', 'Signed in': 'Logado', 'Driver': 'Motorista', 'Customer': 'Cliente',
+    'Admin': 'Admin', 'Front-end': 'Front-end', 'Driver (approved)': 'Motorista (aprovado)'
+  };
+
+  const PT_FLOWS = {
+    session: {
+      label: 'Sessão',
+      intro: 'Todo usuário começa aqui: lê os termos, abre uma sessão e aceita o que estiver pendente. Depois, abra a aba do perfil da conta.',
+      edges: { 's4>s5': 'sim', 's5>s3': 'repetir', 's4>s6': 'não' },
+      nodes: {
+        s1: { d: 'Mostre os termos antes do cadastro', note: 'Não precisa de token. Deixe o usuário ler os textos antes de criar a conta.' },
+        s2: { d: 'ou /auth/login. Guarde os dois tokens',
+          send: '{ "fullName": "Maria Souza",\n  "email": "maria@example.com",\n  "phoneNumber": "+5511999999999",\n  "password": "Str0ng#Pass",\n  "role": "Customer" }   // ou "Driver"\n\nlogin: { "email", "password" }',
+          note: 'Envie o access token em Authorization: Bearer. Ele dura 15 minutos; veja a aba de renovação. user.role diz qual fluxo mostrar.' },
+        s3: { d: 'O que o usuário ainda precisa aceitar', note: 'Lista vazia significa que não falta nada. Uma nova versão publicada pelo admin aparece aqui de novo.' },
+        s4: { t: 'Falta algum termo?', d: 'A lista não está vazia?', note: 'O cliente precisa de todos os termos ativos aceitos para criar um frete. O motorista precisa deles antes de enviar o perfil para análise.' },
+        s5: { d: 'Uma chamada por termo', note: 'A data e o IP são gravados. Aceitar o mesmo termo duas vezes devolve o primeiro aceite.' },
+        s6: { t: 'Abra o fluxo do perfil', d: 'Aba Motorista, Cliente ou Admin', note: 'Direcione o usuário por user.role da resposta de login ou cadastro.' }
+      }
+    },
+    driver: {
+      label: 'Motorista',
+      cols: ['Cadastro', 'Propostas'],
+      intro: 'O motorista só vê fretes depois que um admin aprova o perfil. Aprovado, a coluna da direita abre.',
+      edges: { 'd6>d3': 'não', 'd6>d7': 'sim', 'd9>d2': 'Rejected', 'd9>d10': 'Approved', 'm3>m4': 'opcional' },
+      nodes: {
+        d1: { d: '404 significa que ainda não há perfil', note: 'status é Draft, PendingReview, Approved ou Rejected. Um 404 (driver.profile_not_found) significa que a próxima chamada é o PUT.' },
+        d2: { d: 'taxId (CPF ou CNPJ), CNH e categoria', get: '200 com o perfil (mesmo formato do GET)',
+          note: 'taxId é obrigatório e pode ser CPF ou CNPJ (letras permitidas). É validado pelos dígitos antes de gravar. Só editável em Draft ou Rejected.' },
+        d3: { d: 'Pelo menos um veículo ativo', note: 'type é Fiorino, Van, Pickup, Truck34, Truck ou Trailer. A placa aceita ABC1234 e ABC1D23.' },
+        d4: { t: 'Envie o arquivo ao storage', d: 'Chave: drivers/{userId}/nome.jpg',
+          note: 'Isso acontece fora da API. A chave precisa começar com drivers/{seu id de usuário}/. O endpoint de upload pré-assinado ainda não existe, então hoje o front-end só registra a chave.' },
+        d5: { d: 'Registre o arquivo enviado' },
+        d6: { d: 'Leia em GET /driver/profile', note: 'Pronto significa: termos aceitos, um veículo ativo e um documento. Se não, corrija o que falta e confira de novo.' },
+        d7: { d: 'O status vira PendingReview', get: '200 com o perfil, status PendingReview',
+          note: 'Falha com a lista de itens faltantes se o checklist estiver incompleto. O perfil fica travado até o admin decidir.' },
+        d8: { d: 'Consulte até sair de PendingReview', note: 'Ainda não há push. A decisão do admin também envia um e-mail ao motorista.' },
+        d9: { t: 'Status?', d: 'Approved ou Rejected', note: 'Rejected vem com rejectionReason. Mostre o motivo, deixe o motorista editar e enviar de novo.' },
+        d10: { t: 'Approved: pode propor', d: 'Abre o quadro de fretes' },
+        m1: { d: 'Fretes abertos que cabem nos seus veículos',
+          note: 'Só fretes ainda dentro da janela de propostas e cujo tipo de veículo bate com um dos seus veículos ativos (até 100). O endereço completo fica oculto até a sua proposta ser aprovada.' },
+        m2: { d: 'Você define o preço', get: '201 com a proposta',
+          note: 'Uma proposta pendente por frete. O veículo precisa estar ativo, ser do tipo pedido e comportar o peso. Frete do dia aceita propostas por 5 minutos; agendado, por 24 horas.' },
+        m3: { d: 'Pending, Accepted, Rejected, Expired', note: 'Accepted significa que o cliente escolheu você e já existe uma entrega.' },
+        m4: { d: 'Retire uma proposta pendente', note: 'Só enquanto a proposta estiver Pending.' }
+      }
+    },
+    customer: {
+      label: 'Cliente',
+      cols: ['Pedir um frete', 'À parte'],
+      intro: 'O cliente publica o frete, vê as propostas chegarem ordenadas por preço e aprova uma. A aprovação cria a entrega.',
+      edges: { 'c4>c5': 'aprovar', 'c4>c3': 'aguardar', 'c4>c6': 'cancelar', 'c2>c7': 'a qualquer hora' },
+      nodes: {
+        c1: { d: 'Coleta e entrega, salvas uma vez', get: '201 com o endereço e seu id',
+          note: 'Cadastre coleta e entrega separadamente. O estado precisa ser uma UF válida e o CEP tem 8 dígitos. Os ids vão na próxima chamada. GET /addresses lista os salvos.' },
+        c2: { d: 'Exige todos os termos ativos aceitos',
+          note: 'Sem scheduledPickupAt o frete é do dia e a janela de propostas é de 5 minutos. Com uma data futura em UTC (terminando em Z) a janela é de até 24 horas. Os endereços precisam ser diferentes e seus. 403 freight.terms_not_accepted quando falta algum termo.' },
+        c3: { d: 'Ordenadas por preço, menor primeiro', note: 'Empate vai para a proposta mais antiga. Consulte enquanto o frete estiver Open.' },
+        c4: { t: 'Escolher um motorista?', d: 'Compare preço e veículo' },
+        c5: { d: '201: entrega criada',
+          note: 'Cria a entrega, reserva o motorista por 4 horas a partir da coleta, rejeita as outras propostas e fecha o frete. Aprove antes do fim da janela de propostas. 409 proposal.driver_busy significa que o motorista foi reservado nesse meio tempo: escolha outro.' },
+        c6: { d: 'Desista de um frete aberto', note: 'Só enquanto o frete estiver Open. As propostas pendentes são rejeitadas.' },
+        c7: { d: 'Situação dos seus fretes, a qualquer hora',
+          note: 'Filtre com ?status=Open, Approved, Expired ou Cancelled. GET /freights/{id} devolve um só. Um frete pode continuar Open por até 30 segundos depois do fim da janela, até a rotina de expiração rodar.' }
+      }
+    },
+    admin: {
+      label: 'Admin',
+      intro: 'O admin analisa os motoristas na fila. O motorista recebe um e-mail com a decisão.',
+      edges: { 'a4>a5': 'aprovar', 'a4>a6': 'rejeitar', 'a1>a7': 'novos termos' },
+      nodes: {
+        a1: { d: 'Conta com perfil Admin', note: 'Em Development a API cria esse admin na primeira execução, usando Seed:Admin do appsettings.Development.json.' },
+        a2: { d: 'Fila de análise, mais antigos primeiro', note: 'Por padrão mostra PendingReview. Filtre com ?status=.' },
+        a3: { d: 'Perfil, veículos e arquivos' },
+        a4: { t: 'Decisão', d: 'Aprovar ou rejeitar' },
+        a5: { d: '204 e e-mail de aprovação', note: 'Só motoristas em PendingReview podem ser decididos (senão 409 admin.not_pending_review).' },
+        a6: { d: '204 e e-mail de rejeição', send: '{ "reason": "A foto da CNH está ilegível" }', note: 'O motivo é obrigatório e vai por e-mail. O motorista edita o perfil e envia de novo.' },
+        a7: { d: 'Publique uma nova versão de termo', note: 'Desativa a versão anterior do mesmo tipo. Todos os usuários precisam aceitar de novo.' }
+      }
+    },
+    token: {
+      label: 'Renovação do token',
+      intro: 'Qualquer chamada autenticada pode responder 401 quando o access token expira. Renove uma vez e repita a chamada. Cada refresh token funciona uma vez, então guarde o novo par.',
+      edges: { 't2>t3': 'sim', 't2>t6': 'não', 't4>t5': 'sim', 't4>t7': 'não' },
+      nodes: {
+        t1: { t: 'Qualquer chamada autenticada', d: 'Authorization: Bearer <accessToken>' },
+        t2: { t: 'Veio 401?', d: 'O access token expirou' },
+        t3: { d: 'Envie o refreshToken guardado', get: '{ accessToken, refreshToken, ... }\n(mesmo formato do login)',
+          note: 'O refresh token antigo deixa de funcionar. Enviar um já usado faz o servidor revogar a sessão inteira.' },
+        t4: { t: 'Veio 200?', d: 'A renovação funcionou' },
+        t5: { t: 'Repita a chamada', d: 'Uma vez, com o novo access token', note: 'Troque os dois tokens guardados antes de repetir.' },
+        t6: { t: 'Use a resposta', d: 'Nada a renovar' },
+        t7: { t: 'Volte ao login', d: 'Apague os tokens guardados', note: 'O refresh token expirou, já foi usado ou foi revogado.' }
+      }
+    }
+  };
+
+  if (PT) {
+    FLOWS.forEach((fl) => {
+      const x = PT_FLOWS[fl.id];
+      if (!x) return;
+      fl.label = x.label;
+      fl.intro = x.intro;
+      if (x.cols) fl.cols = x.cols;
+      fl.edges.forEach((e) => {
+        const label = x.edges[e.a + '>' + e.b];
+        if (label) e.label = label;
+      });
+      fl.nodes.forEach((n) => {
+        const o = x.nodes[n.id];
+        if (o) Object.assign(n, o);
+        if (WHO_PT[n.who]) n.who = WHO_PT[n.who];
+      });
+    });
+  }
 
   /* ----------------------------------------------------------------- state */
 
@@ -802,7 +924,7 @@
     box.replaceChildren();
     const n = id ? state.layout.map[id].n : null;
     if (!n) {
-      box.append(h('p', 'fd-empty', 'Select a step to see what to send, what comes back and what to watch for. Or press Play to walk the main path.'));
+      box.append(h('p', 'fd-empty', tr('Select a step to see what to send, what comes back and what to watch for. Or press Play to walk the main path.', 'Selecione um passo para ver o que enviar, o que volta e o que observar. Ou aperte Play para percorrer o caminho principal.')));
       return;
     }
     const head = h('div', 'fd-head');
@@ -813,7 +935,7 @@
     if (n.note) box.append(h('p', 'fd-note', n.note));
     if (n.send || n.get) {
       const grid = h('div', 'fd-grid');
-      [['Send', n.send], ['Receive', n.get]].forEach(([title, body]) => {
+      [[tr('Send', 'Enviar'), n.send], [tr('Receive', 'Receber'), n.get]].forEach(([title, body]) => {
         if (!body) return;
         const col = h('div', 'fd-col');
         col.append(h('h4', null, title), h('pre', 'code', body));
@@ -826,23 +948,23 @@
   function updateUI() {
     const fl = flow();
     const last = fl.seq.length - 1;
-    els.play.textContent = state.playing ? 'Pause' : (state.step >= last ? 'Replay' : (state.step < 0 ? 'Play' : 'Resume'));
+    els.play.textContent = state.playing ? tr('Pause', 'Pausar') : (state.step >= last ? tr('Replay', 'Repetir') : (state.step < 0 ? 'Play' : tr('Resume', 'Continuar')));
     els.play.setAttribute('aria-pressed', String(state.playing));
     els.back.disabled = state.step < 0;
     els.next.disabled = state.step >= last;
     els.reset.disabled = state.step < 0 && !state.selected;
     if (state.step >= 0) {
       const n = state.layout.map[fl.seq[state.step]].n;
-      els.step.textContent = `Step ${state.step + 1} of ${fl.seq.length}: ${nodeLabel(n)}`;
+      els.step.textContent = tr(`Step ${state.step + 1} of ${fl.seq.length}: ${nodeLabel(n)}`, `Passo ${state.step + 1} de ${fl.seq.length}: ${nodeLabel(n)}`);
     } else {
-      els.step.textContent = `${fl.seq.length} steps on the main path`;
+      els.step.textContent = tr(`${fl.seq.length} steps on the main path`, `${fl.seq.length} passos no caminho principal`);
     }
     [...els.tabs.children].forEach((b, i) => {
       const on = i === state.flow;
       b.setAttribute('aria-selected', String(on));
       b.tabIndex = on ? 0 : -1;
     });
-    canvas.setAttribute('aria-label', `Call order diagram, ${fl.label}. ${els.step.textContent}. Use the arrow keys to move between steps.`);
+    canvas.setAttribute('aria-label', tr(`Call order diagram, ${fl.label}. ${els.step.textContent}. Use the arrow keys to move between steps.`, `Diagrama da ordem das chamadas, ${fl.label}. ${els.step.textContent}. Use as setas do teclado para mudar de passo.`));
   }
 
   function select(id) {

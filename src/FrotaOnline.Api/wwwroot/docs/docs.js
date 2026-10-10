@@ -1,19 +1,22 @@
 (() => {
   'use strict';
 
+  const PT = document.documentElement.lang.toLowerCase().startsWith('pt');
+  const tr = (en, pt) => (PT ? pt : en);
+
   const STORE_KEY = 'frota.docs.session';
   const STATUS_TEXT = {
     200: 'OK', 201: 'Created', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized',
     403: 'Forbidden', 404: 'Not Found', 409: 'Conflict', 500: 'Server Error'
   };
   const FIELD_NOTES = {
-    fullName: 'Up to 150 characters.',
-    email: 'Up to 254 characters. Saved in lower case.',
-    phoneNumber: '10 to 15 digits, with an optional leading +.',
-    password: '8 to 128 characters with an upper case letter, a lower case letter and a digit.',
-    role: 'Customer or Driver. Admin accounts cannot be self-registered.',
-    refreshToken: 'The refresh token from your last login or refresh.',
-    accessToken: 'Send it as Authorization: Bearer <token>.'
+    fullName: tr('Up to 150 characters.', 'Até 150 caracteres.'),
+    email: tr('Up to 254 characters. Saved in lower case.', 'Até 254 caracteres. Gravado em minúsculas.'),
+    phoneNumber: tr('10 to 15 digits, with an optional leading +.', 'De 10 a 15 dígitos, com + opcional no início.'),
+    password: tr('8 to 128 characters with an upper case letter, a lower case letter and a digit.', 'De 8 a 128 caracteres, com letra maiúscula, minúscula e um dígito.'),
+    role: tr('Customer or Driver. Admin accounts cannot be self-registered.', 'Customer ou Driver. Contas Admin não se cadastram sozinhas.'),
+    refreshToken: tr('The refresh token from your last login or refresh.', 'O refresh token do seu último login ou renovação.'),
+    accessToken: tr('Send it as Authorization: Bearer <token>.', 'Envie como Authorization: Bearer <token>.')
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -80,16 +83,16 @@
 
     if (!session || !session.user) {
       box.classList.remove('live');
-      line.textContent = 'Not signed in';
-      sub.textContent = 'Create an account in step 1 to get a token.';
+      line.textContent = tr('Not signed in', 'Não conectado');
+      sub.textContent = tr('Create an account in step 1 to get a token.', 'Crie uma conta na etapa 1 para obter um token.');
       clear.hidden = true;
     } else {
       const left = minutesLeft(session);
       box.classList.add('live');
       line.textContent = `${session.user.fullName} (${session.user.role})`;
       sub.textContent = left > 0
-        ? `${session.user.email}. Access token expires in ${left} min.`
-        : `${session.user.email}. Access token expired, refresh it in step 4.`;
+        ? tr(`${session.user.email}. Access token expires in ${left} min.`, `${session.user.email}. O access token expira em ${left} min.`)
+        : tr(`${session.user.email}. Access token expired, refresh it in step 4.`, `${session.user.email}. O access token expirou, renove-o na etapa 4.`);
       clear.hidden = false;
     }
     renderCurl();
@@ -118,8 +121,8 @@
       };
     } catch {
       return {
-        ok: false, status: 0, statusText: 'No response',
-        data: { detail: 'The server could not be reached. Check that the API is running and try again.' },
+        ok: false, status: 0, statusText: tr('No response', 'Sem resposta'),
+        data: { detail: tr('The server could not be reached. Check that the API is running and try again.', 'Não foi possível acessar o servidor. Confira se a API está rodando e tente de novo.') },
         ms: Math.round(performance.now() - started)
       };
     }
@@ -183,11 +186,11 @@
         if (res.ok) {
           saveSession(sessionFromAuth(res.data));
           markDone('stop-1');
-          note = 'Account created and signed in. Your tokens are saved for the next stops.';
+          note = tr('Account created and signed in. Your tokens are saved for the next stops.', 'Conta criada e login feito. Seus tokens foram guardados para as próximas etapas.');
         } else if (res.status === 409) {
-          note = 'That e-mail already has an account. Change it above or continue to step 2 to sign in.';
+          note = tr('That e-mail already has an account. Change it above or continue to step 2 to sign in.', 'Esse e-mail já tem conta. Troque-o acima ou siga para a etapa 2 e entre.');
         } else if (res.status === 400) {
-          note = 'Fix the fields listed under "errors" and send again.';
+          note = tr('Fix the fields listed under "errors" and send again.', 'Corrija os campos listados em "errors" e envie de novo.');
         }
         showResult($('#result-1'), res, note);
       });
@@ -202,9 +205,9 @@
         if (res.ok) {
           saveSession(sessionFromAuth(res.data));
           markDone('stop-2');
-          note = 'Signed in. A new token pair replaced the previous one.';
+          note = tr('Signed in. A new token pair replaced the previous one.', 'Login feito. Um novo par de tokens substituiu o anterior.');
         } else if (res.status === 401) {
-          note = 'E-mail or password is wrong. Create the account in step 1 first if you have not.';
+          note = tr('E-mail or password is wrong. Create the account in step 1 first if you have not.', 'E-mail ou senha incorretos. Se ainda não tem conta, crie uma na etapa 1.');
         }
         showResult($('#result-2'), res, note);
       });
@@ -217,11 +220,11 @@
         let note = null;
         if (res.ok) {
           markDone('stop-3');
-          note = 'The server read your id, e-mail and role from the token. It did not look anything up.';
+          note = tr('The server read your id, e-mail and role from the token. It did not look anything up.', 'O servidor leu seu id, e-mail e perfil direto do token. Não consultou o banco.');
         } else if (!session) {
-          note = 'No token yet. Complete step 1 or 2, then run this again.';
+          note = tr('No token yet. Complete step 1 or 2, then run this again.', 'Ainda não há token. Faça a etapa 1 ou 2 e rode de novo.');
         } else if (res.status === 401) {
-          note = 'The access token was rejected, most likely because it expired. Renew it in step 4.';
+          note = tr('The access token was rejected, most likely because it expired. Renew it in step 4.', 'O access token foi recusado, provavelmente porque expirou. Renove-o na etapa 4.');
         }
         showResult($('#result-3'), res, note);
       });
@@ -232,8 +235,8 @@
         const session = loadSession();
         if (!session || !session.refreshToken) {
           showResult($('#result-4'),
-            { ok: false, status: 0, statusText: 'No session', data: null, ms: 0 },
-            'There is no refresh token yet. Complete step 1 or 2 first.');
+            { ok: false, status: 0, statusText: tr('No session', 'Sem sessão'), data: null, ms: 0 },
+            tr('There is no refresh token yet. Complete step 1 or 2 first.', 'Ainda não há refresh token. Faça a etapa 1 ou 2 primeiro.'));
           return;
         }
         const res = await call('POST', '/api/v1/auth/refresh', { refreshToken: session.refreshToken }, false);
@@ -241,9 +244,9 @@
         if (res.ok) {
           saveSession(sessionFromAuth(res.data, session.refreshToken));
           markDone('stop-4');
-          note = 'You have a new pair. The previous refresh token is now dead. Try replaying it with the other button.';
+          note = tr('You have a new pair. The previous refresh token is now dead. Try replaying it with the other button.', 'Você tem um novo par. O refresh token anterior deixou de funcionar. Tente reenviá-lo com o outro botão.');
         } else if (res.status === 401) {
-          note = 'This refresh token was rejected. Sign in again in step 2.';
+          note = tr('This refresh token was rejected. Sign in again in step 2.', 'Esse refresh token foi recusado. Entre de novo na etapa 2.');
         }
         showResult($('#result-4'), res, note);
       });
@@ -254,13 +257,13 @@
         const session = loadSession();
         if (!session || !session.previousRefresh) {
           showResult($('#result-4'),
-            { ok: false, status: 0, statusText: 'Nothing to replay', data: null, ms: 0 },
-            'Run "Refresh tokens" first. That leaves an old token you can replay.');
+            { ok: false, status: 0, statusText: tr('Nothing to replay', 'Nada para reenviar'), data: null, ms: 0 },
+            tr('Run "Refresh tokens" first. That leaves an old token you can replay.', 'Rode "Renovar tokens" primeiro. Isso deixa um token antigo para reenviar.'));
           return;
         }
         const res = await call('POST', '/api/v1/auth/refresh', { refreshToken: session.previousRefresh }, false);
         const note = res.status === 401
-          ? 'Rejected, as expected. The server also revoked every refresh token for this account, so the newest one no longer works either. Sign in again in step 2. Access tokens stay valid until they expire.'
+          ? tr('Rejected, as expected. The server also revoked every refresh token for this account, so the newest one no longer works either. Sign in again in step 2. Access tokens stay valid until they expire.', 'Recusado, como esperado. O servidor também revogou todos os refresh tokens da conta, então o mais novo também deixou de funcionar. Entre de novo na etapa 2. Os access tokens continuam válidos até expirar.')
           : null;
         showResult($('#result-4'), res, note);
       });
@@ -278,9 +281,9 @@
         const original = button.textContent;
         try {
           await navigator.clipboard.writeText(source.textContent);
-          button.textContent = 'Copied';
+          button.textContent = tr('Copied', 'Copiado');
         } catch {
-          button.textContent = 'Select and copy';
+          button.textContent = tr('Select and copy', 'Selecione e copie');
         }
         setTimeout(() => { button.textContent = original; }, 1600);
       });
@@ -298,10 +301,10 @@
       const response = await fetch('/health', { cache: 'no-store' });
       if (!response.ok) throw new Error('unhealthy');
       status.className = 'status ok';
-      text.textContent = 'API is online';
+      text.textContent = tr('API is online', 'API online');
     } catch {
       status.className = 'status down';
-      text.textContent = 'API is not responding';
+      text.textContent = tr('API is not responding', 'API não responde');
     }
   }
 
@@ -374,13 +377,13 @@
     const { schema } = deref(input);
     const required = schema.required || [];
     const rows = Object.entries(schema.properties || {});
-    if (!rows.length) return h('p', { class: 'muted' }, 'No fields.');
+    if (!rows.length) return h('p', { class: 'muted' }, tr('No fields.', 'Sem campos.'));
     return h('div', { class: 'table-wrap' },
       h('table', { class: 'grid' },
         h('thead', {}, h('tr', {},
-          h('th', {}, 'Field'), h('th', {}, 'Type'), withNotes ? h('th', {}, 'Rules') : null)),
+          h('th', {}, tr('Field', 'Campo')), h('th', {}, tr('Type', 'Tipo')), withNotes ? h('th', {}, tr('Rules', 'Regras')) : null)),
         h('tbody', {}, rows.map(([name, property]) => h('tr', {},
-          h('td', {}, h('code', {}, name), required.includes(name) ? h('span', { class: 'req', title: 'Required' }, ' *') : null),
+          h('td', {}, h('code', {}, name), required.includes(name) ? h('span', { class: 'req', title: tr('Required', 'Obrigatório') }, ' *') : null),
           h('td', {}, typeLabel(property)),
           withNotes ? h('td', {}, FIELD_NOTES[name] || '') : null)))));
   }
@@ -400,10 +403,10 @@
       .find(([code, response]) => code.startsWith('2') && jsonSchemaOf(response.content));
 
     const result = h('div', { class: 'result', hidden: true });
-    const sendButton = h('button', { type: 'button', class: 'btn' }, 'Send request');
+    const sendButton = h('button', { type: 'button', class: 'btn' }, tr('Send request', 'Enviar requisição'));
 
     if (bodySchema) {
-      textarea = h('textarea', { 'aria-label': `Request body for ${method.toUpperCase()} ${path}`, spellcheck: 'false' });
+      textarea = h('textarea', { 'aria-label': tr(`Request body for ${method.toUpperCase()} ${path}`, `Corpo da requisição de ${method.toUpperCase()} ${path}`), spellcheck: 'false' });
       textarea.value = JSON.stringify(exampleValue(bodySchema), null, 2);
     }
 
@@ -420,8 +423,8 @@
       let body;
       if (textarea) {
         try { body = JSON.parse(textarea.value); } catch (error) {
-          showResult(result, { ok: false, status: 0, statusText: 'Invalid JSON', data: null, ms: 0 },
-            `The request body is not valid JSON: ${error.message}`);
+          showResult(result, { ok: false, status: 0, statusText: tr('Invalid JSON', 'JSON inválido'), data: null, ms: 0 },
+            tr(`The request body is not valid JSON: ${error.message}`, `O corpo da requisição não é um JSON válido: ${error.message}`));
           return;
         }
       }
@@ -429,7 +432,7 @@
       const session = loadSession();
       const res = await call(method.toUpperCase(), url, body, secured);
       const note = secured && !session
-        ? 'This endpoint needs a token and you are not signed in. Complete step 1 or 2 in the guide.'
+        ? tr('This endpoint needs a token and you are not signed in. Complete step 1 or 2 in the guide.', 'Este endpoint exige token e você não está conectado. Faça a etapa 1 ou 2 do guia.')
         : null;
       showResult(result, res, note);
     }));
@@ -440,25 +443,25 @@
         h('span', { class: 'op-main' },
           h('span', { class: 'op-path' }, path), h('br'),
           h('span', { class: 'op-summary' }, operation.summary || '')),
-        h('span', { class: `lock${secured ? '' : ' open'}` }, secured ? 'Needs token' : 'Public')),
+        h('span', { class: `lock${secured ? '' : ' open'}` }, secured ? tr('Needs token', 'Exige token') : tr('Public', 'Público'))),
       h('div', { class: 'op-body' },
         operation.description ? h('p', { class: 'op-desc' }, operation.description) : null,
-        parameters.length ? [h('h4', {}, 'Parameters'),
+        parameters.length ? [h('h4', {}, tr('Parameters', 'Parâmetros')),
           h('div', { class: 'form-grid' }, parameters.map((parameter) => {
             const input = h('input', { name: parameter.name, required: !!parameter.required });
             paramInputs[parameter.name] = input;
             return h('label', {}, `${parameter.name} (${parameter.in})`, input);
           }))] : null,
-        bodySchema ? [h('h4', {}, 'Request body'), fieldTable(bodySchema, true)] : null,
-        successEntry ? [h('h4', {}, `Returns (${successEntry[0]})`), fieldTable(jsonSchemaOf(successEntry[1].content), false)] : null,
-        h('h4', {}, 'Responses'),
+        bodySchema ? [h('h4', {}, tr('Request body', 'Corpo da requisição')), fieldTable(bodySchema, true)] : null,
+        successEntry ? [h('h4', {}, tr(`Returns (${successEntry[0]})`, `Retorna (${successEntry[0]})`)), fieldTable(jsonSchemaOf(successEntry[1].content), false)] : null,
+        h('h4', {}, tr('Responses', 'Respostas')),
         h('ul', { class: 'resp-list' }, Object.entries(operation.responses || {}).map(([code, response]) => {
           const schema = jsonSchemaOf(response.content);
           const label = response.description || STATUS_TEXT[code] || '';
           const named = schema && schema.$ref ? typeLabel(schema) : null;
           return h('li', {},
             h('span', { class: `resp-code${code.startsWith('2') ? '' : ' bad'}` }, code),
-            h('span', {}, named ? `${label}. Returns ${named}.` : label));
+            h('span', {}, named ? tr(`${label}. Returns ${named}.`, `${label}. Retorna ${named}.`) : label));
         })),
         h('h4', {}, 'Try it'),
         h('div', { class: 'try' },
@@ -475,7 +478,7 @@
       if (!response.ok) throw new Error(String(response.status));
       doc = await response.json();
     } catch {
-      list.replaceChildren(h('p', {}, 'The endpoint list could not be loaded from /openapi/v1.json. Make sure the API runs in the Development environment, then reload.'));
+      list.replaceChildren(h('p', {}, tr('The endpoint list could not be loaded from /openapi/v1.json. Make sure the API runs in the Development environment, then reload.', 'Não foi possível carregar a lista de /openapi/v1.json. Confirme que a API roda em Development e recarregue.')));
       return;
     }
 
@@ -491,7 +494,7 @@
     }
 
     if (!groups.size) {
-      list.replaceChildren(h('p', { class: 'muted' }, 'No endpoints found.'));
+      list.replaceChildren(h('p', { class: 'muted' }, tr('No endpoints found.', 'Nenhum endpoint encontrado.')));
       return;
     }
 

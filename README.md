@@ -197,6 +197,7 @@ Disponíveis só em Development. Os três leem o mesmo contrato, então endpoint
 | URL | O que é |
 | --- | --- |
 | `/` e `/docs` | Redirecionam para `/docs/index.html`, o guia. Os arquivos ficam em `src/FrotaOnline.Api/wwwroot/docs`. |
+| `/docs/index.pt.html` | O mesmo guia em português. Há um link de troca de idioma na barra lateral das duas versões. As descrições dos endpoints vêm do OpenAPI e ficam em inglês. |
 | `/swagger` | Swagger UI padrão. |
 | `/openapi/v1.json` | O documento OpenAPI bruto, gerado a partir dos controllers. |
 
