@@ -15,8 +15,21 @@ public static class ProposalWindows
 
 public static class DeliveryPlanning
 {
-    /// <summary>Time reserved in the driver's agenda for one delivery, starting at the pickup.</summary>
-    public static readonly TimeSpan AgendaWindow = TimeSpan.FromHours(4);
+    /// <summary>Fixed time reserved in the driver's agenda, starting at the first pickup.</summary>
+    public static readonly TimeSpan BaseWindow = TimeSpan.FromHours(2);
+
+    /// <summary>Extra time reserved for each stop, pickups and deliveries alike.</summary>
+    public static readonly TimeSpan PerStop = TimeSpan.FromHours(1);
+
+    /// <summary>Agenda time for a freight with the given number of stops (a pickup plus a delivery reserves 4 hours).</summary>
+    public static TimeSpan AgendaWindow(int stopCount) => BaseWindow + PerStop * Math.Max(2, stopCount);
+}
+
+public static class FreightLimits
+{
+    public const int MaxStops = 20;
+
+    public const int MaxItemsPerStop = 50;
 }
 
 public static class SubscriptionPricing

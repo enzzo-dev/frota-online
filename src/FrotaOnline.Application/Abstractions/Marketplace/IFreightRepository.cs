@@ -7,6 +7,8 @@ public interface IFreightRepository
 {
     Task<FreightRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<FreightRequest>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<FreightRequest>> ListByCustomerAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken);
 

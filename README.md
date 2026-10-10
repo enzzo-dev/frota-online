@@ -288,9 +288,11 @@ flowchart TD
     P1 --> P2["POST /driver/freights/id/proposals<br/>vehicleId, price, message"]
     P2 --> P3["GET /driver/proposals<br/>Pending, Accepted, Rejected, Expired"]
     P3 -.-> P4["POST /driver/proposals/id/withdraw<br/>enquanto Pending"]
+    P3 -- Accepted --> P5["GET /driver/deliveries<br/>entregas ganhas"]
+    P5 --> P6["GET /driver/deliveries/id/route<br/>view Full ou Next"]
 
-    F -- Customer --> Y["POST /addresses<br/>coleta e entrega"]
-    Y --> Y1["POST /freights<br/>exige termos aceitos"]
+    F -- Customer --> Y["POST /addresses<br/>um por coleta e por entrega"]
+    Y --> Y1["POST /freights<br/>stops em ordem, itens opcionais"]
     Y1 --> Y2["GET /freights/id/proposals<br/>ranking: menor preço primeiro"]
     Y2 --> Y3["POST /freights/id/proposals/pid/approve<br/>201 cria a entrega"]
     Y2 -. desiste .-> Y4["POST /freights/id/cancel"]
@@ -355,10 +357,10 @@ As senhas precisam ter de 8 a 128 caracteres, com letra maiúscula, letra minús
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
-| GET / POST | `/addresses` | Lista e cadastra endereços. UF válida e CEP com 8 dígitos. |
-| POST | `/freights` | Cria o pedido: endereço de coleta e de entrega (diferentes e do próprio cliente), carga, peso (até 60 t), tipo de veículo e, opcional, `scheduledPickupAt` em UTC (com `Z`). Exige os termos aceitos. Sem data o frete é do dia e a janela de propostas é de 5 minutos; agendado, 24 horas. |
+| GET / POST | `/addresses` | Lista e cadastra endereços (de coleta e de entrega). UF válida e CEP com 8 dígitos. |
+| POST | `/freights` | Cria o pedido com uma lista `stops` na ordem da corrida. Cada parada é `Pickup` ou `Delivery`, com endereço, observação e `items` opcionais (`description`, `quantity`). Pode haver várias coletas e várias entregas; a primeira parada precisa ser coleta e a última entrega, que é o endereço final. Os endereços são diferentes e do próprio cliente (pessoa ou empresa), até 20 paradas e 50 itens por parada. Informe também a carga, o peso total (até 60 t), o tipo de veículo e, opcional, `scheduledPickupAt` em UTC (com `Z`). Exige os termos aceitos. Sem data o frete é do dia e a janela de propostas é de 5 minutos; agendado, 24 horas. |
 | GET | `/freights?status=` | Pedidos do cliente, com a quantidade de propostas pendentes. |
-| GET | `/freights/{id}` | Detalhe do pedido. |
+| GET | `/freights/{id}` | Detalhe do pedido, com todas as paradas, endereços e itens. |
 | POST | `/freights/{id}/cancel` | Cancela um pedido aberto e rejeita as propostas pendentes. |
 | GET | `/freights/{id}/proposals` | Propostas pendentes ordenadas por preço (menor primeiro; empate pela mais antiga), com nome e veículo do motorista. |
 | POST | `/freights/{id}/proposals/{proposalId}/approve` | Aprova a proposta: cria a entrega (`Scheduled`), reserva a agenda do motorista, rejeita as outras e fecha o pedido. Responde 201. |
@@ -367,15 +369,25 @@ As senhas precisam ter de 8 a 128 caracteres, com letra maiúscula, letra minús
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
-| GET | `/freights/open` | Pedidos abertos e dentro da janela, só dos tipos dos seus veículos ativos (até 100). Mostra bairro e cidade da coleta e a cidade da entrega; o endereço completo não aparece antes da aprovação. |
+| GET | `/freights/open` | Pedidos abertos e dentro da janela, só dos tipos dos seus veículos ativos (até 100). Mostra quantas coletas e entregas a corrida tem e, de cada parada, bairro, cidade e itens; a rua só aparece depois da aprovação. |
 | POST | `/freights/{freightId}/proposals` | Envia proposta: `vehicleId`, `price` (0 a 1.000.000, 2 casas) e `message`. Uma pendente por motorista e pedido. O veículo precisa ser ativo, do tipo pedido e comportar o peso. |
 | GET | `/proposals` | Propostas do motorista. |
 | POST | `/proposals/{proposalId}/withdraw` | Retira uma proposta pendente. |
+| GET | `/deliveries` | Entregas que o motorista ganhou, com o total de paradas e quantas já foram concluídas. |
+| GET | `/deliveries/{id}/route?view=Full\|Next` | Rota da entrega com endereços completos e itens por parada. `Full` devolve todas as coletas e entregas de uma vez, como visão geral. `Next` devolve só a primeira parada ainda não concluída, para o app mostrar uma de cada vez. |
+
+Os pedidos agora têm paradas (`FreightStop`) e itens (`FreightItem`) e perderam as colunas de endereço de coleta e de entrega. Depois de atualizar, gere a migration. Pedidos de teste já gravados perdem os endereços, então apague-os ou recrie o banco de desenvolvimento:
+
+```powershell
+dotnet ef migrations add FreightStops -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api -o Persistence/Migrations
+dotnet ef database update -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api
+```
 
 ### Regras do marketplace
 
 - O motorista define o preço; a plataforma não mexe nele. A taxa de R$ 4,90 e o pagamento entram na próxima fase.
-- A aprovação reserva a agenda do motorista por 4 horas a partir da coleta (`DeliveryPlanning.AgendaWindow`). Se já houver outra entrega nesse intervalo, devolve `proposal.driver_busy`.
+- Um frete é uma lista ordenada de paradas (coletas e entregas) com itens opcionais por parada. A conclusão de cada parada (`CompletedAt`) entra na próxima fase.
+- A aprovação reserva a agenda do motorista por 2 horas mais 1 hora por parada, a partir da primeira coleta (`DeliveryPlanning.AgendaWindow`). Uma coleta e uma entrega reservam 4 horas. Se já houver outra entrega nesse intervalo, devolve `proposal.driver_busy`.
 - Um `BackgroundService` (`FreightExpirationWorker`, a cada 30 segundos) expira pedidos e propostas vencidos. Entre uma varredura e outra a API já recusa novas propostas fora da janela.
 - O cliente aprova dentro da mesma janela da proposta. Em frete do dia isso dá 5 minutos; veja as decisões em aberto abaixo.
 
@@ -419,7 +431,7 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 409 | `admin.not_pending_review` | Só motoristas em análise podem ser aprovados ou rejeitados. |
 | 409 | `terms.not_active` | A versão do termo foi substituída. Aceite a atual. |
 | 403 | `freight.terms_not_accepted` | O cliente precisa aceitar os termos ativos antes de criar pedidos. |
-| 404 | `freight.not_found`, `proposal.not_found` | Pedido ou proposta inexistente (ou de outro usuário). |
+| 404 | `freight.not_found`, `proposal.not_found`, `delivery.not_found` | Pedido, proposta ou entrega inexistente (ou de outro usuário). |
 | 409 | `freight.not_open`, `freight.window_closed` | Pedido fechado, cancelado, expirado ou fora da janela de propostas. |
 | 409 | `proposal.not_pending`, `proposal.already_submitted` | Proposta já decidida, ou o motorista já tem uma pendente neste pedido. |
 | 403 | `proposal.driver_not_approved` | Só motorista aprovado envia propostas. |

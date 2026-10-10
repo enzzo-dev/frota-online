@@ -33,6 +33,9 @@ internal sealed class FakeFreightRepository : IFreightRepository
     public Task<FreightRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(f => f.Id == id));
 
+    public Task<IReadOnlyList<FreightRequest>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<FreightRequest>>(Items.Where(f => ids.Contains(f.Id)).ToList());
+
     public Task<IReadOnlyList<FreightRequest>> ListByCustomerAsync(Guid customerId, FreightStatus? status, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<FreightRequest>>(
             Items.Where(f => f.CustomerId == customerId && (status is null || f.Status == status)).ToList());
@@ -94,6 +97,12 @@ internal sealed class FakeDeliveryRepository : IDeliveryRepository
     public List<Delivery> Items { get; } = new();
 
     public List<DeliveryEvent> Events { get; } = new();
+
+    public Task<Delivery?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(d => d.Id == id));
+
+    public Task<IReadOnlyList<Delivery>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Delivery>>(Items.Where(d => d.DriverProfileId == driverProfileId).ToList());
 
     public Task AddAsync(Delivery delivery, CancellationToken cancellationToken)
     {

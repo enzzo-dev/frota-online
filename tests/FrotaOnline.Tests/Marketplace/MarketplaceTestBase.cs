@@ -34,6 +34,8 @@ public abstract class MarketplaceTestBase
     protected ProposalSelectionService Selection => new(
         Freights, Proposals, Drivers, Vehicles, Users, Deliveries, Agenda, UnitOfWork, Clock);
 
+    protected DriverDeliveryService DriverDelivery => new(Drivers, Deliveries, Freights, Addresses);
+
     protected FreightExpirationService Expiration => new(Freights, Proposals, UnitOfWork, Clock);
 
     protected (Address Pickup, Address Delivery) AddAddresses(Guid ownerId)
@@ -45,9 +47,24 @@ public abstract class MarketplaceTestBase
         return (pickup, delivery);
     }
 
+    protected Address AddAddress(Guid ownerId, string city, string district = "Centro", string zip = "01001000")
+    {
+        var address = Address.Create(ownerId, city, "Rua " + city, "1", null, district, city, "SP", zip, null, null);
+        Addresses.Items.Add(address);
+        return address;
+    }
+
+    protected static CreateFreightStopRequest Stop(
+        StopType type, Address address, string? note = null, params (string Description, int Quantity)[] items) =>
+        new(type, address.Id, note, items.Select(i => new CreateFreightItemRequest(i.Description, i.Quantity)).ToList());
+
     protected CreateFreightRequest NewFreight(
         Address pickup, Address delivery, VehicleType type = VehicleType.Fiorino, DateTime? scheduled = null, decimal weight = 300) =>
-        new(pickup.Id, delivery.Id, "Caixas de pecas", weight, type, scheduled);
+        NewFreight(new[] { Stop(StopType.Pickup, pickup), Stop(StopType.Delivery, delivery) }, type, scheduled, weight);
+
+    protected CreateFreightRequest NewFreight(
+        IReadOnlyList<CreateFreightStopRequest> stops, VehicleType type = VehicleType.Fiorino, DateTime? scheduled = null, decimal weight = 300) =>
+        new(stops, "Caixas de pecas", weight, type, scheduled);
 
     protected async Task<Guid> CreateFreightAsync(DateTime? scheduled = null, VehicleType type = VehicleType.Fiorino, decimal weight = 300)
     {

@@ -74,7 +74,7 @@
     {
       id: 'driver',
       label: 'Driver',
-      cols: ['Onboarding', 'Bidding'],
+      cols: ['Onboarding', 'Bidding and run'],
       intro: 'A driver cannot see freights until an admin approves the profile. Once approved, the right column opens.',
       nodes: [
         { id: 'd1', c: 0, r: 0, m: 'GET', p: '/driver/profile', d: '404 means there is no profile yet', who: 'Driver',
@@ -105,8 +105,8 @@
         { id: 'd10', c: 0, r: 9, k: 'go', t: 'Approved: can bid', d: 'Opens the freight board', who: 'Driver' },
 
         { id: 'm1', c: 1, r: 0, m: 'GET', p: '/driver/freights/open', d: 'Open freights that fit your vehicles', who: 'Driver (approved)',
-          get: '[{ id, cargoDescription, cargoWeightKg,\n  requiredVehicleType, scheduledPickupAt,\n  proposalDeadline, pickupDistrict,\n  pickupCity, pickupState,\n  deliveryCity, deliveryState }]',
-          note: 'Only freights still inside their proposal window whose vehicle type matches one of your active vehicles (up to 100). Street addresses stay hidden until your proposal is approved.' },
+          get: '[{ id, cargoDescription, cargoWeightKg,\n  requiredVehicleType, scheduledPickupAt,\n  proposalDeadline, pickupCount, deliveryCount,\n  stops: [{ sequence, type, district, city,\n    state, items }] }]',
+          note: 'Shows how many pickups and deliveries the run has, and for each stop its area and its items. Only freights inside their proposal window whose vehicle type matches one of your active vehicles (up to 100). Street addresses stay hidden until your proposal is approved.' },
         { id: 'm2', c: 1, r: 1, m: 'POST', p: '/driver/freights/{freightId}/proposals', d: 'You set the price', who: 'Driver (approved)',
           send: '{ "vehicleId": "3fa85f64-...",\n  "price": 150.00,\n  "message": "Can pick up today" }',
           get: '201 with the proposal',
@@ -115,7 +115,13 @@
           get: '[{ id, freightRequestId, vehicleId,\n  price, message, status, expiresAt }]',
           note: 'Accepted means the customer picked you and a delivery now exists.' },
         { id: 'm4', c: 1, r: 3, k: 'soft', m: 'POST', p: '/driver/proposals/{proposalId}/withdraw', d: 'Take back a pending proposal', who: 'Driver (approved)',
-          note: 'Only while the proposal is Pending.' }
+          note: 'Only while the proposal is Pending.' },
+        { id: 'm5', c: 1, r: 4, m: 'GET', p: '/driver/deliveries', d: 'Deliveries you won', who: 'Driver (approved)',
+          get: '[{ deliveryId, freightRequestId, status,\n  agreedPrice, scheduledPickupAt,\n  totalStops, completedStops }]',
+          note: 'A proposal that turns Accepted creates a delivery here.' },
+        { id: 'm6', c: 1, r: 5, m: 'GET', p: '/driver/deliveries/{id}/route', d: 'Full run or one stop at a time', who: 'Driver (approved)',
+          get: '{ deliveryId, view, totalStops, completedStops,\n  stops: [{ stopId, sequence, type,\n    address: { street, number, city, ... },\n    note, items, completedAt }] }',
+          note: 'Now with full addresses. ?view=Full returns every pickup and delivery at once, as an overview of the run. ?view=Next returns only the first stop not completed yet, so the app can show one stop after the other. Each stop lists the items to collect or hand over.' }
       ],
       edges: [
         { a: 'd1', b: 'd2' }, { a: 'd2', b: 'd3' }, { a: 'd3', b: 'd4' }, { a: 'd4', b: 'd5' },
@@ -124,9 +130,10 @@
         { a: 'd7', b: 'd8' }, { a: 'd8', b: 'd9' },
         { a: 'd9', b: 'd2', label: 'Rejected' }, { a: 'd9', b: 'd10', label: 'Approved' },
         { a: 'd10', b: 'm1' }, { a: 'm1', b: 'm2' }, { a: 'm2', b: 'm3' },
-        { a: 'm3', b: 'm4', dashed: true, label: 'optional' }
+        { a: 'm3', b: 'm4', dashed: true, label: 'optional' },
+        { a: 'm3', b: 'm5', label: 'Accepted' }, { a: 'm5', b: 'm6' }
       ],
-      seq: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'm1', 'm2', 'm3']
+      seq: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'm1', 'm2', 'm3', 'm5', 'm6']
     },
 
     {
@@ -135,21 +142,21 @@
       cols: ['Order a freight', 'On the side'],
       intro: 'The customer posts the freight, watches proposals arrive ranked by price and approves one. Approval creates the delivery.',
       nodes: [
-        { id: 'c1', c: 0, r: 0, m: 'POST', p: '/addresses', d: 'Pickup and delivery, saved once', who: 'Customer',
+        { id: 'c1', c: 0, r: 0, m: 'POST', p: '/addresses', d: 'Every pickup and delivery address, saved once', who: 'Customer',
           send: '{ "label": "Warehouse",\n  "street": "Rua A", "number": "10",\n  "district": "Centro", "city": "Sao Paulo",\n  "state": "SP", "zipCode": "01001000" }',
           get: '201 with the address and its id',
-          note: 'Register pickup and delivery separately. State must be a valid UF and the ZIP has 8 digits. The ids go into the next call. GET /addresses lists the saved ones.' },
-        { id: 'c2', c: 0, r: 1, m: 'POST', p: '/freights', d: 'Needs every active term accepted', who: 'Customer',
-          send: '{ "pickupAddressId": "3fa85f64-...",\n  "deliveryAddressId": "7c9e6679-...",\n  "cargoDescription": "Auto parts boxes",\n  "cargoWeightKg": 300,\n  "requiredVehicleType": "Fiorino",\n  "scheduledPickupAt": null }',
-          get: '201 { id, status: "Open",\n  proposalDeadline, pendingProposals, ... }',
-          note: 'Without scheduledPickupAt the freight is for today and the proposal window is 5 minutes. With a future UTC date (ending in Z) the window is up to 24 hours. Addresses must differ and belong to you. 403 freight.terms_not_accepted when a term is missing.' },
+          note: 'Register one address per pickup and per delivery. State must be a valid UF and the ZIP has 8 digits. The ids go into the next call. GET /addresses lists the saved ones. Customers can be people or companies.' },
+        { id: 'c2', c: 0, r: 1, m: 'POST', p: '/freights', d: 'Stops in order: pickups, then deliveries', who: 'Customer',
+          send: '{ "stops": [\n    { "type": "Pickup", "addressId": "3fa8...", "note": "Gate 2" },\n    { "type": "Pickup", "addressId": "9b1d..." },\n    { "type": "Delivery", "addressId": "7c9e...",\n      "items": [{ "description": "Brake pads", "quantity": 12 }] },\n    { "type": "Delivery", "addressId": "5d2a...", "note": "Final" } ],\n  "cargoDescription": "Auto parts",\n  "cargoWeightKg": 300,\n  "requiredVehicleType": "Fiorino",\n  "scheduledPickupAt": null }',
+          get: '201 { id, status: "Open", proposalDeadline,\n  pickupCount, deliveryCount,\n  stops: [{ sequence, type, address, note,\n    items, completedAt }], ... }',
+          note: 'The order of the stops array is the order the driver follows. The first stop must be a Pickup and the last a Delivery: that is the final delivery address. Items are optional and can go on pickups or deliveries. Every address must be different and yours. Without scheduledPickupAt the freight is for today and the proposal window is 5 minutes; with a future UTC date (ending in Z) it is up to 24 hours. 403 freight.terms_not_accepted when a term is missing.' },
         { id: 'c3', c: 0, r: 2, m: 'GET', p: '/freights/{id}/proposals', d: 'Ranked by price, cheapest first', who: 'Customer',
           get: '[{ rank, proposalId, price, message,\n  driverName, vehicleType, vehicleModel,\n  expiresAt, createdAt }]',
           note: 'Ties go to the earliest proposal. Poll while the freight is Open.' },
         { id: 'c4', c: 0, r: 3, k: 'decision', t: 'Pick a driver?', d: 'Compare price and vehicle', who: 'Front-end' },
         { id: 'c5', c: 0, r: 4, k: 'go', m: 'POST', p: '/freights/{id}/proposals/{proposalId}/approve', d: '201: delivery created', who: 'Customer',
           get: '201 { deliveryId, freightRequestId,\n  proposalId, driverProfileId,\n  agreedPrice, platformFee,\n  status: "Scheduled",\n  agendaStartsAt, agendaEndsAt }',
-          note: 'Creates the delivery, books the driver for 4 hours from pickup, rejects the other proposals and closes the freight. Approve before the proposal window ends. 409 proposal.driver_busy means the driver got booked in the meantime: pick another.' },
+          note: 'Creates the delivery, books the driver (2 hours plus 1 hour per stop, from the first pickup), rejects the other proposals and closes the freight. Approve before the proposal window ends. 409 proposal.driver_busy means the driver got booked in the meantime: pick another.' },
         { id: 'c6', c: 1, r: 3, k: 'soft', m: 'POST', p: '/freights/{id}/cancel', d: 'Give up on an open freight', who: 'Customer',
           get: '204',
           note: 'Only while the freight is Open. Pending proposals are rejected.' },
@@ -249,9 +256,9 @@
     },
     driver: {
       label: 'Motorista',
-      cols: ['Cadastro', 'Propostas'],
+      cols: ['Cadastro', 'Propostas e corrida'],
       intro: 'O motorista só vê fretes depois que um admin aprova o perfil. Aprovado, a coluna da direita abre.',
-      edges: { 'd6>d3': 'não', 'd6>d7': 'sim', 'd9>d2': 'Rejected', 'd9>d10': 'Approved', 'm3>m4': 'opcional' },
+      edges: { 'd6>d3': 'não', 'd6>d7': 'sim', 'd9>d2': 'Rejected', 'd9>d10': 'Approved', 'm3>m4': 'opcional', 'm3>m5': 'Accepted' },
       nodes: {
         d1: { d: '404 significa que ainda não há perfil', note: 'status é Draft, PendingReview, Approved ou Rejected. Um 404 (driver.profile_not_found) significa que a próxima chamada é o PUT.' },
         d2: { d: 'taxId (CPF ou CNPJ), CNH e categoria', get: '200 com o perfil (mesmo formato do GET)',
@@ -267,11 +274,14 @@
         d9: { t: 'Status?', d: 'Approved ou Rejected', note: 'Rejected vem com rejectionReason. Mostre o motivo, deixe o motorista editar e enviar de novo.' },
         d10: { t: 'Approved: pode propor', d: 'Abre o quadro de fretes' },
         m1: { d: 'Fretes abertos que cabem nos seus veículos',
-          note: 'Só fretes ainda dentro da janela de propostas e cujo tipo de veículo bate com um dos seus veículos ativos (até 100). O endereço completo fica oculto até a sua proposta ser aprovada.' },
+          note: 'Mostra quantas coletas e entregas a corrida tem e, de cada parada, a região e os itens. Só fretes dentro da janela de propostas cujo tipo de veículo bate com um dos seus veículos ativos (até 100). O endereço completo fica oculto até a sua proposta ser aprovada.' },
         m2: { d: 'Você define o preço', get: '201 com a proposta',
           note: 'Uma proposta pendente por frete. O veículo precisa estar ativo, ser do tipo pedido e comportar o peso. Frete do dia aceita propostas por 5 minutos; agendado, por 24 horas.' },
         m3: { d: 'Pending, Accepted, Rejected, Expired', note: 'Accepted significa que o cliente escolheu você e já existe uma entrega.' },
-        m4: { d: 'Retire uma proposta pendente', note: 'Só enquanto a proposta estiver Pending.' }
+        m4: { d: 'Retire uma proposta pendente', note: 'Só enquanto a proposta estiver Pending.' },
+        m5: { d: 'Entregas que você ganhou', note: 'Uma proposta que vira Accepted cria uma entrega aqui.' },
+        m6: { d: 'Corrida inteira ou parada a parada',
+          note: 'Agora com os endereços completos. ?view=Full devolve todas as coletas e entregas de uma vez, como visão geral da corrida. ?view=Next devolve só a primeira parada ainda não concluída, para o app mostrar uma parada depois da outra. Cada parada lista os itens a coletar ou entregar.' }
       }
     },
     customer: {
@@ -280,14 +290,16 @@
       intro: 'O cliente publica o frete, vê as propostas chegarem ordenadas por preço e aprova uma. A aprovação cria a entrega.',
       edges: { 'c4>c5': 'aprovar', 'c4>c3': 'aguardar', 'c4>c6': 'cancelar', 'c2>c7': 'a qualquer hora' },
       nodes: {
-        c1: { d: 'Coleta e entrega, salvas uma vez', get: '201 com o endereço e seu id',
-          note: 'Cadastre coleta e entrega separadamente. O estado precisa ser uma UF válida e o CEP tem 8 dígitos. Os ids vão na próxima chamada. GET /addresses lista os salvos.' },
-        c2: { d: 'Exige todos os termos ativos aceitos',
-          note: 'Sem scheduledPickupAt o frete é do dia e a janela de propostas é de 5 minutos. Com uma data futura em UTC (terminando em Z) a janela é de até 24 horas. Os endereços precisam ser diferentes e seus. 403 freight.terms_not_accepted quando falta algum termo.' },
+        c1: { d: 'Todos os endereços de coleta e entrega, salvos uma vez', get: '201 com o endereço e seu id',
+          note: 'Cadastre um endereço para cada coleta e cada entrega. O estado precisa ser uma UF válida e o CEP tem 8 dígitos. Os ids vão na próxima chamada. GET /addresses lista os salvos. O cliente pode ser pessoa ou empresa.' },
+        c2: { d: 'Paradas em ordem: coletas e depois entregas',
+          send: '{ "stops": [\n    { "type": "Pickup", "addressId": "3fa8...", "note": "Portão 2" },\n    { "type": "Pickup", "addressId": "9b1d..." },\n    { "type": "Delivery", "addressId": "7c9e...",\n      "items": [{ "description": "Pastilhas de freio", "quantity": 12 }] },\n    { "type": "Delivery", "addressId": "5d2a...", "note": "Final" } ],\n  "cargoDescription": "Autopeças",\n  "cargoWeightKg": 300,\n  "requiredVehicleType": "Fiorino",\n  "scheduledPickupAt": null }',
+          get: '201 { id, status: "Open", proposalDeadline,\n  pickupCount, deliveryCount,\n  stops: [{ sequence, type, address, note,\n    items, completedAt }], ... }',
+          note: 'A ordem do array stops é a ordem que o motorista segue. A primeira parada precisa ser Pickup e a última Delivery: é o endereço final de entrega. Os itens são opcionais e podem ir em coletas ou entregas. Todos os endereços precisam ser diferentes e seus. Sem scheduledPickupAt o frete é do dia e a janela de propostas é de 5 minutos; com uma data futura em UTC (terminando em Z) é de até 24 horas. 403 freight.terms_not_accepted quando falta algum termo.' },
         c3: { d: 'Ordenadas por preço, menor primeiro', note: 'Empate vai para a proposta mais antiga. Consulte enquanto o frete estiver Open.' },
         c4: { t: 'Escolher um motorista?', d: 'Compare preço e veículo' },
         c5: { d: '201: entrega criada',
-          note: 'Cria a entrega, reserva o motorista por 4 horas a partir da coleta, rejeita as outras propostas e fecha o frete. Aprove antes do fim da janela de propostas. 409 proposal.driver_busy significa que o motorista foi reservado nesse meio tempo: escolha outro.' },
+          note: 'Cria a entrega, reserva a agenda do motorista (2 horas mais 1 hora por parada, a partir da primeira coleta), rejeita as outras propostas e fecha o frete. Aprove antes do fim da janela de propostas. 409 proposal.driver_busy significa que o motorista foi reservado nesse meio tempo: escolha outro.' },
         c6: { d: 'Desista de um frete aberto', note: 'Só enquanto o frete estiver Open. As propostas pendentes são rejeitadas.' },
         c7: { d: 'Situação dos seus fretes, a qualquer hora',
           note: 'Filtre com ?status=Open, Approved, Expired ou Cancelled. GET /freights/{id} devolve um só. Um frete pode continuar Open por até 30 segundos depois do fim da janela, até a rotina de expiração rodar.' }

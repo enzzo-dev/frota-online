@@ -6,6 +6,9 @@ public enum DriverStatus { Draft = 1, PendingReview = 2, Approved = 3, Rejected 
 
 public enum VehicleType { Fiorino = 1, Van = 2, Pickup = 3, Truck34 = 4, Truck = 5, Trailer = 6 }
 
+/// <summary>What happens at a stop: the driver collects cargo or hands it over.</summary>
+public enum StopType { Pickup = 1, Delivery = 2 }
+
 public enum FreightStatus { Open = 1, Approved = 2, Expired = 3, Cancelled = 4 }
 
 public enum ProposalStatus { Pending = 1, Accepted = 2, Rejected = 3, Expired = 4, Withdrawn = 5 }

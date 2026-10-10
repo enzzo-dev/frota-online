@@ -4,6 +4,9 @@ namespace FrotaOnline.Application.Marketplace;
 
 public static class MarketplaceErrors
 {
+    public static readonly Error DeliveryNotFound =
+        new("delivery.not_found", "Delivery not found.", ErrorType.NotFound);
+
     public static readonly Error FreightNotFound =
         new("freight.not_found", "Freight request not found.", ErrorType.NotFound);
 

@@ -15,11 +15,22 @@ internal static class FreightMapper
         freight.RequiredVehicleType,
         freight.ScheduledPickupAt,
         freight.ProposalDeadline,
-        AddressService.ToResponse(addresses[freight.PickupAddressId]),
-        AddressService.ToResponse(addresses[freight.DeliveryAddressId]),
+        freight.PickupCount,
+        freight.DeliveryCount,
+        freight.Stops
+            .OrderBy(s => s.Sequence)
+            .Select(s => new FreightStopResponse(
+                s.Id, s.Sequence, s.Type, AddressService.ToResponse(addresses[s.AddressId]), s.Note, ToItems(s), s.CompletedAt))
+            .ToList(),
         freight.ApprovedProposalId,
         pendingProposals,
         freight.CreatedAt);
+
+    public static IReadOnlyList<FreightItemResponse> ToItems(FreightStop stop) =>
+        stop.Items.Select(i => new FreightItemResponse(i.Description, i.Quantity)).ToList();
+
+    public static IReadOnlyList<Guid> AddressIds(IEnumerable<FreightRequest> freights) =>
+        freights.SelectMany(f => f.Stops).Select(s => s.AddressId).Distinct().ToList();
 
     public static ProposalResponse ToResponse(Proposal p) =>
         new(p.Id, p.FreightRequestId, p.VehicleId, p.Price, p.Message, p.Status, p.ExpiresAt, p.CreatedAt);

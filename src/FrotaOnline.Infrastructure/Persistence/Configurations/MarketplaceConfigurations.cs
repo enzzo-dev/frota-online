@@ -13,8 +13,28 @@ internal sealed class FreightRequestConfiguration : IEntityTypeConfiguration<Fre
         builder.Property(x => x.CargoDescription).HasMaxLength(1000).IsRequired();
         builder.Property(x => x.CargoWeightKg).HasPrecision(12, 2);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CustomerId);
-        builder.HasOne<Address>().WithMany().HasForeignKey(x => x.PickupAddressId);
-        builder.HasOne<Address>().WithMany().HasForeignKey(x => x.DeliveryAddressId);
+        builder.HasMany(x => x.Stops).WithOne().HasForeignKey(s => s.FreightRequestId);
+        builder.Navigation(x => x.Stops).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class FreightStopConfiguration : IEntityTypeConfiguration<FreightStop>
+{
+    public void Configure(EntityTypeBuilder<FreightStop> builder)
+    {
+        builder.HasIndex(x => new { x.FreightRequestId, x.Sequence }).IsUnique();
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.HasOne<Address>().WithMany().HasForeignKey(x => x.AddressId);
+        builder.HasMany(x => x.Items).WithOne().HasForeignKey(i => i.FreightStopId);
+        builder.Navigation(x => x.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class FreightItemConfiguration : IEntityTypeConfiguration<FreightItem>
+{
+    public void Configure(EntityTypeBuilder<FreightItem> builder)
+    {
+        builder.Property(x => x.Description).HasMaxLength(200).IsRequired();
     }
 }
 

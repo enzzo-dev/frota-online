@@ -3,13 +3,33 @@ using FrotaOnline.Domain.Enums;
 
 namespace FrotaOnline.Application.Marketplace.Dtos;
 
+public sealed record CreateFreightItemRequest(string Description, int Quantity);
+
+/// <summary>One stop of the route. Send the stops in the order the driver should follow.</summary>
+public sealed record CreateFreightStopRequest(
+    StopType Type,
+    Guid AddressId,
+    string? Note,
+    IReadOnlyList<CreateFreightItemRequest>? Items);
+
+/// <summary>The first stop must be a pickup and the last one a delivery (the final delivery address).</summary>
 public sealed record CreateFreightRequest(
-    Guid PickupAddressId,
-    Guid DeliveryAddressId,
+    IReadOnlyList<CreateFreightStopRequest> Stops,
     string CargoDescription,
     decimal CargoWeightKg,
     VehicleType RequiredVehicleType,
     DateTime? ScheduledPickupAt);
+
+public sealed record FreightItemResponse(string Description, int Quantity);
+
+public sealed record FreightStopResponse(
+    Guid Id,
+    int Sequence,
+    StopType Type,
+    AddressResponse Address,
+    string? Note,
+    IReadOnlyList<FreightItemResponse> Items,
+    DateTime? CompletedAt);
 
 public sealed record FreightResponse(
     Guid Id,
@@ -19,8 +39,9 @@ public sealed record FreightResponse(
     VehicleType RequiredVehicleType,
     DateTime? ScheduledPickupAt,
     DateTime ProposalDeadline,
-    AddressResponse PickupAddress,
-    AddressResponse DeliveryAddress,
+    int PickupCount,
+    int DeliveryCount,
+    IReadOnlyList<FreightStopResponse> Stops,
     Guid? ApprovedProposalId,
     int PendingProposals,
     DateTime CreatedAt);
@@ -48,6 +69,15 @@ public sealed record ApprovedDeliveryResponse(
     DateTime AgendaStartsAt,
     DateTime AgendaEndsAt);
 
+/// <summary>A stop as a driver sees it before winning the freight: the area and the cargo, no street.</summary>
+public sealed record OpenStopResponse(
+    int Sequence,
+    StopType Type,
+    string District,
+    string City,
+    string State,
+    IReadOnlyList<FreightItemResponse> Items);
+
 /// <summary>Freight as a driver sees it before winning it: no street addresses yet.</summary>
 public sealed record OpenFreightResponse(
     Guid Id,
@@ -56,11 +86,32 @@ public sealed record OpenFreightResponse(
     VehicleType RequiredVehicleType,
     DateTime? ScheduledPickupAt,
     DateTime ProposalDeadline,
-    string PickupDistrict,
-    string PickupCity,
-    string PickupState,
-    string DeliveryCity,
-    string DeliveryState);
+    int PickupCount,
+    int DeliveryCount,
+    IReadOnlyList<OpenStopResponse> Stops);
+
+/// <summary>Full gives every stop of the run at once; Next gives only the stop the driver must do now.</summary>
+public enum RouteView { Full = 1, Next = 2 }
+
+public sealed record RouteStopResponse(
+    Guid StopId,
+    int Sequence,
+    StopType Type,
+    AddressResponse Address,
+    string? Note,
+    IReadOnlyList<FreightItemResponse> Items,
+    DateTime? CompletedAt);
+
+/// <summary>The route of a delivery the driver won, with full addresses.</summary>
+public sealed record DeliveryRouteResponse(
+    Guid DeliveryId,
+    Guid FreightRequestId,
+    string CargoDescription,
+    decimal CargoWeightKg,
+    RouteView View,
+    int TotalStops,
+    int CompletedStops,
+    IReadOnlyList<RouteStopResponse> Stops);
 
 public sealed record SubmitProposalRequest(Guid VehicleId, decimal Price, string? Message);
 
@@ -72,4 +123,15 @@ public sealed record ProposalResponse(
     string? Message,
     ProposalStatus Status,
     DateTime ExpiresAt,
+    DateTime CreatedAt);
+
+/// <summary>A delivery the driver won, as a list row.</summary>
+public sealed record DriverDeliverySummary(
+    Guid DeliveryId,
+    Guid FreightRequestId,
+    DeliveryStatus Status,
+    decimal AgreedPrice,
+    DateTime? ScheduledPickupAt,
+    int TotalStops,
+    int CompletedStops,
     DateTime CreatedAt);

@@ -135,7 +135,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         }
 
         var startsAt = freight.ScheduledPickupAt ?? now;
-        var endsAt = startsAt + DeliveryPlanning.AgendaWindow;
+        var endsAt = startsAt + DeliveryPlanning.AgendaWindow(freight.Stops.Count);
         if (await _agenda.HasConflictAsync(driver.Id, startsAt, endsAt, cancellationToken))
         {
             return Result.Failure<ApprovedDeliveryResponse>(MarketplaceErrors.DriverBusy);

@@ -199,12 +199,13 @@
         <table class="grid">
           <thead><tr><th>Etapa</th><th>Quem</th><th>Chamada</th><th>O que acontece</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Cliente</td><td><code>POST /addresses</code></td><td>Cadastre os endereços de coleta e de entrega. O estado precisa ser uma UF válida e o CEP tem 8 dígitos.</td></tr>
-            <tr><td>2</td><td>Cliente</td><td><code>POST /freights</code></td><td>Exige todos os termos ativos aceitos. Sem <code>scheduledPickupAt</code> o frete é do dia e recebe propostas por 5 minutos; agendado, por 24 horas. Envie a data em UTC, terminando em <code>Z</code>.</td></tr>
-            <tr><td>3</td><td>Motorista</td><td><code>GET /driver/freights/open</code></td><td>Só fretes cujo tipo de veículo bate com um dos seus veículos ativos. O endereço completo fica oculto até a aprovação.</td></tr>
+            <tr><td>1</td><td>Cliente</td><td><code>POST /addresses</code></td><td>Cadastre cada endereço de coleta e de entrega. O estado precisa ser uma UF válida e o CEP tem 8 dígitos. O cliente pode ser pessoa ou empresa.</td></tr>
+            <tr><td>2</td><td>Cliente</td><td><code>POST /freights</code></td><td>Envie <code>stops</code> na ordem que o motorista segue, cada uma <code>Pickup</code> ou <code>Delivery</code>, com <code>items</code> opcionais e uma observação. Um frete pode ter várias coletas e várias entregas; a primeira parada precisa ser coleta e a última entrega, o endereço final. Exige todos os termos ativos aceitos. Sem <code>scheduledPickupAt</code> o frete é do dia e recebe propostas por 5 minutos; agendado, por 24 horas (UTC, terminando em <code>Z</code>).</td></tr>
+            <tr><td>3</td><td>Motorista</td><td><code>GET /driver/freights/open</code></td><td>Só fretes cujo tipo de veículo bate com um dos seus veículos ativos. Cada frete mostra quantas coletas e entregas tem e, por parada, a região e os itens. O endereço completo fica oculto até a aprovação.</td></tr>
             <tr><td>4</td><td>Motorista</td><td><code>POST /driver/freights/{id}/proposals</code></td><td>Escolha um veículo do tipo certo que comporte o peso e defina o preço. Uma proposta pendente por frete; retire-a para mudar de ideia.</td></tr>
             <tr><td>5</td><td>Cliente</td><td><code>GET /freights/{id}/proposals</code></td><td>Propostas pendentes ordenadas por preço, a menor primeiro. Empate vai para a mais antiga.</td></tr>
-            <tr><td>6</td><td>Cliente</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Cria a entrega, reserva a agenda do motorista por 4 horas a partir da coleta, rejeita as outras propostas e fecha o frete. Se o motorista já estiver ocupado nesse período, devolve <code>proposal.driver_busy</code>.</td></tr>
+            <tr><td>6</td><td>Cliente</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Cria a entrega, reserva a agenda do motorista (2 horas mais 1 hora por parada, a partir da primeira coleta), rejeita as outras propostas e fecha o frete. Se o motorista já estiver ocupado nesse período, devolve <code>proposal.driver_busy</code>.</td></tr>
+            <tr><td>7</td><td>Motorista</td><td><code>GET /driver/deliveries</code> e depois <code>GET /driver/deliveries/{id}/route</code></td><td>Lista as entregas que você ganhou e abre a rota com os endereços completos. <code>view=Full</code> mostra todas as coletas e entregas de uma vez, como visão geral da corrida. <code>view=Next</code> mostra só a parada a fazer agora, para o app ir de uma em uma. Cada parada lista seus itens.</td></tr>
           </tbody>
         </table>
       </div>
@@ -257,7 +258,7 @@
             <tr><td>400</td><td><code>driver.submission_incomplete</code></td><td>Falta termo, veículo ou documento. O objeto <code>errors</code> diz quais.</td></tr>
             <tr><td>403</td><td>sem corpo</td><td>O perfil conectado não pode usar este endpoint, por exemplo um Driver chamando <code>/admin</code>.</td></tr>
             <tr><td>403</td><td><code>freight.terms_not_accepted</code></td><td>O cliente precisa aceitar os termos ativos antes de publicar um frete.</td></tr>
-            <tr><td>404</td><td><code>freight.not_found</code>, <code>proposal.not_found</code></td><td>O frete ou a proposta não existe ou é de outra pessoa.</td></tr>
+            <tr><td>404</td><td><code>freight.not_found</code>, <code>proposal.not_found</code>, <code>delivery.not_found</code></td><td>O frete, a proposta ou a entrega não existe ou é de outra pessoa.</td></tr>
             <tr><td>409</td><td><code>freight.not_open</code>, <code>freight.window_closed</code></td><td>O frete está fechado, cancelado, expirado ou fora da janela de propostas. Recarregue a lista.</td></tr>
             <tr><td>409</td><td><code>proposal.not_pending</code>, <code>proposal.already_submitted</code></td><td>A proposta já foi decidida, ou você já tem uma pendente neste frete.</td></tr>
             <tr><td>403</td><td><code>proposal.driver_not_approved</code></td><td>Só motoristas aprovados enviam propostas.</td></tr>

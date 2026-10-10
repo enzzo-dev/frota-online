@@ -60,7 +60,7 @@ public class ProposalSelectionServiceTests : MarketplaceTestBase
         var slot = Assert.Single(Agenda.Items);
         Assert.Equal(delivery.Id, slot.DeliveryId);
         Assert.Equal(Clock.UtcNow, slot.StartsAt);
-        Assert.Equal(Clock.UtcNow + DeliveryPlanning.AgendaWindow, slot.EndsAt);
+        Assert.Equal(Clock.UtcNow + DeliveryPlanning.AgendaWindow(2), slot.EndsAt);
     }
 
     [Fact]

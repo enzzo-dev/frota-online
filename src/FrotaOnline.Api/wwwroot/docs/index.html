@@ -199,12 +199,13 @@
         <table class="grid">
           <thead><tr><th>Step</th><th>Who</th><th>Call</th><th>What happens</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>Customer</td><td><code>POST /addresses</code></td><td>Register the pickup and delivery addresses. State must be a valid UF and the ZIP has 8 digits.</td></tr>
-            <tr><td>2</td><td>Customer</td><td><code>POST /freights</code></td><td>Needs every active term accepted. Without <code>scheduledPickupAt</code> the freight is for today and takes proposals for 5 minutes; a scheduled one takes them for 24 hours. Send the date in UTC, with the trailing <code>Z</code>.</td></tr>
-            <tr><td>3</td><td>Driver</td><td><code>GET /driver/freights/open</code></td><td>Only freights whose vehicle type matches one of your active vehicles. Street addresses stay hidden until approval.</td></tr>
+            <tr><td>1</td><td>Customer</td><td><code>POST /addresses</code></td><td>Register every pickup and delivery address. State must be a valid UF and the ZIP has 8 digits. Customers can be people or companies.</td></tr>
+            <tr><td>2</td><td>Customer</td><td><code>POST /freights</code></td><td>Send <code>stops</code> in the order the driver follows, each one a <code>Pickup</code> or a <code>Delivery</code> with optional <code>items</code> and a note. A freight can have several pickups and several deliveries; the first stop must be a pickup and the last a delivery, the final address. Needs every active term accepted. Without <code>scheduledPickupAt</code> the freight is for today and takes proposals for 5 minutes; a scheduled one takes them for 24 hours (UTC, trailing <code>Z</code>).</td></tr>
+            <tr><td>3</td><td>Driver</td><td><code>GET /driver/freights/open</code></td><td>Only freights whose vehicle type matches one of your active vehicles. Each freight shows how many pickups and deliveries it has and, per stop, the area and the items. Street addresses stay hidden until approval.</td></tr>
             <tr><td>4</td><td>Driver</td><td><code>POST /driver/freights/{id}/proposals</code></td><td>Pick a vehicle of the right type that carries the weight, and set the price. One pending proposal per freight; withdraw it to change your mind.</td></tr>
             <tr><td>5</td><td>Customer</td><td><code>GET /freights/{id}/proposals</code></td><td>Pending proposals ranked by price, cheapest first. Ties go to the earliest.</td></tr>
-            <tr><td>6</td><td>Customer</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Creates the delivery, books the driver's agenda for 4 hours from pickup, rejects the other proposals and closes the freight. A driver already booked in that period returns <code>proposal.driver_busy</code>.</td></tr>
+            <tr><td>6</td><td>Customer</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Creates the delivery, books the driver's agenda (2 hours plus 1 hour per stop, from the first pickup), rejects the other proposals and closes the freight. A driver already booked in that period returns <code>proposal.driver_busy</code>.</td></tr>
+            <tr><td>7</td><td>Driver</td><td><code>GET /driver/deliveries</code>, then <code>GET /driver/deliveries/{id}/route</code></td><td>Lists the deliveries you won and opens the route with full addresses. <code>view=Full</code> shows every pickup and delivery at once, as an overview of the run. <code>view=Next</code> shows only the stop to do now, so the app can go one stop after the other. Each stop lists its items.</td></tr>
           </tbody>
         </table>
       </div>
@@ -257,7 +258,7 @@
             <tr><td>400</td><td><code>driver.submission_incomplete</code></td><td>Terms, vehicle or document is missing. The <code>errors</code> object names each one.</td></tr>
             <tr><td>403</td><td>no body</td><td>The signed-in role cannot use this endpoint, for example a Driver calling <code>/admin</code>.</td></tr>
             <tr><td>403</td><td><code>freight.terms_not_accepted</code></td><td>The customer must accept the active terms before posting a freight.</td></tr>
-            <tr><td>404</td><td><code>freight.not_found</code>, <code>proposal.not_found</code></td><td>The freight or proposal does not exist or belongs to someone else.</td></tr>
+            <tr><td>404</td><td><code>freight.not_found</code>, <code>proposal.not_found</code>, <code>delivery.not_found</code></td><td>The freight, proposal or delivery does not exist or belongs to someone else.</td></tr>
             <tr><td>409</td><td><code>freight.not_open</code>, <code>freight.window_closed</code></td><td>The freight is closed, cancelled, expired or past its proposal window. Reload the list.</td></tr>
             <tr><td>409</td><td><code>proposal.not_pending</code>, <code>proposal.already_submitted</code></td><td>The proposal was already decided, or you already have a pending one on this freight.</td></tr>
             <tr><td>403</td><td><code>proposal.driver_not_approved</code></td><td>Only approved drivers can send proposals.</td></tr>

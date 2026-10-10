@@ -16,7 +16,9 @@ public class FreightServiceTests : MarketplaceTestBase
         Assert.True(result.IsSuccess);
         Assert.Equal(FreightStatus.Open, result.Value.Status);
         Assert.Equal(Clock.UtcNow.AddMinutes(5), result.Value.ProposalDeadline);
-        Assert.Equal("Sao Paulo", result.Value.PickupAddress.City);
+        Assert.Equal("Sao Paulo", result.Value.Stops[0].Address.City);
+        Assert.Equal(1, result.Value.PickupCount);
+        Assert.Equal(1, result.Value.DeliveryCount);
     }
 
     [Fact]
@@ -59,6 +61,68 @@ public class FreightServiceTests : MarketplaceTestBase
         var (pickup, _) = AddAddresses(CustomerId);
 
         var result = await FreightService.CreateAsync(CustomerId, NewFreight(pickup, pickup), CancellationToken.None);
+
+        Assert.Equal(ErrorType.Validation, result.Error!.Type);
+    }
+
+    [Fact]
+    public async Task Create_WithSeveralPickupsAndDeliveries_KeepsTheOrderItemsAndFinalAddress()
+    {
+        var a = AddAddress(CustomerId, "Sao Paulo");
+        var b = AddAddress(CustomerId, "Osasco", "Centro", "06010000");
+        var c = AddAddress(CustomerId, "Campinas", "Cambui", "13010000");
+        var d = AddAddress(CustomerId, "Santos", "Gonzaga", "11050000");
+        var stops = new[]
+        {
+            Stop(StopType.Pickup, a, "Gate 2"),
+            Stop(StopType.Pickup, b, items: new[] { ("Pecas", 4) }),
+            Stop(StopType.Delivery, c, items: new[] { ("Pecas A", 2), ("Pecas B", 3) }),
+            Stop(StopType.Delivery, d, "Final delivery", ("Pecas C", 1))
+        };
+
+        var result = await FreightService.CreateAsync(CustomerId, NewFreight(stops), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.PickupCount);
+        Assert.Equal(2, result.Value.DeliveryCount);
+        Assert.Equal(new[] { 1, 2, 3, 4 }, result.Value.Stops.Select(x => x.Sequence));
+        Assert.Equal(new[] { "Sao Paulo", "Osasco", "Campinas", "Santos" }, result.Value.Stops.Select(x => x.Address.City));
+        Assert.Equal(2, result.Value.Stops[2].Items.Count);
+        Assert.Equal("Santos", result.Value.Stops[^1].Address.City);
+        Assert.Empty(result.Value.Stops[0].Items);
+        Assert.Equal(4, Freights.Items.Single().Stops.Count);
+    }
+
+    [Fact]
+    public async Task Create_WhenTheFirstStopIsNotAPickup_IsRejected()
+    {
+        var (pickup, delivery) = AddAddresses(CustomerId);
+        var stops = new[] { Stop(StopType.Delivery, delivery), Stop(StopType.Pickup, pickup) };
+
+        var result = await FreightService.CreateAsync(CustomerId, NewFreight(stops), CancellationToken.None);
+
+        Assert.Equal(ErrorType.Validation, result.Error!.Type);
+        Assert.Empty(Freights.Items);
+    }
+
+    [Fact]
+    public async Task Create_WithOnlyOneStop_IsRejected()
+    {
+        var (pickup, _) = AddAddresses(CustomerId);
+
+        var result = await FreightService.CreateAsync(
+            CustomerId, NewFreight(new[] { Stop(StopType.Pickup, pickup) }), CancellationToken.None);
+
+        Assert.Equal(ErrorType.Validation, result.Error!.Type);
+    }
+
+    [Fact]
+    public async Task Create_WithAnInvalidItemQuantity_IsRejected()
+    {
+        var (pickup, delivery) = AddAddresses(CustomerId);
+        var stops = new[] { Stop(StopType.Pickup, pickup), Stop(StopType.Delivery, delivery, items: new[] { ("Pecas", 0) }) };
+
+        var result = await FreightService.CreateAsync(CustomerId, NewFreight(stops), CancellationToken.None);
 
         Assert.Equal(ErrorType.Validation, result.Error!.Type);
     }

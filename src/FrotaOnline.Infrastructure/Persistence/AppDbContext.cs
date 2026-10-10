@@ -21,6 +21,8 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<TermDocument> TermDocuments => Set<TermDocument>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
     public DbSet<FreightRequest> FreightRequests => Set<FreightRequest>();
+    public DbSet<FreightStop> FreightStops => Set<FreightStop>();
+    public DbSet<FreightItem> FreightItems => Set<FreightItem>();
     public DbSet<Proposal> Proposals => Set<Proposal>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<DeliveryEvent> DeliveryEvents => Set<DeliveryEvent>();

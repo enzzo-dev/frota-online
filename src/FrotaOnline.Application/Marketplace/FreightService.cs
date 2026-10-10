@@ -60,22 +60,31 @@ public sealed class FreightService : IFreightService
             return Result.Failure<FreightResponse>(MarketplaceErrors.TermsNotAccepted);
         }
 
-        var pickup = await _addresses.GetByIdAsync(request.PickupAddressId, cancellationToken);
-        var delivery = await _addresses.GetByIdAsync(request.DeliveryAddressId, cancellationToken);
-        if (pickup is null || pickup.OwnerUserId != customerId || delivery is null || delivery.OwnerUserId != customerId)
+        var addressIds = request.Stops.Select(s => s.AddressId).Distinct().ToList();
+        var found = (await _addresses.ListByIdsAsync(addressIds, cancellationToken)).ToDictionary(a => a.Id);
+        if (addressIds.Any(id => !found.TryGetValue(id, out var address) || address.OwnerUserId != customerId))
         {
             return Result.Failure<FreightResponse>(AddressErrors.NotFound);
         }
 
+        var drafts = request.Stops
+            .Select(s => new FreightStopDraft(
+                s.Type,
+                s.AddressId,
+                s.Note,
+                (s.Items ?? Array.Empty<CreateFreightItemRequest>())
+                    .Select(i => new FreightItemDraft(i.Description, i.Quantity))
+                    .ToList()))
+            .ToList();
+
         var freight = FreightRequest.Create(
-            customerId, pickup.Id, delivery.Id, request.CargoDescription, request.CargoWeightKg,
+            customerId, drafts, request.CargoDescription, request.CargoWeightKg,
             request.RequiredVehicleType, request.ScheduledPickupAt?.ToUniversalTime(), now);
 
         await _freights.AddAsync(freight, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var addresses = new Dictionary<Guid, Address> { [pickup.Id] = pickup, [delivery.Id] = delivery };
-        return Result.Success(FreightMapper.ToResponse(freight, addresses, 0));
+        return Result.Success(FreightMapper.ToResponse(freight, found, 0));
     }
 
     public async Task<Result<IReadOnlyList<FreightResponse>>> ListAsync(
@@ -129,8 +138,8 @@ public sealed class FreightService : IFreightService
             return Array.Empty<FreightResponse>();
         }
 
-        var addressIds = freights.SelectMany(f => new[] { f.PickupAddressId, f.DeliveryAddressId }).Distinct().ToList();
-        var addresses = (await _addresses.ListByIdsAsync(addressIds, cancellationToken)).ToDictionary(a => a.Id);
+        var addresses = (await _addresses.ListByIdsAsync(FreightMapper.AddressIds(freights), cancellationToken))
+            .ToDictionary(a => a.Id);
         var counts = await _proposals.CountPendingByFreightAsync(freights.Select(f => f.Id).ToList(), cancellationToken);
 
         return freights

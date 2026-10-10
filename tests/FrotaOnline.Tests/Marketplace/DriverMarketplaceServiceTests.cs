@@ -127,8 +127,32 @@ public class DriverMarketplaceServiceTests : MarketplaceTestBase
 
         var item = Assert.Single(result.Value);
         Assert.Equal(VehicleType.Fiorino, item.RequiredVehicleType);
-        Assert.Equal("Centro", item.PickupDistrict);
-        Assert.Equal("Campinas", item.DeliveryCity);
+        Assert.Equal("Centro", item.Stops[0].District);
+        Assert.Equal("Campinas", item.Stops[1].City);
+    }
+
+    [Fact]
+    public async Task ListOpen_ShowsStopCountsAndItemsPerStop_ButNoStreets()
+    {
+        var a = AddAddress(CustomerId, "Sao Paulo");
+        var b = AddAddress(CustomerId, "Campinas", "Cambui", "13010000");
+        var c = AddAddress(CustomerId, "Santos", "Gonzaga", "11050000");
+        var stops = new[]
+        {
+            Stop(StopType.Pickup, a),
+            Stop(StopType.Delivery, b, items: new[] { ("Caixas", 5) }),
+            Stop(StopType.Delivery, c, items: new[] { ("Pecas", 2) })
+        };
+        await FreightService.CreateAsync(CustomerId, NewFreight(stops), CancellationToken.None);
+        var (userId, _, _) = AddApprovedDriver();
+
+        var result = await DriverMarketplace.ListOpenFreightsAsync(userId, CancellationToken.None);
+
+        var freight = Assert.Single(result.Value);
+        Assert.Equal(1, freight.PickupCount);
+        Assert.Equal(2, freight.DeliveryCount);
+        Assert.Equal(new[] { "Sao Paulo", "Campinas", "Santos" }, freight.Stops.Select(s => s.City));
+        Assert.Equal("Caixas", Assert.Single(freight.Stops[1].Items).Description);
     }
 
     [Fact]

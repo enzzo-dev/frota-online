@@ -69,17 +69,20 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         }
 
         var freights = await _freights.ListOpenAsync(_clock.UtcNow, types, cancellationToken);
-        var addressIds = freights.SelectMany(f => new[] { f.PickupAddressId, f.DeliveryAddressId }).Distinct().ToList();
-        var addresses = (await _addresses.ListByIdsAsync(addressIds, cancellationToken)).ToDictionary(a => a.Id);
+        var addresses = (await _addresses.ListByIdsAsync(FreightMapper.AddressIds(freights), cancellationToken))
+            .ToDictionary(a => a.Id);
 
-        var response = freights.Select(f =>
-        {
-            var pickup = addresses[f.PickupAddressId];
-            var delivery = addresses[f.DeliveryAddressId];
-            return new OpenFreightResponse(
-                f.Id, f.CargoDescription, f.CargoWeightKg, f.RequiredVehicleType, f.ScheduledPickupAt, f.ProposalDeadline,
-                pickup.District, pickup.City, pickup.State, delivery.City, delivery.State);
-        }).ToList();
+        var response = freights.Select(f => new OpenFreightResponse(
+            f.Id, f.CargoDescription, f.CargoWeightKg, f.RequiredVehicleType, f.ScheduledPickupAt, f.ProposalDeadline,
+            f.PickupCount, f.DeliveryCount,
+            f.Stops
+                .OrderBy(s => s.Sequence)
+                .Select(s =>
+                {
+                    var address = addresses[s.AddressId];
+                    return new OpenStopResponse(s.Sequence, s.Type, address.District, address.City, address.State, FreightMapper.ToItems(s));
+                })
+                .ToList())).ToList();
 
         return Result.Success<IReadOnlyList<OpenFreightResponse>>(response);
     }
@@ -145,7 +148,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         }
 
         var start = freight.ScheduledPickupAt ?? now;
-        if (await _agenda.HasConflictAsync(profile.Id, start, start + DeliveryPlanning.AgendaWindow, cancellationToken))
+        if (await _agenda.HasConflictAsync(profile.Id, start, start + DeliveryPlanning.AgendaWindow(freight.Stops.Count), cancellationToken))
         {
             return Result.Failure<ProposalResponse>(MarketplaceErrors.DriverBusy);
         }
