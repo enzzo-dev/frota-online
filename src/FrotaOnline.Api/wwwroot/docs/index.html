@@ -29,6 +29,7 @@
       <a href="#tokens">How sessions work</a>
       <a href="#flow">Call order</a>
       <a href="#onboarding">Driver onboarding</a>
+      <a href="#marketplace">Marketplace</a>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Errors</a>
     </nav>
@@ -60,7 +61,7 @@
           <code id="base-url">/api/v1</code>
           <button type="button" class="copy" data-copy-target="base-url">Copy</button>
         </div>
-        <p class="roadmap"><strong>Available now:</strong> accounts and sessions. <strong>Next:</strong> driver onboarding, freight requests, proposals.</p>
+        <p class="roadmap"><strong>Available now:</strong> accounts, driver onboarding, freight requests, proposals and approval. <strong>Next:</strong> pickup and delivery tracking, proof, payment record.</p>
       </div>
       <div class="roadline" aria-hidden="true"></div>
     </header>
@@ -145,22 +146,28 @@
 
     <section id="flow" class="section">
       <h2>Call order for the front-end</h2>
-      <p class="section-lede">Follow the arrows from the top. Every user starts with the terms and a session, then the path splits by role. Red dashed chips mark the loops that send the user back to an earlier step.</p>
-      <div class="fx" role="group" aria-label="Call order diagram">
-        <ol class="fx-session"><li><div class="fx-node "><div class="fx-top"><span class="fx-m get">GET</span><span class="fx-p">/terms/active</span></div><span class="fx-d">Termos antes do cadastro</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/auth/register</span></div><span class="fx-d">ou /auth/login. Guarda accessToken e refreshToken</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m get">GET</span><span class="fx-p">/terms/pending</span></div><span class="fx-d">Lista o que falta aceitar</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/terms/accept</span></div><span class="fx-d">Um por termo</span><span class="fx-loop">↩ repete o passo 3 até esvaziar</span></div></li></ol>
-        <div class="fx-down"></div>
-        <div class="fx-decision-wrap"><div class="fx-node decision"><div class="fx-top"><span class="fx-p">Qual o perfil da conta?</span></div></div></div>
-        <div class="fx-down"></div>
-        <div class="fx-lanes">
-          <div class="fx-lane"><span class="fx-tag driver">Driver</span><ol class="fx-flow"><li><div class="fx-node "><div class="fx-top"><span class="fx-m get">GET</span><span class="fx-p">/driver/profile</span></div><span class="fx-d">404 = ainda não existe. Senão, mostra status e checklist</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m put">PUT</span><span class="fx-p">/driver/profile</span></div><span class="fx-d">taxId (CPF ou CNPJ), cnhNumber, cnhCategory</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/driver/vehicles</span></div><span class="fx-d">Pelo menos um veículo ativo</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-p">Envia o arquivo ao storage</span></div><span class="fx-d">Chave drivers/{userId}/nome.jpg, feito fora da API</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/driver/documents</span></div><span class="fx-d">Registra chave, tipo, content type e tamanho</span></div></li><li><div class="fx-node decision"><div class="fx-top"><span class="fx-p">GET /driver/profile</span></div><span class="fx-d">checklist.isReady?</span><span class="fx-loop">não: ↩ refaz o que falta (termos, passo 3 ou 5)</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/driver/submit</span></div><span class="fx-d">Status vira PendingReview e o perfil trava</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m get">GET</span><span class="fx-p">/driver/profile</span></div><span class="fx-d">Consulta de tempos em tempos até sair de PendingReview</span></div></li><li><div class="fx-node decision"><div class="fx-top"><span class="fx-p">Status do perfil?</span></div><span class="fx-loop">Rejected: mostra rejectionReason e ↩ volta ao passo 2</span></div></li><li><div class="fx-node go"><div class="fx-top"><span class="fx-p">Approved: pode operar</span></div><span class="fx-d">Propostas de frete chegam na próxima fase</span></div></li></ol></div>
-          <div class="fx-lane"><span class="fx-tag admin">Admin</span><ol class="fx-flow"><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/auth/login</span></div><span class="fx-d">Conta com perfil Admin</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m get">GET</span><span class="fx-p">/admin/drivers</span></div><span class="fx-d">Fila PendingReview, mais antiga primeiro</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m get">GET</span><span class="fx-p">/admin/drivers/{id}</span></div><span class="fx-d">Perfil, veículos e arquivos</span></div></li><li><div class="fx-node decision"><div class="fx-top"><span class="fx-p">Decisão</span></div></div></li><li class="label"><p class="fx-branch"><span class="fx-tag admin">aprova</span></p></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/admin/drivers/{id}/approve</span></div><span class="fx-d">204 e e-mail de aprovação ao motorista</span></div></li><li class="label"><p class="fx-branch"><span class="fx-tag admin">rejeita</span></p></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/admin/drivers/{id}/reject</span></div><span class="fx-d">Body: reason. O motivo vai por e-mail</span></div></li></ol><ol class="fx-flow" style="margin-top:28px"><li><div class="fx-node soft"><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/admin/terms</span></div><span class="fx-d">Quando houver nova versão: todos aceitam de novo</span></div></li></ol></div>
-          <div class="fx-lane"><span class="fx-tag">Customer</span><ol class="fx-flow"><li><div class="fx-node soft"><div class="fx-top"><span class="fx-p">Termos aceitos</span></div><span class="fx-d">Os pedidos de frete chegam na próxima fase</span></div></li></ol></div>
+      <p class="section-lede">Pick a role, then press Play to follow the main path call by call. Click any step to see what to send, what comes back and what to watch for. Red dashed arrows go back to an earlier step.</p>
+      <div class="flow-app" id="flow-app">
+        <div class="flow-tabs" id="flow-tabs" role="tablist" aria-label="Choose a flow"></div>
+        <p class="flow-intro" id="flow-intro"></p>
+        <div class="flow-bar">
+          <button type="button" class="btn" id="flow-play">Play</button>
+          <button type="button" class="btn ghost" id="flow-back">Back</button>
+          <button type="button" class="btn ghost" id="flow-next">Next</button>
+          <button type="button" class="btn ghost" id="flow-reset">Reset</button>
+          <span class="flow-step" id="flow-step" role="status" aria-live="polite"></span>
         </div>
-      </div>
-      <h3 class="mini">Renewing an expired session</h3>
-      <p class="prose">Any authenticated call can answer 401 when the access token expires. Renew it once and repeat the call. Each refresh token works one time, so store the new pair. Sending an old one ends the session.</p>
-      <div class="fx" role="group" aria-label="Token renewal diagram">
-        <ol class="fx-refresh"><li><div class="fx-node "><div class="fx-top"><span class="fx-p">Chamada autenticada</span></div><span class="fx-d">Qualquer endpoint com Bearer</span></div></li><li><div class="fx-node decision"><div class="fx-top"><span class="fx-p">Veio 401?</span></div><span class="fx-loop">não: usa a resposta normalmente</span></div></li><li><div class="fx-node "><div class="fx-top"><span class="fx-m post">POST</span><span class="fx-p">/auth/refresh</span></div><span class="fx-d">Envia o refreshToken guardado</span></div></li><li><div class="fx-node decision"><div class="fx-top"><span class="fx-p">Veio 200?</span></div></div></li><li><div class="stack"><div class="fx-node go"><div class="fx-top"><span class="fx-p">Repete a chamada</span></div><span class="fx-d">Só uma vez, com o novo token e o par guardado</span></div><div class="fx-node soft"><div class="fx-top"><span class="fx-p">Volta ao login</span></div><span class="fx-d">Não veio 200: apaga os tokens da sessão</span></div></div></li></ol>
+        <div class="flow-stage"><canvas id="flow-canvas" tabindex="0" role="img" aria-label="Call order diagram"></canvas></div>
+        <ul class="flow-legend" aria-hidden="true">
+          <li><i class="lg-solid"></i>next call</li>
+          <li><i class="lg-loop"></i>go back</li>
+          <li><i class="lg-opt"></i>optional</li>
+          <li><i class="lg-dec"></i>front-end decision</li>
+          <li><i class="lg-go"></i>destination</li>
+        </ul>
+        <div class="flow-detail" id="flow-detail"></div>
+        <ol class="sr-only" id="flow-text" aria-label="Steps in order"></ol>
+        <noscript><p class="muted">The interactive diagram needs JavaScript. The endpoint list below has every call.</p></noscript>
       </div>
     </section>
 
@@ -182,6 +189,25 @@
         </table>
       </div>
       <p class="prose">In Development the API creates an admin on first start (<code>admin@frotaonline.local</code>, password from <code>Seed:Admin:Password</code> in <code>appsettings.Development.json</code>) and publishes version 1.0 of the terms. Sign in with it to try step 7.</p>
+    </section>
+
+    <section id="marketplace" class="section">
+      <h2>Marketplace</h2>
+      <p class="section-lede">The customer posts a freight, approved drivers bid with their own price, and the customer picks one. The platform never touches the freight money.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Step</th><th>Who</th><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Customer</td><td><code>POST /addresses</code></td><td>Register the pickup and delivery addresses. State must be a valid UF and the ZIP has 8 digits.</td></tr>
+            <tr><td>2</td><td>Customer</td><td><code>POST /freights</code></td><td>Needs every active term accepted. Without <code>scheduledPickupAt</code> the freight is for today and takes proposals for 5 minutes; a scheduled one takes them for 24 hours. Send the date in UTC, with the trailing <code>Z</code>.</td></tr>
+            <tr><td>3</td><td>Driver</td><td><code>GET /driver/freights/open</code></td><td>Only freights whose vehicle type matches one of your active vehicles. Street addresses stay hidden until approval.</td></tr>
+            <tr><td>4</td><td>Driver</td><td><code>POST /driver/freights/{id}/proposals</code></td><td>Pick a vehicle of the right type that carries the weight, and set the price. One pending proposal per freight; withdraw it to change your mind.</td></tr>
+            <tr><td>5</td><td>Customer</td><td><code>GET /freights/{id}/proposals</code></td><td>Pending proposals ranked by price, cheapest first. Ties go to the earliest.</td></tr>
+            <tr><td>6</td><td>Customer</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Creates the delivery, books the driver's agenda for 4 hours from pickup, rejects the other proposals and closes the freight. A driver already booked in that period returns <code>proposal.driver_busy</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">A background job runs every 30 seconds and expires freights and proposals past their window. Until it runs, the API already refuses proposals that arrive late.</p>
     </section>
 
     <section id="endpoints" class="section">
@@ -229,6 +255,13 @@
             <tr><td>409</td><td><code>driver.tax_id_in_use</code> / <code>driver.cnh_in_use</code> / <code>driver.plate_in_use</code></td><td>Another account already registered that document or plate.</td></tr>
             <tr><td>400</td><td><code>driver.submission_incomplete</code></td><td>Terms, vehicle or document is missing. The <code>errors</code> object names each one.</td></tr>
             <tr><td>403</td><td>no body</td><td>The signed-in role cannot use this endpoint, for example a Driver calling <code>/admin</code>.</td></tr>
+            <tr><td>403</td><td><code>freight.terms_not_accepted</code></td><td>The customer must accept the active terms before posting a freight.</td></tr>
+            <tr><td>404</td><td><code>freight.not_found</code>, <code>proposal.not_found</code></td><td>The freight or proposal does not exist or belongs to someone else.</td></tr>
+            <tr><td>409</td><td><code>freight.not_open</code>, <code>freight.window_closed</code></td><td>The freight is closed, cancelled, expired or past its proposal window. Reload the list.</td></tr>
+            <tr><td>409</td><td><code>proposal.not_pending</code>, <code>proposal.already_submitted</code></td><td>The proposal was already decided, or you already have a pending one on this freight.</td></tr>
+            <tr><td>403</td><td><code>proposal.driver_not_approved</code></td><td>Only approved drivers can send proposals.</td></tr>
+            <tr><td>409</td><td><code>proposal.driver_unavailable</code>, <code>proposal.vehicle_unavailable</code>, <code>proposal.driver_busy</code></td><td>The driver or vehicle is inactive, or the driver's agenda is taken at that time. Pick another proposal.</td></tr>
+            <tr><td>400</td><td><code>proposal.vehicle_not_eligible</code></td><td>The vehicle has the wrong type or cannot carry the weight.</td></tr>
           </tbody>
         </table>
       </div>
@@ -240,5 +273,6 @@
   </main>
 
   <script src="docs.js"></script>
+  <script src="flow.js" charset="utf-8"></script>
 </body>
 </html>
