@@ -94,6 +94,9 @@ internal sealed class FakeMediaFileRepository : IMediaFileRepository
         Guid ownerUserId, IReadOnlyCollection<MediaKind> kinds, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MediaFile>>(Items.Where(m => m.OwnerUserId == ownerUserId && kinds.Contains(m.Kind)).ToList());
 
+    public Task<MediaFile?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(m => m.Id == id));
+
     public Task<bool> StorageKeyExistsAsync(string storageKey, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Any(m => m.StorageKey == storageKey));
 

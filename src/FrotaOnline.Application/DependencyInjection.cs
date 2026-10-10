@@ -3,6 +3,7 @@ using FrotaOnline.Application.Admin;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Auth;
 using FrotaOnline.Application.Drivers;
+using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Privacy;
 using FrotaOnline.Application.Terms;
@@ -28,6 +29,10 @@ public static class DependencyInjection
         services.AddScoped<IProposalSelectionService, ProposalSelectionService>();
         services.AddScoped<IFreightExpirationService, FreightExpirationService>();
         services.AddScoped<IPrivacyService, PrivacyService>();
+        services.AddScoped<IDeliveryProgressService, DeliveryProgressService>();
+        services.AddScoped<IDeliveryPaymentService, DeliveryPaymentService>();
+        services.AddScoped<IFeeService, FeeService>();
+        services.AddScoped<ICustomerDeliveryService, CustomerDeliveryService>();
         return services;
     }
 }

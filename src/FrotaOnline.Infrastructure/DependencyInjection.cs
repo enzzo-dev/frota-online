@@ -52,10 +52,13 @@ public static class DependencyInjection
         services.AddScoped<IProposalRepository, ProposalRepository>();
         services.AddScoped<IDeliveryRepository, DeliveryRepository>();
         services.AddScoped<IDriverAgendaRepository, DriverAgendaRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IFeeLedgerRepository, FeeLedgerRepository>();
 
         // Read side: IQueryable projections executed by PostgreSQL.
         services.AddScoped<IFreightQueries, FreightQueries>();
         services.AddScoped<IDeliveryQueries, DeliveryQueries>();
+        services.AddScoped<IFeeQueries, FeeQueries>();
         services.AddScoped<IDriverReviewQueries, DriverReviewQueries>();
         services.AddScoped<ITermAcceptanceChecker, SqlTermAcceptanceChecker>();
         services.AddScoped<IPersonalDataQueries, PersonalDataQueries>();

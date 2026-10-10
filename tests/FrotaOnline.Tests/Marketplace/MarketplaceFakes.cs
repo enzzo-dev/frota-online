@@ -100,6 +100,9 @@ internal sealed class FakeDriverAgendaRepository : IDriverAgendaRepository
     public Task<bool> HasConflictAsync(Guid driverProfileId, DateTime startsAt, DateTime endsAt, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Any(s => s.DriverProfileId == driverProfileId && s.Overlaps(startsAt, endsAt)));
 
+    public Task<DriverAgendaSlot?> GetByDeliveryIdAsync(Guid deliveryId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(s => s.DeliveryId == deliveryId));
+
     public Task AddAsync(DriverAgendaSlot slot, CancellationToken cancellationToken)
     {
         Items.Add(slot);
@@ -112,4 +115,33 @@ internal sealed class FakeTermAcceptanceChecker : ITermAcceptanceChecker
     public bool Accepted { get; set; } = true;
 
     public Task<bool> HasAcceptedAllActiveAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(Accepted);
+}
+
+internal sealed class FakePaymentRepository : IPaymentRepository
+{
+    public List<Payment> Items { get; } = new();
+
+    public Task<bool> ExistsForDeliveryAsync(Guid deliveryId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Any(p => p.DeliveryId == deliveryId));
+
+    public Task AddAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        Items.Add(payment);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeFeeLedgerRepository : IFeeLedgerRepository
+{
+    public List<FeeLedger> Items { get; } = new();
+
+    public Task<decimal> GetBalanceAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Where(e => e.DriverProfileId == driverProfileId)
+            .Sum(e => e.EntryType == FeeEntryType.FeeAccrued ? e.Amount : -e.Amount));
+
+    public Task AddAsync(FeeLedger entry, CancellationToken cancellationToken)
+    {
+        Items.Add(entry);
+        return Task.CompletedTask;
+    }
 }

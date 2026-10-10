@@ -15,6 +15,7 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+builder.Services.AddExceptionHandler<UniqueViolationExceptionHandler>();
 builder.Services.AddProblemDetails();
 // Make the generated OpenAPI schemas describe enums as strings, matching the MVC JSON options above.
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

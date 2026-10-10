@@ -96,7 +96,8 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 {
     public void Configure(EntityTypeBuilder<Payment> builder)
     {
-        builder.HasIndex(x => x.DeliveryId);
+        // One payment per delivery: a second confirmation must fail even under concurrent requests.
+        builder.HasIndex(x => x.DeliveryId).IsUnique();
         builder.Property(x => x.ExternalReference).HasMaxLength(128);
         builder.HasOne<Delivery>().WithMany().HasForeignKey(x => x.DeliveryId);
     }

@@ -10,7 +10,7 @@ namespace FrotaOnline.Application.Drivers;
 
 public sealed class DriverDocumentService : IDriverDocumentService
 {
-    private static readonly MediaKind[] DriverKinds = { MediaKind.DriverDocument, MediaKind.VehiclePhoto };
+    private static readonly MediaKind[] DriverKinds = { MediaKind.DriverDocument, MediaKind.VehiclePhoto, MediaKind.DeliveryProof };
 
     private readonly IDriverRepository _drivers;
     private readonly IMediaFileRepository _media;

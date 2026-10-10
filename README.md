@@ -19,7 +19,7 @@ A página é um guia com um passo a passo em quatro paradas e uma lista de endpo
 | Endereços do cliente | Pronto |
 | Pedidos de frete: criar, listar, cancelar, expirar | Pronto |
 | Propostas do motorista, ranking por preço e aprovação que cria a entrega e reserva a agenda | Pronto |
-| Andamento da entrega (coleta, trânsito, comprovante), pagamento e taxa | Próximo |
+| Andamento da entrega (paradas em ordem, ocorrência, cancelamento, comprovante), confirmação de pagamento, extrato de taxas e visão do cliente | Pronto |
 
 ## Diagramas
 
@@ -404,11 +404,30 @@ dotnet ef database update -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.A
 
 ### Regras do marketplace
 
-- O motorista define o preço; a plataforma não mexe nele. A taxa de R$ 4,90 e o pagamento entram na próxima fase.
-- Um frete é uma lista ordenada de paradas (coletas e entregas) com itens opcionais por parada. A conclusão de cada parada (`CompletedAt`) entra na próxima fase.
+- O motorista define o preço; a plataforma não mexe nele. A taxa de R$ 4,90 é lançada quando a entrega termina; o pagamento é confirmado pelo motorista e não passa pela plataforma.
+- Um frete é uma lista ordenada de paradas (coletas e entregas) com itens opcionais por parada. A conclusão de cada parada (`CompletedAt`) acontece em `/driver/deliveries/{id}/stops/{stopId}/complete`.
 - A aprovação reserva a agenda do motorista por 2 horas mais 1 hora por parada, a partir da primeira coleta (`DeliveryPlanning.AgendaWindow`). Uma coleta e uma entrega reservam 4 horas. Se já houver outra entrega nesse intervalo, devolve `proposal.driver_busy`.
 - Um `BackgroundService` (`FreightExpirationWorker`, a cada 30 segundos) expira pedidos e propostas vencidos. Entre uma varredura e outra a API já recusa novas propostas fora da janela.
 - O cliente aprova dentro da mesma janela da proposta. Em frete do dia isso dá 5 minutos; veja as decisões em aberto abaixo.
+
+## Andamento da entrega e taxas (fase 3)
+
+Motorista, em `/api/v1/driver` (perfil Driver):
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| POST | `/deliveries/{id}/start` | Sai para a primeira coleta (`Scheduled` vira `ToPickup`). |
+| POST | `/deliveries/{id}/stops/{stopId}/complete` | Conclui a próxima parada, sempre na ordem. Corpo opcional: `note`, `latitude` e `longitude` (juntas) e `proofMediaFileId` (arquivo `DeliveryProof` do próprio motorista, registrado em `POST /driver/documents`). A primeira coleta leva a entrega a `PickedUp` e `InTransit`; a última parada marca `Delivered`, lança a taxa de R$ 4,90 no extrato e libera a agenda. |
+| POST | `/deliveries/{id}/incident` | Registra ocorrência (`Incident`); depois disso só dá para cancelar. |
+| POST | `/deliveries/{id}/cancel` | Cancela em `Scheduled`, `ToPickup` ou após ocorrência. Libera a agenda. |
+| POST | `/deliveries/{id}/payment` | Depois de `Delivered`, confirma o pagamento (`method`: Pix, Cash, Card, Other; `reference` opcional). Uma vez por entrega (índice único; uma segunda chamada simultânea responde 409 `request.duplicate`). O dinheiro vai direto do cliente ao motorista. |
+| GET | `/fees` | Extrato: saldo, total lançado, total acertado e os 200 lançamentos mais recentes. |
+
+Cliente, em `/api/v1/deliveries` (perfil Customer): `GET` lista, `GET /{id}` mostra status, motorista, veículo, paradas com horário de conclusão, pagamento e linha do tempo, e `POST /{id}/cancel` cancela só antes da coleta.
+
+Admin: `GET /api/v1/admin/drivers/{driverId}/fees` e `POST .../fees/settle` (`amount`, `description`), que registra o que o motorista pagou à plataforma e não aceita valor acima do saldo.
+
+Depois de atualizar, gere a migration (ela inclui o índice único de `Payments.DeliveryId`; se já houver pagamentos duplicados de teste, apague-os antes).
 
 ## Endpoints de administração (`/api/v1/admin`, perfil Admin)
 
@@ -456,6 +475,13 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 403 | `proposal.driver_not_approved` | Só motorista aprovado envia propostas. |
 | 409 | `proposal.driver_unavailable`, `proposal.vehicle_unavailable`, `proposal.driver_busy` | Motorista ou veículo inativo, ou agenda ocupada na aprovação. |
 | 400 | `proposal.vehicle_not_eligible` | Veículo de outro tipo ou sem capacidade para o peso. |
+| 409 | `delivery.invalid_status` | A entrega não está num status que permita a ação. |
+| 404 | `delivery.stop_not_found` | A parada não pertence à entrega. |
+| 409 | `delivery.stop_out_of_order` | Conclua as paradas anteriores primeiro. |
+| 400 | `delivery.invalid_proof` | O comprovante precisa ser um `DeliveryProof` do próprio motorista. |
+| 409 | `payment.not_delivered`, `payment.already_confirmed` | Pagamento só após a entrega, uma vez. |
+| 409 | `fee.exceeds_balance` | O acerto passa do saldo em aberto. |
+| 409 | `request.duplicate` | Duas requisições iguais chegaram juntas e o banco barrou a segunda (índice único), por exemplo a confirmação de pagamento. Recarregue e confira o estado. |
 
 ## Consultas e desempenho
 

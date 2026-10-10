@@ -8,6 +8,8 @@ public interface IMediaFileRepository
     Task<IReadOnlyList<MediaFile>> ListByOwnerAsync(
         Guid ownerUserId, IReadOnlyCollection<MediaKind> kinds, CancellationToken cancellationToken);
 
+    Task<MediaFile?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
     Task<bool> StorageKeyExistsAsync(string storageKey, CancellationToken cancellationToken);
 
     Task AddAsync(MediaFile file, CancellationToken cancellationToken);

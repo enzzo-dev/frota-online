@@ -207,6 +207,12 @@
             <tr><td>5</td><td>Customer</td><td><code>GET /freights/{id}/proposals</code></td><td>Pending proposals ranked by price, cheapest first. Ties go to the earliest.</td></tr>
             <tr><td>6</td><td>Customer</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Creates the delivery, books the driver's agenda (2 hours plus 1 hour per stop, from the first pickup), rejects the other proposals and closes the freight. A driver already booked in that period returns <code>proposal.driver_busy</code>.</td></tr>
             <tr><td>7</td><td>Driver</td><td><code>GET /driver/deliveries</code>, then <code>GET /driver/deliveries/{id}/route</code></td><td>Lists the deliveries you won and opens the route with full addresses. <code>view=Full</code> shows every pickup and delivery at once, as an overview of the run. <code>view=Next</code> shows only the stop to do now, so the app can go one stop after the other. Each stop lists its items.</td></tr>
+            <tr><td>8</td><td>Driver</td><td><code>POST /driver/deliveries/{id}/start</code></td><td>Leaves for the first pickup. Scheduled becomes ToPickup.</td></tr>
+            <tr><td>9</td><td>Driver</td><td><code>POST /driver/deliveries/{id}/stops/{stopId}/complete</code></td><td>Completes the next stop; stops must be done in order (<code>delivery.stop_out_of_order</code>). The first pickup moves the delivery to PickedUp and InTransit, and the last stop marks it Delivered, accrues the R$ 4.90 fee and frees the agenda. Optional note, coordinates and a DeliveryProof file (register it first with <code>POST /driver/documents</code>).</td></tr>
+            <tr><td>10</td><td>Driver</td><td><code>POST /driver/deliveries/{id}/incident</code> or <code>/cancel</code></td><td>Reports an incident (then only cancelling is possible) or cancels while Scheduled, ToPickup or after an incident. The agenda is freed.</td></tr>
+            <tr><td>11</td><td>Customer</td><td><code>GET /deliveries</code>, <code>GET /deliveries/{id}</code></td><td>Follows the run: status, driver and vehicle, stops with completion times, payment status and the event timeline. <code>POST /deliveries/{id}/cancel</code> works only before the cargo is picked up.</td></tr>
+            <tr><td>12</td><td>Driver</td><td><code>POST /driver/deliveries/{id}/payment</code></td><td>After Delivered, confirms the customer paid (Pix, Cash, Card or Other). Once per delivery. The money never passes through the platform.</td></tr>
+            <tr><td>13</td><td>Driver / Admin</td><td><code>GET /driver/fees</code>, <code>GET</code> and <code>POST /admin/drivers/{id}/fees[/settle]</code></td><td>The fee ledger: R$ 4.90 accrues per delivered freight and the admin records what the driver paid. A settlement cannot exceed the open balance (<code>fee.exceeds_balance</code>).</td></tr>
           </tbody>
         </table>
       </div>
@@ -283,6 +289,13 @@
             <tr><td>409</td><td><code>privacy.active_deliveries</code></td><td>A delivery is still in progress, so the account cannot be deleted yet.</td></tr>
             <tr><td>403</td><td><code>privacy.admin_not_allowed</code></td><td>Administrator accounts must be removed by another administrator.</td></tr>
             <tr><td>404</td><td><code>privacy.account_not_found</code></td><td>The account does not exist or was already anonymized.</td></tr>
+            <tr><td>409</td><td><code>delivery.invalid_status</code></td><td>The delivery is not in a status that allows this action.</td></tr>
+            <tr><td>404</td><td><code>delivery.stop_not_found</code></td><td>The stop does not belong to the delivery.</td></tr>
+            <tr><td>409</td><td><code>delivery.stop_out_of_order</code></td><td>Complete the earlier stops first.</td></tr>
+            <tr><td>400</td><td><code>delivery.invalid_proof</code></td><td>The proof must be a DeliveryProof file registered by the driver.</td></tr>
+            <tr><td>409</td><td><code>payment.not_delivered</code>, <code>payment.already_confirmed</code></td><td>Payment is confirmed only after delivery, once.</td></tr>
+            <tr><td>409</td><td><code>fee.exceeds_balance</code></td><td>The settlement is higher than the open balance.</td></tr>
+            <tr><td>409</td><td><code>request.duplicate</code></td><td>Two identical requests arrived together and the database rejected the second one (unique index), for example the payment confirmation. Reload and check the current state.</td></tr>
           </tbody>
         </table>
       </div>

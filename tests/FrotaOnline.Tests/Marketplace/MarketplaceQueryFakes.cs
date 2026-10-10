@@ -1,6 +1,7 @@
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Admin.Dtos;
+using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -125,13 +126,74 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
     private readonly FakeDeliveryRepository _deliveries;
     private readonly FakeFreightRepository _freights;
     private readonly FakeAddressRepository _addresses;
+    private readonly FakeDriverRepository _drivers;
+    private readonly FakeUserRepository _users;
+    private readonly FakeVehicleRepository _vehicles;
+    private readonly FakePaymentRepository _payments;
 
-    public FakeDeliveryQueries(FakeDeliveryRepository deliveries, FakeFreightRepository freights, FakeAddressRepository addresses)
+    public FakeDeliveryQueries(
+        FakeDeliveryRepository deliveries, FakeFreightRepository freights, FakeAddressRepository addresses,
+        FakeDriverRepository drivers, FakeUserRepository users, FakeVehicleRepository vehicles, FakePaymentRepository payments)
     {
         _deliveries = deliveries;
         _freights = freights;
         _addresses = addresses;
+        _drivers = drivers;
+        _users = users;
+        _vehicles = vehicles;
+        _payments = payments;
     }
+
+    public Task<IReadOnlyList<CustomerDeliverySummary>> ListByCustomerAsync(Guid customerId, CancellationToken cancellationToken)
+    {
+        var rows = _deliveries.Items
+            .Where(d => d.CustomerId == customerId)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d =>
+            {
+                var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
+                var (driverName, vehicle) = DriverAndVehicle(d);
+                return new CustomerDeliverySummary(
+                    d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, driverName, vehicle.Type, vehicle.Model, vehicle.Plate,
+                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt);
+            })
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<CustomerDeliverySummary>>(rows);
+    }
+
+    public Task<CustomerDeliveryDetail?> GetForCustomerAsync(Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
+    {
+        var d = _deliveries.Items.FirstOrDefault(x => x.Id == deliveryId && x.CustomerId == customerId);
+        if (d is null)
+        {
+            return Task.FromResult<CustomerDeliveryDetail?>(null);
+        }
+
+        var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
+        var (driverName, vehicle) = DriverAndVehicle(d);
+        var stops = freight.Stops.OrderBy(s => s.Sequence)
+            .Select(s => new FreightStopResponse(
+                s.Id, s.Sequence, s.Type, AddressService.ToResponse(_addresses.Items.First(a => a.Id == s.AddressId)),
+                s.Note, StopItemsFake.Of(s), s.CompletedAt))
+            .ToList();
+        var timeline = _deliveries.Events.Where(e => e.DeliveryId == d.Id).OrderBy(e => e.OccurredAt)
+            .Select(e => new DeliveryEventResponse(e.Status, e.OccurredAt, e.Note, e.Latitude, e.Longitude, e.MediaFileId is not null))
+            .ToList();
+
+        return Task.FromResult<CustomerDeliveryDetail?>(new CustomerDeliveryDetail(
+            d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, driverName, vehicle.Type, vehicle.Model, vehicle.Plate,
+            PaymentOf(d), d.PickedUpAt, d.DeliveredAt, d.CancelledAt, stops, timeline));
+    }
+
+    private (string DriverName, Vehicle Vehicle) DriverAndVehicle(Delivery d)
+    {
+        var profile = _drivers.Items.First(p => p.Id == d.DriverProfileId);
+        var user = _users.Items.First(u => u.Id == profile.UserId);
+        return (user.FullName, _vehicles.Items.First(v => v.Id == d.VehicleId));
+    }
+
+    private PaymentStatus? PaymentOf(Delivery d) => _payments.Items.FirstOrDefault(p => p.DeliveryId == d.Id)?.Status;
 
     public Task<IReadOnlyList<DriverDeliverySummary>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken)
     {
@@ -203,4 +265,23 @@ internal static class StopItemsFake
 {
     public static IReadOnlyList<FreightItemResponse> Of(FreightStop stop) =>
         stop.Items.Select(i => new FreightItemResponse(i.Description, i.Quantity)).ToList();
+}
+
+internal sealed class FakeFeeQueries : IFeeQueries
+{
+    private readonly FakeFeeLedgerRepository _ledger;
+
+    public FakeFeeQueries(FakeFeeLedgerRepository ledger) => _ledger = ledger;
+
+    public Task<FeeStatementResponse> GetStatementAsync(Guid driverProfileId, CancellationToken cancellationToken)
+    {
+        var mine = _ledger.Items.Where(e => e.DriverProfileId == driverProfileId).ToList();
+        var accrued = mine.Where(e => e.EntryType == FeeEntryType.FeeAccrued).Sum(e => e.Amount);
+        var settled = mine.Where(e => e.EntryType == FeeEntryType.FeeSettled).Sum(e => e.Amount);
+        var entries = mine.OrderByDescending(e => e.CreatedAt).Take(200)
+            .Select(e => new FeeEntryResponse(e.Id, e.DeliveryId, e.EntryType, e.Amount, e.Description, e.CreatedAt))
+            .ToList();
+
+        return Task.FromResult(new FeeStatementResponse(accrued - settled, accrued, settled, entries));
+    }
 }

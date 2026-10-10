@@ -1,5 +1,7 @@
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Addresses.Dtos;
+using FrotaOnline.Application.Deliveries.Dtos;
+using FrotaOnline.Domain.Enums;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -105,5 +107,107 @@ internal sealed class DeliveryQueries : IDeliveryQueries
         return new DeliveryRouteResponse(
             header.DeliveryId, header.FreightId, header.CargoDescription, header.CargoWeightKg, view,
             header.TotalStops, header.CompletedStops, response);
+    }
+
+    public async Task<IReadOnlyList<CustomerDeliverySummary>> ListByCustomerAsync(
+        Guid customerId, CancellationToken cancellationToken)
+    {
+        var rows = await (
+                from d in _db.Deliveries.AsNoTracking()
+                where d.CustomerId == customerId
+                join p in _db.DriverProfiles.AsNoTracking() on d.DriverProfileId equals p.Id
+                join u in _db.Users.AsNoTracking() on p.UserId equals u.Id
+                join v in _db.Vehicles.AsNoTracking() on d.VehicleId equals v.Id
+                orderby d.CreatedAt descending, d.Id
+                select new
+                {
+                    DeliveryId = d.Id,
+                    d.FreightRequestId,
+                    d.Status,
+                    d.AgreedPrice,
+                    DriverName = u.FullName,
+                    VehicleType = v.Type,
+                    VehicleModel = v.Model,
+                    VehiclePlate = v.Plate,
+                    TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == d.FreightRequestId),
+                    CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == d.FreightRequestId && s.CompletedAt != null),
+                    Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
+                    d.CreatedAt,
+                })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new CustomerDeliverySummary(
+                r.DeliveryId, r.FreightRequestId, r.Status, r.AgreedPrice, r.DriverName, r.VehicleType,
+                r.VehicleModel, r.VehiclePlate, r.TotalStops, r.CompletedStops, r.Payment, r.CreatedAt))
+            .ToList();
+    }
+
+    public async Task<CustomerDeliveryDetail?> GetForCustomerAsync(
+        Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
+    {
+        var header = await (
+                from d in _db.Deliveries.AsNoTracking()
+                where d.Id == deliveryId && d.CustomerId == customerId
+                join p in _db.DriverProfiles.AsNoTracking() on d.DriverProfileId equals p.Id
+                join u in _db.Users.AsNoTracking() on p.UserId equals u.Id
+                join v in _db.Vehicles.AsNoTracking() on d.VehicleId equals v.Id
+                select new
+                {
+                    DeliveryId = d.Id,
+                    d.FreightRequestId,
+                    d.Status,
+                    d.AgreedPrice,
+                    DriverName = u.FullName,
+                    VehicleType = v.Type,
+                    VehicleModel = v.Model,
+                    VehiclePlate = v.Plate,
+                    Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
+                    d.PickedUpAt,
+                    d.DeliveredAt,
+                    d.CancelledAt,
+                })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (header is null)
+        {
+            return null;
+        }
+
+        var stops = await (
+                from s in _db.FreightStops.AsNoTracking()
+                where s.FreightRequestId == header.FreightRequestId
+                join a in _db.Addresses.AsNoTracking() on s.AddressId equals a.Id
+                orderby s.Sequence
+                select new
+                {
+                    StopId = s.Id,
+                    s.Sequence,
+                    s.Type,
+                    s.Note,
+                    s.CompletedAt,
+                    Address = new AddressResponse(
+                        a.Id, a.Label, a.Street, a.Number, a.Complement, a.District, a.City, a.State, a.ZipCode,
+                        a.Latitude, a.Longitude),
+                })
+            .ToListAsync(cancellationToken);
+
+        var items = await FreightItemReader.LoadAsync(_db, new[] { header.FreightRequestId }, cancellationToken);
+
+        var events = await _db.DeliveryEvents.AsNoTracking()
+            .Where(e => e.DeliveryId == deliveryId)
+            .OrderBy(e => e.OccurredAt).ThenBy(e => e.CreatedAt)
+            .Select(e => new { e.Status, e.OccurredAt, e.Note, e.Latitude, e.Longitude, HasProof = e.MediaFileId != null })
+            .ToListAsync(cancellationToken);
+
+        return new CustomerDeliveryDetail(
+            header.DeliveryId, header.FreightRequestId, header.Status, header.AgreedPrice, header.DriverName,
+            header.VehicleType, header.VehicleModel, header.VehiclePlate, header.Payment,
+            header.PickedUpAt, header.DeliveredAt, header.CancelledAt,
+            stops.Select(s => new FreightStopResponse(
+                s.StopId, s.Sequence, s.Type, s.Address, s.Note,
+                items.TryGetValue(s.StopId, out var list) ? list : Array.Empty<FreightItemResponse>(),
+                s.CompletedAt)).ToList(),
+            events.Select(e => new DeliveryEventResponse(e.Status, e.OccurredAt, e.Note, e.Latitude, e.Longitude, e.HasProof)).ToList());
     }
 }

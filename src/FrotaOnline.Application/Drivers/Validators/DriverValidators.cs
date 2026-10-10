@@ -45,8 +45,8 @@ public sealed class RegisterMediaRequestValidator : AbstractValidator<RegisterMe
 
     public RegisterMediaRequestValidator()
     {
-        RuleFor(x => x.Kind).Must(kind => kind is MediaKind.DriverDocument or MediaKind.VehiclePhoto)
-            .WithMessage("Drivers can only register DriverDocument or VehiclePhoto files here.");
+        RuleFor(x => x.Kind).Must(kind => kind is MediaKind.DriverDocument or MediaKind.VehiclePhoto or MediaKind.DeliveryProof)
+            .WithMessage("Drivers can only register DriverDocument, VehiclePhoto or DeliveryProof files here.");
         RuleFor(x => x.StorageKey).NotEmpty().MaximumLength(512);
         RuleFor(x => x.ContentType).NotEmpty().Must(type => ContentTypes.Contains(type))
             .WithMessage("Content type must be one of: " + string.Join(", ", ContentTypes) + ".");

@@ -1,3 +1,6 @@
+using FrotaOnline.Application.Deliveries;
+using FrotaOnline.Application.Deliveries.Dtos;
+using FrotaOnline.Application.Deliveries.Validators;
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Application.Marketplace.Validators;
@@ -22,9 +25,12 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeDeliveryRepository Deliveries = new();
     private protected readonly FakeDriverAgendaRepository Agenda = new();
     private protected readonly FakeTermAcceptanceChecker Terms = new();
+    private protected readonly FakeMediaFileRepository Media = new();
+    private protected readonly FakePaymentRepository Payments = new();
+    private protected readonly FakeFeeLedgerRepository Fees = new();
 
     private protected FakeFreightQueries FreightQueries => new(Freights, Proposals, Addresses, Drivers, Users, Vehicles);
-    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses);
+    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses, Drivers, Users, Vehicles, Payments);
 
     protected readonly Guid CustomerId = Guid.NewGuid();
 
@@ -38,6 +44,18 @@ public abstract class MarketplaceTestBase
         Freights, Proposals, Drivers, Vehicles, FreightQueries, Deliveries, Agenda, UnitOfWork, Clock);
 
     protected DriverDeliveryService DriverDelivery => new(Drivers, DeliveryQueries);
+
+    protected DeliveryProgressService Progress => new(
+        Drivers, Deliveries, Freights, Agenda, Media, Fees, UnitOfWork, Clock,
+        new CompleteStopRequestValidator(), new ReportIncidentRequestValidator(), new CancelDeliveryRequestValidator());
+
+    protected DeliveryPaymentService PaymentService => new(
+        Drivers, Deliveries, Payments, UnitOfWork, Clock, new ConfirmPaymentRequestValidator());
+
+    protected FeeService FeeService => new(
+        Drivers, Fees, new FakeFeeQueries(Fees), UnitOfWork, new SettleFeeRequestValidator());
+
+    protected CustomerDeliveryService CustomerDeliveries => new(DeliveryQueries);
 
     protected FreightExpirationService Expiration => new(Freights, Proposals, Clock);
 
@@ -95,4 +113,25 @@ public abstract class MarketplaceTestBase
 
     protected static SubmitProposalRequest Proposal(Vehicle vehicle, decimal price = 150m, string? message = null) =>
         new(vehicle.Id, price, message);
+
+    /// <summary>A freight with the given stops, approved to a new driver. Returns what tests need to drive the run.</summary>
+    protected async Task<(Guid UserId, DriverProfile Profile, Guid DeliveryId, IReadOnlyList<Guid> StopIds)> ScheduleDeliveryAsync(
+        int deliveryStops = 1)
+    {
+        var (pickup, _) = AddAddresses(CustomerId);
+        var stops = new List<CreateFreightStopRequest> { Stop(StopType.Pickup, pickup) };
+        for (var i = 0; i < deliveryStops; i++)
+        {
+            stops.Add(Stop(StopType.Delivery, AddAddress(CustomerId, "Cidade" + i, zip: "0100100" + i)));
+        }
+
+        var freight = await FreightService.CreateAsync(CustomerId, NewFreight(stops), CancellationToken.None);
+        var (userId, profile, vehicle) = AddApprovedDriver();
+        var proposal = await DriverMarketplace.SubmitProposalAsync(
+            userId, freight.Value.Id, Proposal(vehicle), CancellationToken.None);
+        var approved = await Selection.ApproveAsync(CustomerId, freight.Value.Id, proposal.Value.Id, CancellationToken.None);
+
+        var stopIds = Freights.Items.Single().Stops.OrderBy(s => s.Sequence).Select(s => s.Id).ToList();
+        return (userId, profile, approved.Value.DeliveryId, stopIds);
+    }
 }

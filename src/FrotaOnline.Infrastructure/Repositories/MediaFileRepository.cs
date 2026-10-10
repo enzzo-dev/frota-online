@@ -20,6 +20,9 @@ internal sealed class MediaFileRepository : IMediaFileRepository
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public Task<MediaFile?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
+        _db.MediaFiles.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
+
     public Task<bool> StorageKeyExistsAsync(string storageKey, CancellationToken cancellationToken) =>
         _db.MediaFiles.AnyAsync(m => m.StorageKey == storageKey, cancellationToken);
 

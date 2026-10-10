@@ -207,6 +207,12 @@
             <tr><td>5</td><td>Cliente</td><td><code>GET /freights/{id}/proposals</code></td><td>Propostas pendentes ordenadas por preço, a menor primeiro. Empate vai para a mais antiga.</td></tr>
             <tr><td>6</td><td>Cliente</td><td><code>POST /freights/{id}/proposals/{proposalId}/approve</code></td><td>Cria a entrega, reserva a agenda do motorista (2 horas mais 1 hora por parada, a partir da primeira coleta), rejeita as outras propostas e fecha o frete. Se o motorista já estiver ocupado nesse período, devolve <code>proposal.driver_busy</code>.</td></tr>
             <tr><td>7</td><td>Motorista</td><td><code>GET /driver/deliveries</code> e depois <code>GET /driver/deliveries/{id}/route</code></td><td>Lista as entregas que você ganhou e abre a rota com os endereços completos. <code>view=Full</code> mostra todas as coletas e entregas de uma vez, como visão geral da corrida. <code>view=Next</code> mostra só a parada a fazer agora, para o app ir de uma em uma. Cada parada lista seus itens.</td></tr>
+            <tr><td>8</td><td>Motorista</td><td><code>POST /driver/deliveries/{id}/start</code></td><td>Sai para a primeira coleta. Scheduled vira ToPickup.</td></tr>
+            <tr><td>9</td><td>Motorista</td><td><code>POST /driver/deliveries/{id}/stops/{stopId}/complete</code></td><td>Conclui a próxima parada; as paradas seguem a ordem (<code>delivery.stop_out_of_order</code>). A primeira coleta leva a entrega para PickedUp e InTransit, e a última parada marca Delivered, lança a taxa de R$ 4,90 e libera a agenda. Observação, coordenadas e um arquivo DeliveryProof (registre antes em <code>POST /driver/documents</code>) são opcionais.</td></tr>
+            <tr><td>10</td><td>Motorista</td><td><code>POST /driver/deliveries/{id}/incident</code> ou <code>/cancel</code></td><td>Registra uma ocorrência (depois só dá para cancelar) ou cancela em Scheduled, ToPickup ou após ocorrência. A agenda é liberada.</td></tr>
+            <tr><td>11</td><td>Cliente</td><td><code>GET /deliveries</code>, <code>GET /deliveries/{id}</code></td><td>Acompanha a corrida: status, motorista e veículo, paradas com horário de conclusão, pagamento e linha do tempo. <code>POST /deliveries/{id}/cancel</code> só funciona antes da coleta.</td></tr>
+            <tr><td>12</td><td>Motorista</td><td><code>POST /driver/deliveries/{id}/payment</code></td><td>Depois de Delivered, confirma que o cliente pagou (Pix, Cash, Card ou Other). Uma vez por entrega. O dinheiro nunca passa pela plataforma.</td></tr>
+            <tr><td>13</td><td>Motorista / Admin</td><td><code>GET /driver/fees</code>, <code>GET</code> e <code>POST /admin/drivers/{id}/fees[/settle]</code></td><td>O extrato de taxas: R$ 4,90 por frete entregue, e o admin registra o que o motorista pagou. O acerto não pode passar do saldo em aberto (<code>fee.exceeds_balance</code>).</td></tr>
           </tbody>
         </table>
       </div>
@@ -283,6 +289,13 @@
             <tr><td>409</td><td><code>privacy.active_deliveries</code></td><td>Ainda há entrega em andamento, então a conta não pode ser excluída agora.</td></tr>
             <tr><td>403</td><td><code>privacy.admin_not_allowed</code></td><td>Contas de administrador precisam ser removidas por outro administrador.</td></tr>
             <tr><td>404</td><td><code>privacy.account_not_found</code></td><td>A conta não existe ou já foi anonimizada.</td></tr>
+            <tr><td>409</td><td><code>delivery.invalid_status</code></td><td>A entrega não está num status que permita esta ação.</td></tr>
+            <tr><td>404</td><td><code>delivery.stop_not_found</code></td><td>A parada não pertence à entrega.</td></tr>
+            <tr><td>409</td><td><code>delivery.stop_out_of_order</code></td><td>Conclua as paradas anteriores primeiro.</td></tr>
+            <tr><td>400</td><td><code>delivery.invalid_proof</code></td><td>O comprovante precisa ser um arquivo DeliveryProof registrado pelo motorista.</td></tr>
+            <tr><td>409</td><td><code>payment.not_delivered</code>, <code>payment.already_confirmed</code></td><td>O pagamento só é confirmado após a entrega, uma vez.</td></tr>
+            <tr><td>409</td><td><code>fee.exceeds_balance</code></td><td>O acerto é maior que o saldo em aberto.</td></tr>
+            <tr><td>409</td><td><code>request.duplicate</code></td><td>Duas requisições iguais chegaram juntas e o banco barrou a segunda (índice único), por exemplo a confirmação de pagamento. Recarregue e confira o estado.</td></tr>
           </tbody>
         </table>
       </div>

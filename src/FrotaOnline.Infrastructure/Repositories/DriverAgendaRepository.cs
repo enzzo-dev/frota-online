@@ -16,6 +16,9 @@ internal sealed class DriverAgendaRepository : IDriverAgendaRepository
             s => s.DriverProfileId == driverProfileId && s.ReleasedAt == null && startsAt < s.EndsAt && endsAt > s.StartsAt,
             cancellationToken);
 
+    public Task<DriverAgendaSlot?> GetByDeliveryIdAsync(Guid deliveryId, CancellationToken cancellationToken) =>
+        _db.DriverAgendaSlots.FirstOrDefaultAsync(s => s.DeliveryId == deliveryId, cancellationToken);
+
     public async Task AddAsync(DriverAgendaSlot slot, CancellationToken cancellationToken) =>
         await _db.DriverAgendaSlots.AddAsync(slot, cancellationToken);
 }
