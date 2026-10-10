@@ -78,6 +78,17 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
         ReviewedAt = utcNow;
     }
 
+    /// <summary>Erases the tax id and CNH. Unique placeholders keep the unique indexes valid.</summary>
+    public void Anonymize()
+    {
+        var token = Id.ToString("N");
+        TaxId = "X" + token[..13];
+        CnhNumber = "X" + token[..10];
+        CnhCategory = "--";
+        RejectionReason = null;
+        Status = DriverStatus.Removed;
+    }
+
     private void EnsurePendingReview()
     {
         if (Status != DriverStatus.PendingReview)

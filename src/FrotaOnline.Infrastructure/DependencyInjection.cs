@@ -5,6 +5,7 @@ using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Terms;
 using FrotaOnline.Application.Abstractions.Persistence;
+using FrotaOnline.Application.Abstractions.Privacy;
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Application.Abstractions.Time;
@@ -12,6 +13,7 @@ using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Infrastructure.Background;
 using FrotaOnline.Infrastructure.Notifications;
 using FrotaOnline.Infrastructure.Persistence;
+using FrotaOnline.Infrastructure.Privacy;
 using FrotaOnline.Infrastructure.Queries;
 using FrotaOnline.Infrastructure.Repositories;
 using FrotaOnline.Infrastructure.Security;
@@ -56,6 +58,8 @@ public static class DependencyInjection
         services.AddScoped<IDeliveryQueries, DeliveryQueries>();
         services.AddScoped<IDriverReviewQueries, DriverReviewQueries>();
         services.AddScoped<ITermAcceptanceChecker, SqlTermAcceptanceChecker>();
+        services.AddScoped<IPersonalDataQueries, PersonalDataQueries>();
+        services.AddScoped<IAccountErasureStore, AccountErasureStore>();
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))

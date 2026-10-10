@@ -4,6 +4,7 @@ using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Auth;
 using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Marketplace;
+using FrotaOnline.Application.Privacy;
 using FrotaOnline.Application.Terms;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IDriverDeliveryService, DriverDeliveryService>();
         services.AddScoped<IProposalSelectionService, ProposalSelectionService>();
         services.AddScoped<IFreightExpirationService, FreightExpirationService>();
+        services.AddScoped<IPrivacyService, PrivacyService>();
         return services;
     }
 }

@@ -34,4 +34,11 @@ public sealed class Vehicle : BaseEntity
     };
 
     public void Deactivate() => IsActive = false;
+
+    /// <summary>Erases the plate (a unique placeholder keeps the index valid) and takes the vehicle out of service.</summary>
+    public void Anonymize()
+    {
+        Plate = "X" + Id.ToString("N")[..9];
+        IsActive = false;
+    }
 }

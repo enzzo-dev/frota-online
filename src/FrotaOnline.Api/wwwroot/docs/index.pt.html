@@ -30,6 +30,7 @@
       <a href="#flow">Ordem das chamadas</a>
       <a href="#onboarding">Cadastro do motorista</a>
       <a href="#marketplace">Marketplace</a>
+      <a href="#privacy">Privacidade</a>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Erros</a>
     </nav>
@@ -212,6 +213,21 @@
       <p class="prose">Uma rotina em segundo plano roda a cada 30 segundos e expira fretes e propostas fora da janela. Enquanto ela não roda, a API já recusa propostas que chegam atrasadas.</p>
     </section>
 
+    <section id="privacy" class="section">
+      <h2>Privacidade e exclusão de dados (LGPD)</h2>
+      <p class="section-lede">Todo usuário logado pode ver o que a plataforma guarda sobre ele e pedir a eliminação, como a LGPD (art. 18) exige.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /me/data</code></td><td>Exporta em JSON tudo o que se guarda sobre o usuário: conta, CPF/CNPJ e CNH, veículos, endereços, arquivos, termos aceitos, fretes, propostas e entregas.</td></tr>
+            <tr><td><code>POST /me/deletion</code></td><td>Envie <code>{ "password": "...", "confirm": true }</code>. A conta é anonimizada: nome, e-mail, telefone, documentos, placas e endereços completos são apagados, arquivos e sessões são removidos, fretes abertos são cancelados e propostas pendentes fechadas. A resposta lista o que permanece.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">Fretes, propostas, entregas e registros de pagamento permanecem sem identificar ninguém, porque a lei exige para auditoria e obrigações fiscais (LGPD art. 16). A exclusão é recusada enquanto houver entrega em andamento (<code>privacy.active_deliveries</code>) e para administradores. Os access tokens já emitidos valem até 15 minutos, então descarte-os no app após excluir. O e-mail fica livre para um novo cadastro.</p>
+    </section>
+
     <section id="endpoints" class="section">
       <h2>Endpoints</h2>
       <p class="section-lede">Lida ao vivo de <code>/openapi/v1.json</code>, então a lista sempre bate com o código. Abra um endpoint para ver os campos e testar. As descrições vêm da API e ficam em inglês.</p>
@@ -264,6 +280,9 @@
             <tr><td>403</td><td><code>proposal.driver_not_approved</code></td><td>Só motoristas aprovados enviam propostas.</td></tr>
             <tr><td>409</td><td><code>proposal.driver_unavailable</code>, <code>proposal.vehicle_unavailable</code>, <code>proposal.driver_busy</code></td><td>O motorista ou o veículo está inativo, ou a agenda do motorista está ocupada nesse horário. Escolha outra proposta.</td></tr>
             <tr><td>400</td><td><code>proposal.vehicle_not_eligible</code></td><td>O veículo é do tipo errado ou não comporta o peso.</td></tr>
+            <tr><td>409</td><td><code>privacy.active_deliveries</code></td><td>Ainda há entrega em andamento, então a conta não pode ser excluída agora.</td></tr>
+            <tr><td>403</td><td><code>privacy.admin_not_allowed</code></td><td>Contas de administrador precisam ser removidas por outro administrador.</td></tr>
+            <tr><td>404</td><td><code>privacy.account_not_found</code></td><td>A conta não existe ou já foi anonimizada.</td></tr>
           </tbody>
         </table>
       </div>

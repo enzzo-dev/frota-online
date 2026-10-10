@@ -335,6 +335,23 @@ flowchart LR
 Os access tokens são JWTs de 15 minutos. Os refresh tokens duram 30 dias, são aleatórios, ficam guardados apenas como hash SHA-256 e funcionam uma única vez.
 As senhas precisam ter de 8 a 128 caracteres, com letra maiúscula, letra minúscula e dígito.
 
+## Privacidade e LGPD (`/api/v1/me`, qualquer usuário logado)
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| GET | `/data` | Exporta todos os dados pessoais do usuário em JSON (acesso e portabilidade, art. 18, II e V): conta, CPF/CNPJ e CNH, veículos, endereços, arquivos, aceites, fretes, propostas e entregas. |
+| POST | `/deletion` | Exclui a conta (art. 18, VI). Corpo: `{ "password": "...", "confirm": true }`. |
+
+A exclusão **anonimiza em vez de apagar as linhas**, porque as chaves estrangeiras protegem o histórico de fretes e o financeiro (a LGPD, art. 16, permite guardar o que a lei exige). Tudo acontece em uma transação:
+
+- **Apagado:** arquivos, refresh tokens, tokens de dispositivo e o perfil de cliente (CPF/CNPJ).
+- **Anonimizado:** nome, e-mail, telefone e senha do usuário (a conta fica inativa e ninguém consegue entrar); CPF/CNPJ e CNH do motorista (o status vira `Removed`); placas; endereços (ficam só cidade e estado); observações das paradas, mensagens de propostas, notas e coordenadas de eventos de entrega; IP dos aceites.
+- **Encerrado:** fretes abertos são cancelados e propostas pendentes são fechadas.
+- **Mantido sem identificar ninguém:** fretes, propostas, entregas e registros de pagamento e taxa, e o fato de que o aceite aos termos existiu (versão e data).
+- **Bloqueios:** `409 privacy.active_deliveries` enquanto houver entrega em andamento como cliente ou motorista; `403 privacy.admin_not_allowed` para administradores (outro admin precisa removê-los).
+
+O e-mail anonimizado libera o e-mail original para um novo cadastro. Os access tokens já emitidos valem até expirar (15 minutos); o front deve descartá-los. Esta mudança adiciona a coluna `Users.AnonymizedAt`, então precisa de migration. O erro `privacy.account_not_found` aparece para conta inexistente ou já anonimizada.
+
 ## Endpoints de termos (`/api/v1/terms`)
 
 | Método | Rota | Acesso | Descrição |

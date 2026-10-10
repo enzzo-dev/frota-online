@@ -30,6 +30,22 @@ public sealed class Address : BaseEntity
 
     public double? Longitude { get; private set; }
 
+    /// <summary>
+    /// Keeps only city and state. Freight stops still point to this row, so it cannot be deleted,
+    /// but nothing left can locate a home or a business.
+    /// </summary>
+    public void Anonymize()
+    {
+        Label = "Removed";
+        Street = "Removed";
+        Number = "0";
+        Complement = null;
+        District = "Removed";
+        ZipCode = "00000000";
+        Latitude = null;
+        Longitude = null;
+    }
+
     public static Address Create(
         Guid ownerUserId, string label, string street, string number, string? complement,
         string district, string city, string state, string zipCode, double? latitude, double? longitude) => new()
