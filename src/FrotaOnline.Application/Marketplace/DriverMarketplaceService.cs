@@ -8,6 +8,7 @@ using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Application.Notifications;
+using FrotaOnline.Application.Payments;
 using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -22,6 +23,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
     private readonly IProposalRepository _proposals;
     private readonly IFreightQueries _queries;
     private readonly IDriverAgendaRepository _agenda;
+    private readonly ISubscriptionPolicy _subscriptions;
     private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
@@ -34,6 +36,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         IProposalRepository proposals,
         IFreightQueries queries,
         IDriverAgendaRepository agenda,
+        ISubscriptionPolicy subscriptions,
         INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
@@ -45,6 +48,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         _proposals = proposals;
         _queries = queries;
         _agenda = agenda;
+        _subscriptions = subscriptions;
         _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -95,6 +99,12 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         if (!profile.CanOperate)
         {
             return Result.Failure<ProposalResponse>(MarketplaceErrors.DriverNotApproved);
+        }
+
+        var allowed = await _subscriptions.EnsureCanProposeAsync(profile.Id, cancellationToken);
+        if (allowed.IsFailure)
+        {
+            return Result.Failure<ProposalResponse>(allowed.Error!);
         }
 
         var now = _clock.UtcNow;

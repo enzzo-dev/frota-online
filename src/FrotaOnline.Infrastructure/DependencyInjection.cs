@@ -3,16 +3,19 @@ using FrotaOnline.Application.Abstractions.Auth;
 using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Notifications;
+using FrotaOnline.Application.Abstractions.Payments;
 using FrotaOnline.Application.Abstractions.Terms;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Abstractions.Privacy;
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Routing;
+using FrotaOnline.Application.Abstractions.Storage;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Infrastructure.Background;
 using FrotaOnline.Infrastructure.Notifications;
+using FrotaOnline.Infrastructure.Payments;
 using FrotaOnline.Infrastructure.Persistence;
 using FrotaOnline.Infrastructure.Privacy;
 using FrotaOnline.Infrastructure.Queries;
@@ -20,6 +23,7 @@ using FrotaOnline.Infrastructure.Repositories;
 using FrotaOnline.Infrastructure.Routing;
 using FrotaOnline.Infrastructure.Security;
 using FrotaOnline.Infrastructure.Services;
+using FrotaOnline.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,12 +62,17 @@ public static class DependencyInjection
         services.AddScoped<IFeeLedgerRepository, FeeLedgerRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IFeeChargeRepository, FeeChargeRepository>();
+        services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
 
         // Read side: IQueryable projections executed by PostgreSQL.
         services.AddScoped<IFreightQueries, FreightQueries>();
         services.AddScoped<IDeliveryQueries, DeliveryQueries>();
         services.AddScoped<IFeeQueries, FeeQueries>();
         services.AddScoped<INotificationQueries, NotificationQueries>();
+        services.AddScoped<IMatchingDriverQueries, MatchingDriverQueries>();
         services.AddScoped<IAddressUsageQueries, AddressUsageQueries>();
         services.AddScoped<IDriverReviewQueries, DriverReviewQueries>();
         services.AddScoped<ITermAcceptanceChecker, SqlTermAcceptanceChecker>();
@@ -81,6 +90,41 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddHttpClient<IRoutingProvider, OsrmRoutingProvider>();
+
+        // File storage. Storage:Provider = "Gcs" uploads through signed URLs to a private bucket; anything else disables it.
+        services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
+        if (string.Equals(configuration["Storage:Provider"], "Gcs", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(configuration["Storage:Bucket"]))
+            {
+                throw new InvalidOperationException("Storage:Bucket is required when Storage:Provider is Gcs.");
+            }
+
+            services.AddSingleton<IFileStorage, GcsFileStorage>();
+        }
+        else
+        {
+            services.AddSingleton<IFileStorage, NoFileStorage>();
+        }
+
+        // Online payments (Asaas). Payments:Provider = Asaas turns on subscriptions, the Pix with split and the fee Pix;
+        // anything else leaves them answering "not configured".
+        services.Configure<PaymentOptions>(configuration.GetSection(PaymentOptions.SectionName));
+        services.AddSingleton<ISubscriptionSettings, SubscriptionSettings>();
+        services.AddSingleton<IPaymentWebhookAuthenticator, AsaasWebhookAuthenticator>();
+        if (string.Equals(configuration["Payments:Provider"], "Asaas", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(configuration["Payments:Asaas:ApiKey"]))
+            {
+                throw new InvalidOperationException("Payments:Asaas:ApiKey is required when Payments:Provider is Asaas.");
+            }
+
+            services.AddHttpClient<IPaymentGateway, AsaasPaymentGateway>();
+        }
+        else
+        {
+            services.AddSingleton<IPaymentGateway, NoPaymentGateway>();
+        }
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

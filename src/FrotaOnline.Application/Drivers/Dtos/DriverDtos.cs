@@ -24,6 +24,15 @@ public sealed record RegisterVehicleRequest(VehicleType Type, string Plate, stri
 
 public sealed record VehicleResponse(Guid Id, VehicleType Type, string Plate, string Model, int Year, decimal CapacityKg, bool IsActive);
 
+/// <summary>Asks for a signed URL to upload one file. The content type is the one the upload will carry.</summary>
+public sealed record CreateUploadUrlRequest(MediaKind Kind, string ContentType);
+
+/// <summary>Upload with HTTP PUT to <paramref name="UploadUrl"/> sending <paramref name="Headers"/> exactly, then register the key.</summary>
+public sealed record UploadUrlResponse(
+    string StorageKey, string UploadUrl, string Method, IReadOnlyDictionary<string, string> Headers, long MaxBytes, DateTime ExpiresAt);
+
+public sealed record DownloadUrlResponse(string Url, DateTime ExpiresAt);
+
 public sealed record RegisterMediaRequest(MediaKind Kind, string StorageKey, string ContentType, long SizeBytes);
 
 public sealed record MediaFileResponse(Guid Id, MediaKind Kind, string StorageKey, string ContentType, long SizeBytes, DateTime CreatedAt);

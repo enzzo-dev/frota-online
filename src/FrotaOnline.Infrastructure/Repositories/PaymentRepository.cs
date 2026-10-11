@@ -14,6 +14,12 @@ internal sealed class PaymentRepository : IPaymentRepository
     public Task<bool> ExistsForDeliveryAsync(Guid deliveryId, CancellationToken cancellationToken) =>
         _db.Payments.AnyAsync(p => p.DeliveryId == deliveryId, cancellationToken);
 
+    public Task<Payment?> GetByDeliveryIdAsync(Guid deliveryId, CancellationToken cancellationToken) =>
+        _db.Payments.FirstOrDefaultAsync(p => p.DeliveryId == deliveryId, cancellationToken);
+
+    public Task<Payment?> GetByGatewayIdAsync(string gatewayPaymentId, CancellationToken cancellationToken) =>
+        _db.Payments.FirstOrDefaultAsync(p => p.GatewayPaymentId == gatewayPaymentId, cancellationToken);
+
     public async Task AddAsync(Payment payment, CancellationToken cancellationToken) =>
         await _db.Payments.AddAsync(payment, cancellationToken);
 }

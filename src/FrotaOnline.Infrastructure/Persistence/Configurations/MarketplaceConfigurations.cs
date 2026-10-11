@@ -99,6 +99,10 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         // One payment per delivery: a second confirmation must fail even under concurrent requests.
         builder.HasIndex(x => x.DeliveryId).IsUnique();
         builder.Property(x => x.ExternalReference).HasMaxLength(128);
+        builder.Property(x => x.GatewayPaymentId).HasMaxLength(64);
+        builder.Property(x => x.PixPayload).HasMaxLength(1024);
+        builder.Property(x => x.PixQrCode).HasMaxLength(16384);
+        builder.HasIndex(x => x.GatewayPaymentId).HasFilter("\"GatewayPaymentId\" IS NOT NULL");
         builder.HasOne<Delivery>().WithMany().HasForeignKey(x => x.DeliveryId);
     }
 }
@@ -120,6 +124,32 @@ internal sealed class SubscriptionConfiguration : IEntityTypeConfiguration<Subsc
     {
         builder.HasIndex(x => new { x.DriverProfileId, x.Status });
         builder.Property(x => x.PhoneNumber).HasMaxLength(20);
+        builder.Property(x => x.GatewaySubscriptionId).HasMaxLength(64);
+        builder.Property(x => x.PaymentUrl).HasMaxLength(512);
+        builder.HasIndex(x => x.GatewaySubscriptionId).HasFilter("\"GatewaySubscriptionId\" IS NOT NULL");
         builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
+    }
+}
+
+internal sealed class FeeChargeConfiguration : IEntityTypeConfiguration<FeeCharge>
+{
+    public void Configure(EntityTypeBuilder<FeeCharge> builder)
+    {
+        builder.Property(x => x.GatewayPaymentId).HasMaxLength(64);
+        builder.Property(x => x.PixPayload).HasMaxLength(1024);
+        builder.Property(x => x.PixQrCode).HasMaxLength(16384);
+        builder.HasIndex(x => x.GatewayPaymentId).IsUnique();
+        builder.HasIndex(x => new { x.DriverProfileId, x.Status });
+        builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
+    }
+}
+
+internal sealed class WebhookEventConfiguration : IEntityTypeConfiguration<WebhookEvent>
+{
+    public void Configure(EntityTypeBuilder<WebhookEvent> builder)
+    {
+        builder.Property(x => x.EventId).HasMaxLength(128);
+        builder.Property(x => x.EventType).HasMaxLength(64);
+        builder.HasIndex(x => x.EventId).IsUnique();
     }
 }

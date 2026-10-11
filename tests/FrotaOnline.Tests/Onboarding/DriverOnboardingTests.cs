@@ -5,6 +5,7 @@ using FrotaOnline.Application.Drivers.Validators;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 using FrotaOnline.Tests.Auth;
+using FrotaOnline.Tests.Notifications;
 
 namespace FrotaOnline.Tests.Onboarding;
 
@@ -16,7 +17,9 @@ public class DriverOnboardingTests
     private readonly Guid _userId = Guid.NewGuid();
     private readonly FakeDriverRepository _drivers = new();
     private readonly FakeVehicleRepository _vehicles = new();
+    private readonly FrotaOnline.Tests.Payments.FakeSubscriptionRepository _subscriptions = new();
     private readonly FakeMediaFileRepository _media = new();
+    private readonly FakeFileStorage _storage = new();
     private readonly FakeTermRepository _terms = new();
     private readonly FakeConsentRepository _consents = new();
     private readonly FakeClock _clock = new();
@@ -29,8 +32,8 @@ public class DriverOnboardingTests
         var unitOfWork = new FakeUnitOfWork();
         _profile = new DriverProfileService(
             _drivers, _vehicles, _media, _terms, _consents, unitOfWork, new UpsertDriverProfileRequestValidator());
-        _vehicleService = new VehicleService(_drivers, _vehicles, unitOfWork, new RegisterVehicleRequestValidator());
-        _documents = new DriverDocumentService(_drivers, _media, unitOfWork, new RegisterMediaRequestValidator());
+        _vehicleService = new VehicleService(_drivers, _vehicles, new FrotaOnline.Application.Payments.SubscriptionPolicy(_subscriptions, new FrotaOnline.Tests.Payments.FakeSubscriptionSettings(), new FrotaOnline.Tests.Auth.FakeClock()), unitOfWork, new RegisterVehicleRequestValidator());
+        _documents = new DriverDocumentService(_drivers, _media, _storage, unitOfWork, new RegisterMediaRequestValidator(), new CreateUploadUrlRequestValidator());
     }
 
     private static UpsertDriverProfileRequest ValidProfile(string taxId = ValidCpf, string cnh = "12345678901") =>

@@ -8,7 +8,9 @@ using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Routing;
 using FrotaOnline.Application.Marketplace.Dtos;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Application.Terms;
+using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 
@@ -16,12 +18,17 @@ namespace FrotaOnline.Application.Marketplace;
 
 public sealed class FreightService : IFreightService
 {
+    /// <summary>Most drivers told about one freight. Past this the alert is a flood, and the list screen is still there.</summary>
+    public const int MaxAlertedDrivers = 500;
+
     private readonly IFreightRepository _freights;
     private readonly IProposalRepository _proposals;
     private readonly IAddressRepository _addresses;
     private readonly IFreightQueries _queries;
     private readonly ITermAcceptanceChecker _terms;
     private readonly IRoutePlanner _routes;
+    private readonly IMatchingDriverQueries _matching;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<CreateFreightRequest> _validator;
@@ -33,6 +40,8 @@ public sealed class FreightService : IFreightService
         IFreightQueries queries,
         ITermAcceptanceChecker terms,
         IRoutePlanner routes,
+        IMatchingDriverQueries matching,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<CreateFreightRequest> validator)
@@ -43,6 +52,8 @@ public sealed class FreightService : IFreightService
         _queries = queries;
         _terms = terms;
         _routes = routes;
+        _matching = matching;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _validator = validator;
@@ -101,6 +112,7 @@ public sealed class FreightService : IFreightService
         }
 
         await _freights.AddAsync(freight, cancellationToken);
+        await AlertCompatibleDriversAsync(freight, found, now, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(FreightMapper.ToResponse(freight, found, 0));
@@ -142,5 +154,32 @@ public sealed class FreightService : IFreightService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
+    }
+
+    /// <summary>
+    /// Stages one "new compatible freight" notification per matching driver, saved together with the freight: either
+    /// both exist or neither does. The push itself goes out later through the dispatcher.
+    /// </summary>
+    private async Task AlertCompatibleDriversAsync(
+        FreightRequest freight, IReadOnlyDictionary<Guid, Address> addresses, DateTime now, CancellationToken cancellationToken)
+    {
+        var startsAt = freight.ScheduledPickupAt ?? now;
+        var criteria = new FreightMatchCriteria(
+            freight.CustomerId, freight.RequiredVehicleType, freight.CargoWeightKg, startsAt,
+            startsAt + DeliveryPlanning.AgendaWindow(freight.Stops.Count));
+
+        var userIds = await _matching.ListUserIdsForNewFreightAsync(criteria, MaxAlertedDrivers, cancellationToken);
+        if (userIds.Count == 0)
+        {
+            return;
+        }
+
+        var ordered = freight.Stops.OrderBy(s => s.Sequence).ToList();
+        var origin = addresses[ordered[0].AddressId].City;
+        var destination = addresses[ordered[^1].AddressId].City;
+
+        await _notifications.PublishAsync(
+            userIds.Select(id => NotificationMessages.NewFreightAvailable(id, freight.Id, origin, destination, freight.IsSameDay)).ToList(),
+            cancellationToken);
     }
 }

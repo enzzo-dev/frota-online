@@ -25,13 +25,18 @@
     </a>
 
     <nav class="rail-nav">
+      <p class="rail-group">Start</p>
       <a href="#start">Start here</a>
       <a href="#tokens">How sessions work</a>
       <a href="#flow">Call order</a>
+      <p class="rail-group">Guides</p>
       <a href="#onboarding">Driver onboarding</a>
+      <a href="#uploads">File uploads</a>
       <a href="#marketplace">Marketplace</a>
+      <a href="#payments">Payments (Asaas)</a>
       <a href="#notifications">Notifications</a>
       <a href="#privacy">Privacy</a>
+      <p class="rail-group">Reference</p>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Errors</a>
     </nav>
@@ -64,7 +69,7 @@
           <code id="base-url">/api/v1</code>
           <button type="button" class="copy" data-copy-target="base-url">Copy</button>
         </div>
-        <p class="roadmap"><strong>Available now:</strong> accounts, driver onboarding, freight requests, proposals and approval. <strong>Next:</strong> pickup and delivery tracking, proof, payment record.</p>
+        <p class="roadmap"><strong>Available now:</strong> accounts, driver onboarding with file uploads, freight requests, proposals, delivery tracking, notifications, subscriptions and Pix payments through Asaas. <strong>Next:</strong> sending the driver's position and filtering freights by region.</p>
       </div>
       <div class="roadline" aria-hidden="true"></div>
     </header>
@@ -184,7 +189,7 @@
             <tr><td>1</td><td><code>GET /terms/pending</code> then <code>POST /terms/accept</code></td><td>Accept every active term. Each acceptance stores the time and IP address.</td></tr>
             <tr><td>2</td><td><code>PUT /driver/profile</code></td><td>Send <code>taxId</code> (CPF or CNPJ, letters allowed), CNH and category. The tax id is required and checked by its digits before anything is saved. Repeat the call to correct data while the profile is a draft or rejected.</td></tr>
             <tr><td>3</td><td><code>POST /driver/vehicles</code></td><td>Register at least one vehicle. Plates accept <code>ABC1234</code> and <code>ABC1D23</code>.</td></tr>
-            <tr><td>4</td><td><code>POST /driver/documents</code></td><td>Register the files you already uploaded. The storage key must start with <code>drivers/{your user id}/</code>.</td></tr>
+            <tr><td>4</td><td><code>POST /driver/documents</code></td><td>Register the files you already uploaded (see <a href="#uploads">File uploads</a>: ask for a pre-signed URL first). The storage key must start with <code>drivers/{your user id}/</code>.</td></tr>
             <tr><td>5</td><td><code>GET /driver/profile</code></td><td>The <code>checklist</code> shows what is still missing: terms, vehicle, document.</td></tr>
             <tr><td>6</td><td><code>POST /driver/submit</code></td><td>Moves the status to <code>PendingReview</code> and locks the profile. An incomplete checklist returns the missing items.</td></tr>
             <tr><td>7</td><td><code>GET /admin/drivers</code>, then <code>approve</code> or <code>reject</code></td><td>The admin reviews the file. Approval or rejection (with a reason) sends an e-mail. A rejected driver edits and submits again.</td></tr>
@@ -235,7 +240,8 @@
             <tr><td><code>GET /notifications</code></td><td>The inbox, newest first. Query: <code>unreadOnly</code>, <code>page</code> (from 1), <code>pageSize</code> (1 to 100, default 20). The response has <code>items</code>, <code>unreadCount</code> for the bell badge and <code>hasMore</code> for infinite scroll. Each item has <code>type</code>, <code>title</code>, <code>body</code> (Portuguese), and <code>targetType</code> + <code>targetId</code>, which say what to open when it is tapped: <code>Freight</code>, <code>Proposal</code>, <code>Delivery</code>, <code>DriverProfile</code> or <code>Fee</code>.</td></tr>
             <tr><td><code>GET /notifications/unread-count</code></td><td>Just <code>{ "unread": 3 }</code>, cheap enough to poll for the badge.</td></tr>
             <tr><td><code>POST /notifications/{id}/read</code>, <code>POST /notifications/read-all</code></td><td>Mark one or all as read. Idempotent. Someone else's notification is a 404 <code>notification.not_found</code>.</td></tr>
-          </tbody>
+          <tr><td><code>GET /notifications/preferences</code>, <code>PUT /notifications/preferences</code></td><td>Two switches, both on by default: <code>newFreightAlerts</code> (drivers are told when a freight that fits opens) and <code>pushEnabled</code> (off keeps the inbox but silences the phone). Send only what changes, e.g. <code>{ "newFreightAlerts": false }</code> turns the new-freight alerts off and keeps every other push.</td></tr>
+            </tbody>
         </table>
       </div>
       <div class="table-wrap">
@@ -256,10 +262,74 @@
             <tr><td>The driver confirms the payment</td><td>Customer</td><td><code>PaymentConfirmed</code> (with the amount)</td><td>Delivery</td></tr>
             <tr><td>The admin approves / rejects the registration</td><td>Driver</td><td><code>DriverApproved</code> / <code>DriverRejected</code></td><td>DriverProfile</td></tr>
             <tr><td>The admin records a fee settlement</td><td>Driver</td><td><code>FeeSettled</code> (with the amount)</td><td>Fee</td></tr>
-          </tbody>
+          <tr><td>A customer posts a freight</td><td>Compatible drivers (see below)</td><td><code>NewFreightAvailable</code> ("City A → City B", with the 5 min or 24 h window)</td><td>Freight</td></tr>
+            <tr><td>The Pix of a freight is paid</td><td>Customer and driver</td><td><code>PaymentConfirmed</code> / <code>PaymentReceived</code> (the driver’s share)</td><td>Delivery</td></tr>
+            <tr><td>A subscription payment is confirmed</td><td>Driver</td><td><code>SubscriptionActivated</code> (with the date it is valid until)</td><td>Subscription</td></tr>
+            <tr><td>The fee Pix is paid</td><td>Driver</td><td><code>FeeSettled</code></td><td>Fee</td></tr>
+            </tbody>
         </table>
       </div>
+      <p class="prose"><strong>Compatible freight alert.</strong> When a freight is posted, every driver it fits is told: approved, with an active vehicle of the required type and enough capacity, free in the agenda during the run, and with the alert on. The customer who posted it is never told, and at most 500 drivers are alerted per freight. There is no distance filter yet (the app does not collect where the driver works), so the alert goes to compatible drivers in any city.</p>
       <p class="prose">One driver action in the middle of a run sends one notification (the most relevant one), even when the delivery moves through more than one status. The push carries the same data as the inbox item (<code>notificationId</code>, <code>type</code>, <code>targetType</code>, <code>targetId</code>). A failed send is retried a minute later, up to 5 times, and the inbox entry is there either way; someone who already opened the notification in the app gets no push. Set <code>Push:Provider</code> to <code>Firebase</code> to send real pushes through Firebase Cloud Messaging (credentials from Application Default Credentials, so on GCP the runtime service account); the default only writes them to the log. Deleting an account (LGPD) erases its notifications and device tokens.</p>
+    </section>
+
+    <section id="uploads" class="section">
+      <h2>File uploads</h2>
+      <p class="section-lede">Files never pass through the API. The app sends them straight to the storage with a pre-signed URL and the API checks the result.</p>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Step</th><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>POST /driver/documents/upload-url</code></td><td>Send <code>{ "kind": "DriverDocument" | "VehiclePhoto", "contentType": "image/jpeg" | "image/png" | "application/pdf" }</code>. The answer has <code>storageKey</code>, <code>uploadUrl</code>, <code>method</code> (PUT), <code>headers</code>, <code>maxBytes</code> (10 MB) and <code>expiresAt</code> (15 minutes).</td></tr>
+            <tr><td>2</td><td><code>PUT {uploadUrl}</code> (to the storage, not to this API)</td><td>Send the file body with exactly the <code>headers</code> you received. A different type or a bigger file is refused by the storage.</td></tr>
+            <tr><td>3</td><td><code>POST /driver/documents</code></td><td>Register the <code>storageKey</code>. The API looks at the real object: missing is <code>409 driver.file_not_uploaded</code>; over 10 MB or not JPEG, PNG or PDF deletes the object and answers 400 (<code>driver.file_too_large</code> / <code>driver.file_type_not_allowed</code>). The size and type saved are the storage's, not the ones the app declared.</td></tr>
+            <tr><td>Admin</td><td><code>GET /admin/drivers/{driverId}/files/{fileId}/url</code></td><td>A read link that expires in 10 minutes. The bucket is never public.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">Without <code>Storage__Provider=Gcs</code> the upload-url endpoint answers <code>409 storage.not_configured</code> and <code>POST /driver/documents</code> keeps trusting what the app sends (development only). Deleting an account also deletes the person's objects from the storage.</p>
+    </section>
+
+    <section id="payments" class="section">
+      <h2>Payments (Asaas)</h2>
+      <p class="section-lede">Subscriptions, a Pix issued by the app with split, and automatic collection of the platform fee. Card data never touches this API. Every endpoint here answers <code>409 payments.not_configured</code> until the server has <code>Payments__Provider=Asaas</code>, and <code>503 payments.unavailable</code> when Asaas cannot be reached.</p>
+
+      <h3 class="mini">Driver subscription</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /driver/subscription</code></td><td>The two plans (Basic R$ 79.90 up to 3 vehicles, Full R$ 99.90 with no limit) and the current subscription. <code>hasAccess</code> is true while the driver is inside a period they paid for.</td></tr>
+            <tr><td><code>POST /driver/subscription</code></td><td><code>{ "plan": "Basic" | "Full" }</code>, approved drivers only. Returns <code>paymentUrl</code>: open it so the driver pays by Pix, boleto or card. The plan turns <code>Active</code> when Asaas confirms the payment; each paid month adds one month. Asking again for the same plan before paying returns the same link.</td></tr>
+            <tr><td><code>DELETE /driver/subscription</code></td><td>Stops future charges. The driver keeps the access already paid for until <code>endsAt</code>.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">Basic allows 3 active vehicles: adding a 4th answers <code>409 subscription.vehicle_limit</code>, and choosing Basic with more than 3 answers <code>subscription.too_many_vehicles</code>. When the server has <code>Subscriptions__RequiredToPropose=true</code>, sending a proposal without a paid period answers <code>403 subscription.required</code> (off by default).</p>
+
+      <h3 class="mini">Paying a freight by Pix, split between driver and platform</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>PUT /driver/payout-account</code></td><td>The driver links their own Asaas account: <code>{ "walletId": "&lt;uuid&gt;" }</code>. It is where their share is sent. <code>GET</code> shows whether it is set.</td></tr>
+            <tr><td><code>POST /deliveries/{id}/pix</code></td><td>Customer, after the delivery is completed. Send <code>{ "taxId": "&lt;payer CPF or CNPJ&gt;" }</code> (Asaas requires it; the app does not store it). Returns <code>pixPayload</code> (copia e cola), <code>pixQrCode</code> (base64 PNG), <code>expiresAt</code>, <code>driverReceives</code> and <code>platformFee</code>. The driver gets price minus R$ 4.90 straight in their account; the platform never holds the driver’s money. Asking again returns the same Pix while it is valid.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">When Asaas confirms the payment, it becomes <code>Paid</code>, the R$ 4.90 fee in the driver’s statement is settled by itself, and both sides are notified. Without a linked account the answer is <code>409 payments.driver_without_payout_account</code>: pay the driver directly and let them confirm with <code>POST /driver/deliveries/{id}/payment</code>.</p>
+
+      <h3 class="mini">Paying the platform fee</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /driver/fees/pix</code></td><td>A Pix for the whole open balance (freights paid outside the app). When it is paid the statement is settled automatically and the driver receives <code>FeeSettled</code>. The minimum charge is R$ 5.00: below it the answer is <code>409 fee.below_minimum</code> and the balance waits.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <h3 class="mini">Webhook (server to server)</h3>
+      <p class="prose"><code>POST /webhooks/asaas</code> is called by Asaas, never by the app, and is protected by the <code>asaas-access-token</code> header. Each event id is processed once, so a repeated delivery changes nothing. Handled: <code>PAYMENT_RECEIVED</code> and <code>PAYMENT_CONFIRMED</code> (subscription, freight Pix, fee Pix) and <code>SUBSCRIPTION_DELETED</code> / <code>SUBSCRIPTION_INACTIVATED</code>. Anything else is acknowledged and ignored.</p>
     </section>
 
     <section id="privacy" class="section">
@@ -343,6 +413,17 @@
             <tr><td>409</td><td><code>request.conflict</code></td><td>Something changed while the request ran (for example a freight started using the address being deleted). Reload and try again.</td></tr>
             <tr><td>404</td><td><code>notification.not_found</code></td><td>The notification does not exist or belongs to someone else.</td></tr>
             <tr><td>409</td><td><code>request.duplicate</code></td><td>Two identical requests arrived together and the database rejected the second one (unique index), for example the payment confirmation. Reload and check the current state.</td></tr>
+            <tr><td>409</td><td><code>payments.not_configured</code></td><td>Online payments are off on this server. Pay directly and confirm, or ask the team to configure Asaas.</td></tr>
+            <tr><td>503</td><td><code>payments.unavailable</code></td><td>Asaas refused or could not be reached. Try again in a moment.</td></tr>
+            <tr><td>409</td><td><code>payments.driver_without_payout_account</code></td><td>The driver has not linked an account, so a Pix with split cannot be issued.</td></tr>
+            <tr><td>409</td><td><code>payments.price_too_low</code></td><td>The agreed price does not cover the platform fee or the provider’s minimum.</td></tr>
+            <tr><td>409</td><td><code>fee.nothing_to_charge</code>, <code>fee.below_minimum</code></td><td>No fee is owed, or the balance is under the R$ 5.00 minimum charge.</td></tr>
+            <tr><td>409</td><td><code>subscription.already_active</code>, <code>subscription.too_many_vehicles</code>, <code>subscription.vehicle_limit</code></td><td>A plan is already active, or the Basic plan’s 3-vehicle limit would be exceeded.</td></tr>
+            <tr><td>403</td><td><code>subscription.required</code></td><td>An active subscription is needed to send proposals.</td></tr>
+            <tr><td>404</td><td><code>subscription.not_found</code></td><td>The driver has no subscription.</td></tr>
+            <tr><td>409</td><td><code>storage.not_configured</code>, <code>driver.file_not_uploaded</code></td><td>No storage on this server, or the file was not uploaded before registering it.</td></tr>
+            <tr><td>400</td><td><code>driver.file_too_large</code>, <code>driver.file_type_not_allowed</code></td><td>The uploaded file is over 10 MB or is not JPEG, PNG or PDF.</td></tr>
+            <tr><td>404</td><td><code>admin.file_not_found</code></td><td>The file does not belong to that driver.</td></tr>
             <tr><td>400</td><td><code>route.missing_coordinates</code></td><td>Some addresses have no map position yet. The message lists them.</td></tr>
           </tbody>
         </table>

@@ -5,8 +5,8 @@ using FrotaOnline.Application.Abstractions.Time;
 namespace FrotaOnline.Application.Notifications;
 
 /// <summary>
-/// Turns stored notifications into pushes. A person with no registered device is settled right away (the inbox
-/// is enough); a provider failure is retried a minute later, up to <c>Notification.MaxPushAttempts</c> times.
+/// Turns stored notifications into pushes. A person with no registered device, or who turned pushes off, is settled right
+/// away (the inbox is enough); a provider failure is retried a minute later, up to <c>Notification.MaxPushAttempts</c> times.
 /// </summary>
 public sealed class NotificationDispatcher : INotificationDispatcher
 {
@@ -14,6 +14,7 @@ public sealed class NotificationDispatcher : INotificationDispatcher
 
     private readonly INotificationRepository _notifications;
     private readonly IDeviceTokenRepository _devices;
+    private readonly INotificationPreferenceRepository _preferences;
     private readonly IPushSender _push;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
@@ -21,12 +22,14 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     public NotificationDispatcher(
         INotificationRepository notifications,
         IDeviceTokenRepository devices,
+        INotificationPreferenceRepository preferences,
         IPushSender push,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock)
     {
         _notifications = notifications;
         _devices = devices;
+        _preferences = preferences;
         _push = push;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -45,13 +48,15 @@ public sealed class NotificationDispatcher : INotificationDispatcher
         var tokens = (await _devices.ListByUserIdsAsync(userIds, cancellationToken))
             .ToLookup(t => t.UserId, t => new PushDevice(t.Token, t.Platform));
 
+        var pushOff = await _preferences.ListPushDisabledAsync(userIds, cancellationToken);
+
         var invalid = new HashSet<string>();
         var settled = 0;
 
         foreach (var notification in pending)
         {
             var devices = tokens[notification.UserId].ToList();
-            if (devices.Count == 0)
+            if (devices.Count == 0 || pushOff.Contains(notification.UserId))
             {
                 notification.MarkPushDispatched(now);
                 settled++;

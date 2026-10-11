@@ -81,9 +81,19 @@ public sealed class DriverController : ApiControllerBase
     public async Task<IActionResult> ListDocuments(CancellationToken cancellationToken) =>
         Handle(await _documents.ListAsync(CurrentUserId, cancellationToken), Ok);
 
+    [HttpPost("documents/upload-url")]
+    [EndpointSummary("Get a signed URL to upload a file")]
+    [EndpointDescription("Step 1 of sending a document, vehicle photo or delivery proof. Send the kind and the content type (image/jpeg, image/png or application/pdf). The response has the storageKey, the uploadUrl and the headers: upload the file bytes with HTTP PUT to uploadUrl sending exactly those headers (including Content-Type), within 15 minutes and up to 10 MB. Then call POST /driver/documents with the same storageKey. The file goes straight to storage, not through the API. Answers 409 storage.not_configured in environments without storage.")]
+    [ProducesResponseType<UploadUrlResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateUploadUrl(CreateUploadUrlRequest request, CancellationToken cancellationToken) =>
+        Handle(await _documents.CreateUploadUrlAsync(CurrentUserId, request, cancellationToken), Ok);
+
     [HttpPost("documents")]
     [EndpointSummary("Register an uploaded document or vehicle photo")]
-    [EndpointDescription("Call after the file is in storage. The storage key must start with drivers/{your user id}/. JPEG, PNG or PDF, up to 10 MB.")]
+    [EndpointDescription("Step 2: call after the upload with the storageKey from POST /driver/documents/upload-url. With storage configured, the API checks the real object: missing file gives driver.file_not_uploaded, and the stored size and type (JPEG, PNG or PDF, up to 10 MB) replace what the request says. The storage key must start with drivers/{your user id}/.")]
     [ProducesResponseType<MediaFileResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

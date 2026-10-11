@@ -3,10 +3,12 @@ using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Abstractions.Queries;
+using FrotaOnline.Application.Abstractions.Storage;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Application.Admin.Dtos;
 using FrotaOnline.Application.Common;
+using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Notifications;
 using FrotaOnline.Application.Drivers.Dtos;
 using FrotaOnline.Domain.Entities;
@@ -23,6 +25,7 @@ public sealed class DriverReviewService : IDriverReviewService
     private readonly IUserRepository _users;
     private readonly IVehicleRepository _vehicles;
     private readonly IMediaFileRepository _media;
+    private readonly IFileStorage _storage;
     private readonly IEmailSender _email;
     private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
@@ -35,6 +38,7 @@ public sealed class DriverReviewService : IDriverReviewService
         IUserRepository users,
         IVehicleRepository vehicles,
         IMediaFileRepository media,
+        IFileStorage storage,
         IEmailSender email,
         INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
@@ -46,6 +50,7 @@ public sealed class DriverReviewService : IDriverReviewService
         _users = users;
         _vehicles = vehicles;
         _media = media;
+        _storage = storage;
         _email = email;
         _notifications = notifications;
         _unitOfWork = unitOfWork;
@@ -77,6 +82,26 @@ public sealed class DriverReviewService : IDriverReviewService
             profile.Status, profile.RejectionReason, profile.ReviewedAt,
             vehicles.Select(v => new VehicleResponse(v.Id, v.Type, v.Plate, v.Model, v.Year, v.CapacityKg, v.IsActive)).ToList(),
             files.Select(f => new MediaFileResponse(f.Id, f.Kind, f.StorageKey, f.ContentType, f.SizeBytes, f.CreatedAt)).ToList()));
+    }
+
+    public async Task<Result<DownloadUrlResponse>> GetFileUrlAsync(
+        Guid driverId, Guid fileId, CancellationToken cancellationToken)
+    {
+        var profile = await _drivers.GetByIdAsync(driverId, cancellationToken);
+        var file = profile is null ? null : await _media.GetByIdAsync(fileId, cancellationToken);
+        if (profile is null || file is null || file.OwnerUserId != profile.UserId)
+        {
+            return Result.Failure<DownloadUrlResponse>(profile is null ? ReviewErrors.DriverNotFound : ReviewErrors.FileNotFound);
+        }
+
+        if (!_storage.IsConfigured)
+        {
+            return Result.Failure<DownloadUrlResponse>(DriverErrors.StorageNotConfigured);
+        }
+
+        var lifetime = TimeSpan.FromMinutes(10);
+        var url = await _storage.CreateDownloadUrlAsync(file.StorageKey, lifetime, cancellationToken);
+        return Result.Success(new DownloadUrlResponse(url, _clock.UtcNow + lifetime));
     }
 
     public async Task<Result> ApproveAsync(Guid reviewerId, Guid driverId, CancellationToken cancellationToken)

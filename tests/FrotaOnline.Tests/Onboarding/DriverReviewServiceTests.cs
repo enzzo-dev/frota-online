@@ -18,6 +18,7 @@ public class DriverReviewServiceTests
     private readonly FakeEmailSender _email = new();
     private readonly FakeClock _clock = new();
     private readonly FakeNotificationRepository _notifications = new();
+    private readonly FakeFileStorage _storage = new();
     private readonly FakeVehicleRepository _vehicles = new();
     private readonly FakeMediaFileRepository _media = new();
     private readonly Guid _adminId = Guid.NewGuid();
@@ -26,7 +27,7 @@ public class DriverReviewServiceTests
     public DriverReviewServiceTests()
     {
         _sut = new DriverReviewService(
-            _drivers, new FakeDriverReviewQueries(_drivers, _users), _users, _vehicles, _media, _email,
+            _drivers, new FakeDriverReviewQueries(_drivers, _users), _users, _vehicles, _media, _storage, _email,
             new NotificationPublisher(_notifications), new FakeUnitOfWork(), _clock, new RejectDriverRequestValidator());
     }
 
@@ -69,6 +70,42 @@ public class DriverReviewServiceTests
         Assert.Equal(DriverStatus.Approved, profile.Status);
         Assert.Equal(_adminId, profile.ReviewedByUserId);
         Assert.Equal("joao@example.com", Assert.Single(_email.Sent).To);
+    }
+
+    [Fact]
+    public async Task FileUrl_ReturnsASignedLinkForTheDriversOwnFile()
+    {
+        var profile = AddDriver();
+        _storage.IsConfigured = true;
+        var file = _media.Items.Single();
+
+        var result = await _sut.GetFileUrlAsync(profile.Id, file.Id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(file.StorageKey, result.Value.Url);
+    }
+
+    [Fact]
+    public async Task FileUrl_OfAnotherUsersFile_ReturnsNotFound()
+    {
+        var profile = AddDriver();
+        _storage.IsConfigured = true;
+        var foreign = MediaFile.Create(Guid.NewGuid(), MediaKind.DriverDocument, "drivers/x/y.jpg", "image/jpeg", 10);
+        _media.Items.Add(foreign);
+
+        var result = await _sut.GetFileUrlAsync(profile.Id, foreign.Id, CancellationToken.None);
+
+        Assert.Equal(ErrorType.NotFound, result.Error!.Type);
+    }
+
+    [Fact]
+    public async Task FileUrl_WithoutStorage_ReturnsConflict()
+    {
+        var profile = AddDriver();
+
+        var result = await _sut.GetFileUrlAsync(profile.Id, _media.Items.Single().Id, CancellationToken.None);
+
+        Assert.Equal("storage.not_configured", result.Error!.Code);
     }
 
     [Fact]

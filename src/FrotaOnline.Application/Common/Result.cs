@@ -6,7 +6,8 @@ public enum ErrorType
     Unauthorized,
     Forbidden,
     NotFound,
-    Conflict
+    Conflict,
+    Unavailable
 }
 
 public sealed record Error(

@@ -5,7 +5,7 @@ Monolito modular em **.NET 9**, com Clean Architecture, PostgreSQL e EF Core.
 
 **Documentação:** rode a API e abra <https://localhost:62577/docs/index.html>
 (ou <http://localhost:62578/docs/index.html>). As portas vêm de `src/FrotaOnline.Api/Properties/launchSettings.json`.
-A página é um guia com um passo a passo em quatro paradas e uma lista de endpoints ao vivo, com console "Try it".
+A página é um guia dividido em capítulos, um por vez, escolhidos no menu da esquerda: **Começar** (primeira chamada, sessões e a ordem das chamadas), **Guias** (cadastro do motorista, envio de arquivos, marketplace, pagamentos pelo Asaas, notificações e privacidade) e **Referência** (lista de endpoints ao vivo, com console "Try it", e erros). Existe também a versão em inglês (`index.html`) e em português (`index.pt.html`).
 
 ## Status
 
@@ -20,7 +20,9 @@ A página é um guia com um passo a passo em quatro paradas e uma lista de endpo
 | Pedidos de frete: criar, listar, cancelar, expirar | Pronto |
 | Propostas do motorista, ranking por preço e aprovação que cria a entrega e reserva a agenda | Pronto |
 | Andamento da entrega (paradas em ordem, ocorrência, cancelamento, comprovante), confirmação de pagamento, extrato de taxas e visão do cliente | Pronto |
-| Notificações: caixa de entrada no app, contador de não lidas, registro de dispositivos e envio de push (provedor ainda por plugar) | Pronto |
+| Notificações: caixa de entrada no app, contador de não lidas, registro de dispositivos e envio de push (FCM), aviso de frete compatível e preferências | Pronto |
+| Upload de documentos e fotos por URL pré-assinada (Google Cloud Storage) | Pronto |
+| Pagamentos pelo Asaas: assinaturas, Pix do frete com split e Pix da taxa da plataforma | Pronto no código; precisa de conta Asaas e testes no sandbox |
 
 ## Diagramas
 
@@ -156,7 +158,7 @@ flowchart LR
     end
     subgraph DEPOIS["Depois do MVP"]
         direction LR
-        F4["<b>4. Escala</b><br/>Envio de posição<br/>Split de Pix<br/>Assinaturas<br/>Central de suporte"]
+        F4["<b>4. Escala</b><br/>Envio de posição<br/>Filtro de fretes por região<br/>Central de suporte<br/>Estornos automáticos"]
         M4{{"Marco:<br/>piloto de 100 veículos"}}
         F4 --> M4
     end
@@ -242,6 +244,13 @@ Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:Secre
 | `Jobs__Audience` | URL do serviço no Cloud Run | Audiência do token OIDC que o Cloud Scheduler envia. |
 | `Jobs__ServiceAccountEmail` | `scheduler@<projeto>.iam.gserviceaccount.com` | Única conta aceita em `/internal/jobs/*`. Vazio = tudo recusado. |
 | `Jobs__RunInProcess` | `false` (padrão) | Deixe `false` em produção; `true` roda os jobs dentro da API (só desenvolvimento ou instância única). |
+| `Payments__Provider` | `Asaas` (padrão `None`) | Liga assinaturas, Pix com split e Pix da taxa. Com `None` esses endpoints respondem `409 payments.not_configured`. |
+| `Payments__Asaas__ApiKey` | chave de API da conta Asaas da plataforma | Obrigatória com `Asaas` (a API não inicia sem ela). Uma chave para o sandbox e outra para produção. Secret Manager. |
+| `Payments__Asaas__BaseUrl` | `https://api.asaas.com/v3` em produção | O padrão do projeto é o sandbox (`https://api-sandbox.asaas.com/v3`). A documentação do Asaas mostra dois endereços de sandbox; use o que aparece na sua conta. |
+| `Payments__Asaas__WebhookToken` | 32 a 255 caracteres aleatórios, sem espaços | O mesmo valor que você cadastra no webhook do Asaas (campo "token de autenticação"). Sem ele, o webhook recusa tudo (401). Secret Manager. |
+| `Subscriptions__RequiredToPropose` | `false` (padrão) | `true` exige assinatura ativa para enviar propostas. Deixe `false` até o lançamento dos planos. |
+| `Storage__Provider` | `Gcs` (padrão `None`) | Liga o upload real por URL pré-assinada no Google Cloud Storage. Com `None` o upload fica desligado (`409 storage.not_configured`). |
+| `Storage__Bucket` | nome do bucket | Obrigatório com `Gcs`. Bucket privado, sem acesso público. A conta de serviço precisa de `roles/storage.objectAdmin` no bucket e de `roles/iam.serviceAccountTokenCreator` em si mesma (assinatura V4 sem arquivo de chave). |
 | `Routing__BaseUrl` | URL do seu OSRM | O servidor público padrão (`router.project-osrm.org`) é só para teste e não tem garantia de disponibilidade: suba o seu (imagem `osrm/osrm-backend` com o mapa do Brasil). |
 
 **Opcionais** (têm padrão no `appsettings.json`):
@@ -259,7 +268,7 @@ Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:Secre
 
 > **Lembrete: CORS ainda não está implementado.** A API não tem nenhuma política de CORS (`AddCors` / `UseCors`). Um app mobile nativo não é afetado, mas qualquer front-end web (inclusive a versão Web do app, `platform: Web`, e a página de docs servida de outro domínio) terá as chamadas bloqueadas pelo navegador. Antes de publicar um front-end web: definir uma política nomeada que libere só as origens de cada ambiente (por exemplo `Cors__AllowedOrigins__0=https://app.seudominio.com.br`, nunca `*` junto de `Authorization`), permitir os métodos e cabeçalhos usados (`Authorization`, `Content-Type`) e chamar `app.UseCors(...)` depois do `UseForwardedHeaders` e antes de `UseAuthentication`. As rotas `/internal/jobs/*` não precisam de CORS, pois são chamadas pelo Cloud Scheduler.
 
-Checklist de deploy: (1) criar o banco e aplicar as migrations com `ConnectionStrings__Default` do ambiente; (2) definir os segredos acima; (3) criar os dois jobs do Cloud Scheduler (veja "Jobs em produção"); (4) publicar o termo de uso inicial e criar o primeiro admin; (5) conferir `GET /health`; (6) configurar o CORS, se houver front-end web.
+Checklist de deploy: (0) criar a conta Asaas de produção, a chave Pix e o webhook (veja "Pagamentos pelo Asaas"); (1) criar o banco e aplicar as migrations com `ConnectionStrings__Default` do ambiente; (2) definir os segredos acima; (3) criar os dois jobs do Cloud Scheduler (veja "Jobs em produção"); (4) publicar o termo de uso inicial e criar o primeiro admin; (5) conferir `GET /health`; (6) configurar o CORS, se houver front-end web.
 
 Para manter a sua chave JWT de desenvolvimento fora do repositório:
 
@@ -308,7 +317,7 @@ flowchart TD
     F -- Driver --> G["GET /driver/profile<br/>404 = ainda não existe"]
     G --> H["PUT /driver/profile<br/>taxId, cnhNumber, cnhCategory"]
     H --> I["POST /driver/vehicles<br/>pelo menos um veículo"]
-    I --> J["Envia o arquivo ao storage<br/>chave drivers/userId/arquivo"]
+    I --> J["POST /driver/documents/upload-url<br/>depois PUT do arquivo na uploadUrl"]
     J --> K["POST /driver/documents<br/>registra a chave do arquivo"]
     K --> L{"GET /driver/profile<br/>checklist.isReady?"}
     L -. falta item .-> I
@@ -327,18 +336,22 @@ flowchart TD
     U -- rejeita --> W["POST /admin/drivers/id/reject<br/>reason obrigatório, e-mail ao motorista"]
     R -. quando houver nova versão .-> X["POST /admin/terms<br/>todos aceitam de novo"]
 
+    P --> PA["PUT /driver/payout-account<br/>walletId Asaas, para receber o split do Pix"]
+    P --> PS["POST /driver/subscription<br/>abre paymentUrl e paga o plano"]
     P --> P1["GET /driver/freights/open<br/>fretes compatíveis com seus veículos"]
     P1 --> P2["POST /driver/freights/id/proposals<br/>vehicleId, price, message"]
     P2 --> P3["GET /driver/proposals<br/>Pending, Accepted, Rejected, Expired"]
     P3 -.-> P4["POST /driver/proposals/id/withdraw<br/>enquanto Pending"]
     P3 -- Accepted --> P5["GET /driver/deliveries<br/>entregas ganhas"]
     P5 --> P6["GET /driver/deliveries/id/route<br/>view Full ou Next"]
+    P6 -.-> P7["POST /driver/fees/pix<br/>paga a taxa dos fretes recebidos por fora"]
 
     F -- Customer --> Y["POST /addresses<br/>um por coleta e por entrega"]
     Y --> Y1["POST /freights<br/>stops em ordem, itens opcionais"]
     Y1 --> Y2["GET /freights/id/proposals<br/>ranking: menor preço primeiro"]
     Y2 --> Y3["POST /freights/id/proposals/pid/approve<br/>201 cria a entrega"]
     Y2 -. desiste .-> Y4["POST /freights/id/cancel"]
+    Y3 -.-> Y5["Depois da entrega: POST /deliveries/id/pix<br/>taxId do pagador, devolve copia e cola e QR"]
 
     style P fill:#d7141a,stroke:#8f0d12,color:#ffffff
     style Q fill:#ffffff,stroke:#d7141a,color:#8f0d12
@@ -411,7 +424,22 @@ O e-mail anonimizado libera o e-mail original para um novo cadastro. Os access t
 | POST | `/submit` | Envia para análise (`PendingReview`). Exige termos aceitos, um veículo ativo e um documento. |
 | GET / POST | `/vehicles` | Lista e cadastra veículos. Placa no formato `ABC1234` ou `ABC1D23`. |
 | DELETE | `/vehicles/{id}` | Desativa um veículo. Um motorista aprovado mantém pelo menos um ativo. |
+| POST | `/documents/upload-url` | Pede uma URL pré-assinada para enviar um arquivo direto ao storage (veja "Upload de arquivos"). |
 | GET / POST | `/documents` | Lista e registra arquivos já enviados ao storage. A chave precisa começar com `drivers/{userId}/`. |
+
+## Upload de arquivos (documentos e fotos do motorista)
+
+O arquivo **não passa pela API**: o app envia direto ao Google Cloud Storage com uma URL pré-assinada, e a API só confere o resultado. Isso evita que a API carregue arquivos na memória e deixa o custo no storage.
+
+1. `POST /api/v1/driver/documents/upload-url` com `{ "kind": "DriverDocument" | "VehiclePhoto", "contentType": "image/jpeg" | "image/png" | "application/pdf" }`. A resposta traz `storageKey`, `uploadUrl`, `method` (`PUT`), `headers`, `maxBytes` (10 MB) e `expiresAt` (15 minutos).
+2. O app faz `PUT` na `uploadUrl` com o corpo do arquivo e **exatamente** os `headers` devolvidos (`Content-Type` e `x-goog-content-length-range`). Se o tipo ou o tamanho forem outros, o storage recusa o envio.
+3. `POST /api/v1/driver/documents` com a `storageKey` recebida. A API consulta o objeto de verdade: se não existe, devolve `409 driver.file_not_uploaded`; se passou de 10 MB ou não é JPEG, PNG ou PDF, apaga o objeto e devolve `400` (`driver.file_too_large` / `driver.file_type_not_allowed`). Tamanho e tipo gravados são os do storage, não os que o app declarou.
+
+A chave é `drivers/{userId}/{guid}.{ext}`, gerada pela API; o motorista só consegue registrar chaves da própria pasta. O admin vê o arquivo com `GET /api/v1/admin/drivers/{driverId}/files/{fileId}/url`, que devolve um link de leitura que expira em 10 minutos (o bucket nunca é público). Ao excluir a conta (LGPD), os objetos da pessoa são apagados do storage depois que o banco é limpo; falha ao apagar vai para o log e não desfaz a exclusão.
+
+Sem `Storage:Provider`, o registro de documentos continua aceitando o que o app informa (modo de desenvolvimento, sem verificação).
+
+Configuração do bucket (uma vez): crie o bucket privado, aplique CORS permitindo `PUT` e o cabeçalho `Content-Type`/`x-goog-content-length-range` das origens do app web (apps nativos não precisam), e dê à conta de serviço do Cloud Run os papéis citados na tabela de variáveis.
 
 ## Endpoints do cliente (`/api/v1`, perfil Customer)
 
@@ -500,6 +528,8 @@ Cada evento de negócio grava uma notificação para a pessoa certa, **na mesma 
 | POST | `/notifications/read-all` | Marca todas como lidas. 204. |
 | PUT | `/devices` | Registra o aparelho para push: `{ "token": "...", "platform": "Android" \| "Ios" \| "Web" }`. Chame depois de cada login e quando o provedor trocar o token. Repetir é inofensivo; se o mesmo aparelho entrar com outra conta, o token passa para ela. 204. |
 | DELETE | `/devices?token=...` | Chame no logout, para o próximo usuário do aparelho não receber as notificações desta conta. Sempre 204. |
+| GET | `/notifications/preferences` | Suas configurações: `{ "newFreightAlerts": true, "pushEnabled": true }`. Quem nunca mexeu recebe tudo ligado. |
+| PUT | `/notifications/preferences` | Altera só o que for enviado. `{ "newFreightAlerts": false }` desliga os avisos de frete novo e mantém os demais pushes; `{ "pushEnabled": false }` silencia todos os pushes (a caixa de entrada continua enchendo). Devolve as configurações depois da mudança. |
 
 Cada item da caixa de entrada traz `type`, `title`, `body` (em português), `targetType` e `targetId`, que dizem o que abrir ao tocar. O push leva os mesmos dados (`notificationId`, `type`, `targetType`, `targetId`).
 
@@ -521,12 +551,24 @@ Cada item da caixa de entrada traz `type`, `title`, `body` (em português), `tar
 | Admin aprova o cadastro | Motorista | `DriverApproved` | `DriverProfile` |
 | Admin rejeita o cadastro | Motorista | `DriverRejected` (com o motivo) | `DriverProfile` |
 | Admin registra o acerto da taxa | Motorista | `FeeSettled` (com o valor) | `Fee` |
+| Cliente paga o Pix do frete | Cliente e motorista | `PaymentConfirmed` (cliente) e `PaymentReceived` (motorista, com a parte dele) | `Delivery` |
+| Pagamento da assinatura confirmado | Motorista | `SubscriptionActivated` (com a data até quando vale) | `Subscription` |
+| Pix da taxa pago | Motorista | `FeeSettled` | `Fee` |
+| Cliente publica um frete | Motoristas compatíveis (veja abaixo) | `NewFreightAvailable` ("Cidade A → Cidade B", com a janela de 5 min ou 24 h) | `Freight` |
 
 Por ação do motorista no meio da corrida sai uma só notificação (a mais relevante), mesmo que a entrega passe por mais de um status. O e-mail de aprovação e rejeição do cadastro continua saindo como antes, além da notificação no app.
 
+### Aviso de frete compatível
+
+Quando um frete é publicado, a própria operação grava um aviso para cada motorista que **encaixa nele**: cadastro aprovado, pelo menos um veículo ativo do tipo exigido e com capacidade igual ou maior que o peso da carga, agenda livre durante a corrida (a mesma janela usada ao aprovar a proposta) e o aviso ligado. O cliente que publicou nunca é avisado. É uma única consulta no banco, limitada a 500 motoristas por frete (`FreightService.MaxAlertedDrivers`); acima disso quem se cadastrou primeiro é avisado e os demais ainda veem o frete na lista.
+
+Limitação conhecida: **ainda não há filtro por distância** (o app não coleta a localização do motorista nem a região em que ele atua), então o aviso vai para todos os motoristas compatíveis, de qualquer cidade. Um filtro por região é o próximo passo natural.
+
+Para desligar: `PUT /notifications/preferences` com `{ "newFreightAlerts": false }` (nenhum aviso é gravado para a pessoa) ou `{ "pushEnabled": false }` (o aviso fica só na caixa de entrada). Os dois valem para qualquer notificação futura do mesmo tipo e são apagados junto com a conta.
+
 O envio real do push depende de um provedor. Por padrão (`Push:Provider` = `Logging`) `IPushSender` é implementado por `LoggingPushSender`, que só escreve no log. Com `"Push": { "Provider": "Firebase" }` entra o `FirebasePushSender` (Firebase Cloud Messaging, gratuito, para Android, iOS e Web). As credenciais vêm das Application Default Credentials: no GCP é a conta de serviço do Cloud Run/GKE (com o papel de administrador da API do Firebase Cloud Messaging); localmente, aponte `GOOGLE_APPLICATION_CREDENTIALS` para o JSON da conta de serviço. Tokens que o FCM marca como inexistentes são apagados sozinhos. Ao excluir a conta (LGPD), as notificações e os tokens de dispositivo da pessoa são apagados.
 
-Depois de atualizar, gere a migration: ela cria a tabela `Notifications` (com o índice parcial `IX_Notifications_PendingPush`, que mantém barata a leitura da fila de push).
+Depois de atualizar, gere a migration: ela cria as tabelas `Notifications` (com o índice parcial `IX_Notifications_PendingPush`, que mantém barata a leitura da fila de push), `DeviceTokens` e `NotificationPreferences` (uma linha por pessoa, só criada quando ela muda alguma configuração).
 
 ### Jobs em produção (GCP)
 
@@ -548,6 +590,67 @@ e crie dois jobs no Cloud Scheduler (frequência mínima de 1 minuto: `* * * * *
 
 Em desenvolvimento `Jobs:RunInProcess` é `true` e os dois jobs rodam dentro da API (expiração a cada 30 s, push a cada 5 s), sem Scheduler. Não ligue isso em produção com mais de uma instância.
 
+## Pagamentos pelo Asaas (assinaturas, Pix com split e taxa)
+
+O Asaas é o provedor de pagamentos. A API nunca vê dados de cartão: a assinatura é paga na página hospedada do Asaas e o Pix é um código gerado por ele. Tudo fica desligado até `Payments__Provider=Asaas` (veja as variáveis de ambiente) e cada endpoint responde `409 payments.not_configured` sem isso. Se o Asaas estiver fora do ar ou recusar o pedido, a resposta é `503 payments.unavailable` e o detalhe vai para o log.
+
+> **Como foi feito:** o código foi escrito a partir da documentação oficial do Asaas (API v3), porque o repositório Dirige Aí não estava acessível. Nada foi testado contra o sandbox: antes de usar, rode o fluxo de ponta a ponta no sandbox (assinar, pagar o Pix de teste, ver o webhook chegar) e compare os nomes de campos com o que o Dirige Aí já faz em produção.
+
+### 1. Assinaturas (`/api/v1/driver/subscription`, perfil Driver)
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| GET | `/` | Os dois planos (Básico R$ 79,90 até 3 veículos; Completo R$ 99,90 sem limite) e a assinatura atual, se houver. `hasAccess` é verdadeiro enquanto o motorista está dentro de um período pago. |
+| POST | `/` | `{ "plan": "Basic" \| "Full" }`. Só motorista aprovado. Cria o cliente e a cobrança mensal no Asaas e devolve `paymentUrl`, a página onde o motorista paga por Pix, boleto ou cartão. Repetir o pedido do mesmo plano antes de pagar devolve o mesmo link; trocar de plano cancela a cobrança não paga. |
+| DELETE | `/` | Cancela a cobrança no Asaas. O motorista mantém o acesso até o fim do período já pago (`status: Cancelled`, `hasAccess: true` até `endsAt`). |
+
+- A assinatura nasce `Pending`. O webhook `PAYMENT_RECEIVED`/`PAYMENT_CONFIRMED` a torna `Active` e soma um mês ao `endsAt`; pagar antecipado soma a partir do fim do período atual, sem perder dias. Quem deixa de pagar perde o acesso quando o período acaba.
+- **Limite de veículos:** com o plano Básico ativo, cadastrar o 4º veículo ativo devolve `409 subscription.vehicle_limit`; escolher o Básico com mais de 3 veículos ativos devolve `409 subscription.too_many_vehicles`. O Completo não tem limite. Sem nenhum plano não há limite (o cadastro precisa funcionar antes de assinar).
+- **Assinatura obrigatória:** com `Subscriptions__RequiredToPropose=true`, enviar proposta sem período pago devolve `403 subscription.required`. Por padrão é `false`.
+- O plano Básico guarda o telefone do motorista (`PhoneNumber`), como na regra de negócio.
+- Excluir a conta (LGPD) cancela antes a cobrança no Asaas; se o Asaas não responder, a exclusão é recusada com `503` para você tentar de novo, e assim ninguém continua sendo cobrado depois de sair.
+
+### 2. Conta de recebimento do motorista (`/api/v1/driver/payout-account`)
+
+`PUT { "walletId": "<uuid>" }` vincula a conta Asaas do próprio motorista (o `walletId` aparece no painel do Asaas). É para onde vai a parte dele no split do Pix. `GET` mostra se está configurada. Uma conta só pode pertencer a um motorista. A API não cria subcontas: isso exigiria dados de KYC (data de nascimento, endereço, renda) que o app ainda não coleta.
+
+### 3. Pix do frete com split (`POST /api/v1/deliveries/{id}/pix`, perfil Customer)
+
+Depois da entrega concluída, o cliente pode pagar por um Pix gerado pelo app. Corpo: `{ "taxId": "<CPF ou CNPJ de quem paga>" }` (o Asaas exige o documento do pagador; o app não guarda esse dado).
+
+- A cobrança é criada na conta da plataforma com `split`: o motorista recebe `preço − R$ 4,90` direto na conta dele (`driverReceives`) e a plataforma fica com a taxa (`platformFee`). **A plataforma nunca segura o dinheiro do motorista.** A resposta traz `pixPayload` (copia e cola), `pixQrCode` (PNG em base64), `expiresAt`, `amount`, `driverReceives` e `platformFee`.
+- Pedir de novo devolve o mesmo Pix enquanto ele vale; depois de vencido, a mesma cobrança ganha um Pix novo (existe um pagamento por entrega) e o anterior é cancelado no Asaas.
+- Quando o Asaas avisa o recebimento, o pagamento vira `Paid`, a taxa de R$ 4,90 lançada na conclusão da entrega é quitada no extrato automaticamente (o split já a reteve) e os dois lados recebem notificação (`PaymentConfirmed` para o cliente, `PaymentReceived` para o motorista).
+- Erros: `409 payments.driver_without_payout_account` (o motorista ainda não vinculou uma conta; pague direto a ele e peça a confirmação), `409 payment.already_confirmed`, `409 payment.not_delivered`, `409 payments.price_too_low`.
+- **Tarifa do Asaas:** o split é calculado sobre o valor líquido. A tarifa do Pix do Asaas sai da parte da plataforma (R$ 4,90 − tarifa), não do motorista. Confirme o valor da tarifa na sua conta: se ela passar de R$ 4,90 o Asaas recusa o split.
+- Quem pagar o frete direto ao motorista (dinheiro, Pix pessoal) continua usando `POST /driver/deliveries/{id}/payment`, e a taxa fica no extrato para ser cobrada pelo item 4.
+
+### 4. Cobrança automática da taxa (`POST /api/v1/driver/fees/pix`, perfil Driver)
+
+Para os fretes pagos fora do app, a taxa vai se acumulando no extrato. Este endpoint gera um Pix com o saldo inteiro; quando o Asaas avisa que foi pago, o extrato é quitado sozinho e o motorista recebe `FeeSettled`. Não há mais passo manual do admin (o `POST /api/v1/admin/drivers/{driverId}/fees/settle` continua para acertos fora do app).
+
+- Pedir de novo devolve o mesmo Pix enquanto vale e o saldo não mudou; se o saldo mudou, o anterior é cancelado e sai um novo.
+- **Valor mínimo:** a cobrança mínima do Asaas é R$ 5,00 (confirme na sua conta). Com saldo menor, a resposta é `409 fee.below_minimum` e o valor espera os próximos fretes. Sem saldo, `409 fee.nothing_to_charge`.
+- Se um admin quitar parte do saldo enquanto o Pix está aberto, o webhook quita só o que ainda é devido.
+
+### 5. Webhook (`POST /api/v1/webhooks/asaas`)
+
+No painel do Asaas, cadastre o webhook apontando para `https://<sua-api>/api/v1/webhooks/asaas`, com o mesmo token de `Payments__Asaas__WebhookToken` e os eventos de cobrança e de assinatura. O Asaas manda o token no cabeçalho `asaas-access-token`; token errado ou ausente é `401`.
+
+| Evento | Efeito |
+| --- | --- |
+| `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` de cobrança de assinatura | Ativa o plano ou soma um mês; notifica o motorista (`SubscriptionActivated`). |
+| `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` do Pix de um frete | Pagamento `Paid`, taxa quitada, notificações. |
+| `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` do Pix da taxa | Quita o extrato do motorista. |
+| `SUBSCRIPTION_DELETED`, `SUBSCRIPTION_INACTIVATED` | Marca como cancelada, mantendo o período pago. |
+| Qualquer outro | Registrado e respondido com `200`, sem efeito. Estornos ainda são tratados à mão no painel do Asaas. |
+
+O Asaas entrega cada evento pelo menos uma vez, e pausa a fila depois de 15 falhas seguidas. Por isso: o `id` do evento é gravado (`WebhookEvents`, único) e um evento repetido não faz nada; uma cobrança de cartão que manda `CONFIRMED` e depois `RECEIVED` é contada uma vez só; e o endpoint responde `200` a tudo que não usa. Uma falha inesperada devolve `500` para o Asaas tentar de novo.
+
+### Migration e conta Asaas
+
+Gere a migration: ela cria `FeeCharges` e `WebhookEvents` e acrescenta colunas em `DriverProfiles` (`PaymentCustomerId`, `PayoutWalletId`, único), `Subscriptions` (`GatewaySubscriptionId`, `PaymentUrl`) e `Payments` (`GatewayPaymentId`, `PixPayload`, `PixQrCode`, `PixExpiresAt`). Na conta Asaas da plataforma é preciso ter uma chave Pix cadastrada (sem ela o QR code só vale até o fim do dia), o webhook configurado e, para o split funcionar, que as contas dos motoristas existam no Asaas.
+
 ## Endpoints de administração (`/api/v1/admin`, perfil Admin)
 
 | Método | Rota | Descrição |
@@ -558,7 +661,7 @@ Em desenvolvimento `Jobs:RunInProcess` é `true` e os dois jobs rodam dentro da 
 | POST | `/drivers/{id}/reject` | Rejeita com motivo obrigatório e envia e-mail. O motorista corrige e reenvia. |
 | POST | `/terms` | Publica nova versão de um termo e desativa a anterior do mesmo tipo. |
 
-Em Development, a API cria na primeira execução um admin (`Seed:Admin` em `appsettings.Development.json`) e a versão 1.0 dos termos. O upload de arquivos (URL pré-assinada) e o provedor real de e-mail ainda não existem: hoje o e-mail é gravado no log (`IEmailSender`).
+Em Development, a API cria na primeira execução um admin (`Seed:Admin` em `appsettings.Development.json`) e a versão 1.0 dos termos. O provedor real de e-mail ainda não existe: hoje o e-mail é gravado no log (`IEmailSender`). Ainda em `/admin/drivers`: `GET /drivers/{driverId}/files/{fileId}/url` devolve o link temporário (10 min) para abrir um documento ou foto.
 
 A coluna `CpfNumber` do motorista virou `TaxId` (14 caracteres, único). Depois de atualizar, gere a migration:
 

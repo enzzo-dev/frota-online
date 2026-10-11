@@ -3,6 +3,7 @@ using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Drivers.Dtos;
+using FrotaOnline.Application.Payments;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 
@@ -12,17 +13,20 @@ public sealed class VehicleService : IVehicleService
 {
     private readonly IDriverRepository _drivers;
     private readonly IVehicleRepository _vehicles;
+    private readonly ISubscriptionPolicy _subscriptions;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<RegisterVehicleRequest> _validator;
 
     public VehicleService(
         IDriverRepository drivers,
         IVehicleRepository vehicles,
+        ISubscriptionPolicy subscriptions,
         IUnitOfWork unitOfWork,
         IValidator<RegisterVehicleRequest> validator)
     {
         _drivers = drivers;
         _vehicles = vehicles;
+        _subscriptions = subscriptions;
         _unitOfWork = unitOfWork;
         _validator = validator;
     }
@@ -58,6 +62,13 @@ public sealed class VehicleService : IVehicleService
         if (await _vehicles.PlateInUseAsync(plate, cancellationToken))
         {
             return Result.Failure<VehicleResponse>(DriverErrors.PlateInUse);
+        }
+
+        var active = await _vehicles.ListActiveByDriverAsync(profile.Id, cancellationToken);
+        var allowed = await _subscriptions.EnsureCanAddVehicleAsync(profile.Id, active.Count, cancellationToken);
+        if (allowed.IsFailure)
+        {
+            return Result.Failure<VehicleResponse>(allowed.Error!);
         }
 
         var vehicle = Vehicle.Create(profile.Id, request.Type, plate, request.Model, request.Year, request.CapacityKg);

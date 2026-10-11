@@ -32,6 +32,15 @@ public sealed class AdminDriversController : ApiControllerBase
     public async Task<IActionResult> Get(Guid driverId, CancellationToken cancellationToken) =>
         Handle(await _review.GetAsync(driverId, cancellationToken), Ok);
 
+    [HttpGet("{driverId:guid}/files/{fileId:guid}/url")]
+    [EndpointSummary("Link to open a driver's file")]
+    [EndpointDescription("A signed link valid for 10 minutes to view or download one of the files listed in the driver's file (id from GET /admin/drivers/{id}). 409 storage.not_configured where there is no storage.")]
+    [ProducesResponseType<FrotaOnline.Application.Drivers.Dtos.DownloadUrlResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> GetFileUrl(Guid driverId, Guid fileId, CancellationToken cancellationToken) =>
+        Handle(await _review.GetFileUrlAsync(driverId, fileId, cancellationToken), Ok);
+
     [HttpPost("{driverId:guid}/approve")]
     [EndpointSummary("Approve a driver")]
     [EndpointDescription("Only drivers in PendingReview. Sends the approval e-mail.")]

@@ -16,6 +16,16 @@ public static class NotificationMessages
             $"Um motorista ofereceu {Money(price)} pelo seu frete. Veja as propostas e escolha a melhor.",
             NotificationTarget.Freight, freightId);
 
+    /// <summary>Tells a driver a freight that fits one of their vehicles just opened.</summary>
+    public static NotificationMessage NewFreightAvailable(
+        Guid driverUserId, Guid freightId, string originCity, string destinationCity, bool sameDay) =>
+        new(driverUserId, NotificationType.NewFreightAvailable, "Novo frete compatível",
+            $"{Cut(originCity, 40)} → {Cut(destinationCity, 40)}. " +
+            (sameDay
+                ? "Para hoje: você tem 5 minutos para enviar sua proposta."
+                : "Agendado: você tem até 24 horas para enviar sua proposta."),
+            NotificationTarget.Freight, freightId);
+
     public static NotificationMessage ProposalApproved(Guid driverUserId, Guid deliveryId) =>
         new(driverUserId, NotificationType.ProposalApproved, "Proposta aprovada",
             "O cliente aprovou a sua proposta. A entrega foi agendada na sua agenda.",
@@ -91,6 +101,16 @@ public static class NotificationMessages
             $"Recebemos {Money(amount)} da sua taxa da plataforma.",
             NotificationTarget.Fee, driverProfileId);
 
+    public static NotificationMessage PaymentReceived(Guid driverUserId, Guid deliveryId, decimal driverShare) =>
+        new(driverUserId, NotificationType.PaymentReceived, "Pagamento recebido",
+            $"O cliente pagou o frete pelo app. {Money(driverShare)} foram enviados para a sua conta de pagamentos.",
+            NotificationTarget.Delivery, deliveryId);
+
+    public static NotificationMessage SubscriptionActivated(Guid driverUserId, Guid subscriptionId, DateTime paidUntil) =>
+        new(driverUserId, NotificationType.SubscriptionActivated, "Assinatura ativa",
+            $"Pagamento confirmado. Seu plano está ativo até {paidUntil:dd/MM/yyyy}.",
+            NotificationTarget.Subscription, subscriptionId);
+
     /// <summary>Brazilian format without depending on the server culture (containers often run without ICU).</summary>
     private static string Money(decimal value)
     {
@@ -98,6 +118,9 @@ public static class NotificationMessages
             .Replace(",", "_").Replace(".", ",").Replace("_", ".");
         return $"R$ {text}";
     }
+
+    private static string Cut(string text, int max) =>
+        text.Length <= max ? text : text[..(max - 1)] + "…";
 
     private static string Quote(string? text)
     {

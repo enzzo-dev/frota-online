@@ -34,6 +34,18 @@ public static class DriverErrors
     public static readonly Error StorageKeyInUse =
         new("driver.storage_key_in_use", "This file was already registered.", ErrorType.Conflict);
 
+    public static readonly Error StorageNotConfigured =
+        new("storage.not_configured", "File storage is not configured in this environment.", ErrorType.Conflict);
+
+    public static readonly Error FileNotUploaded =
+        new("driver.file_not_uploaded", "No file was uploaded under this storage key. Upload it with the signed URL first.", ErrorType.Validation);
+
+    public static readonly Error FileTooLarge =
+        new("driver.file_too_large", "The uploaded file is larger than 10 MB.", ErrorType.Validation);
+
+    public static readonly Error FileTypeNotAllowed =
+        new("driver.file_type_not_allowed", "The uploaded file must be a JPEG, PNG or PDF.", ErrorType.Validation);
+
     public static Error SubmissionIncomplete(IReadOnlyDictionary<string, string[]> missing) =>
         new("driver.submission_incomplete", "The profile is not ready to be submitted.", ErrorType.Validation, missing);
 }

@@ -1,7 +1,11 @@
 using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Queries;
+using FrotaOnline.Application.Abstractions.Storage;
 using FrotaOnline.Application.Notifications.Dtos;
 using FrotaOnline.Domain.Entities;
+using FrotaOnline.Domain.Enums;
+using FrotaOnline.Tests.Marketplace;
+using FrotaOnline.Tests.Onboarding;
 
 namespace FrotaOnline.Tests.Notifications;
 
@@ -98,5 +102,91 @@ internal sealed class FakePushSender : IPushSender
 
         Sent.Add((message, devices));
         return Task.FromResult(new PushResult(Delivered, InvalidTokens.ToList()));
+    }
+}
+
+internal sealed class FakeFileStorage : IFileStorage
+{
+    public bool IsConfigured { get; set; }
+
+    /// <summary>Objects "uploaded" so far, by key.</summary>
+    public Dictionary<string, StoredObject> Objects { get; } = new();
+
+    public List<string> Deleted { get; } = new();
+
+    public Task<UploadTicket> CreateUploadAsync(
+        string key, string contentType, long maxBytes, TimeSpan lifetime, CancellationToken cancellationToken) =>
+        Task.FromResult(new UploadTicket(
+            $"https://storage.test/{key}",
+            new Dictionary<string, string> { ["Content-Type"] = contentType },
+            new DateTime(2026, 10, 8, 12, 15, 0, DateTimeKind.Utc)));
+
+    public Task<StoredObject?> GetInfoAsync(string key, CancellationToken cancellationToken) =>
+        Task.FromResult(Objects.TryGetValue(key, out var stored) ? stored : null);
+
+    public Task<string> CreateDownloadUrlAsync(string key, TimeSpan lifetime, CancellationToken cancellationToken) =>
+        Task.FromResult($"https://storage.test/{key}?signed");
+
+    public Task DeleteAsync(IReadOnlyCollection<string> keys, CancellationToken cancellationToken)
+    {
+        Deleted.AddRange(keys);
+        foreach (var key in keys)
+        {
+            Objects.Remove(key);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeNotificationPreferenceRepository : INotificationPreferenceRepository
+{
+    public List<NotificationPreference> Items { get; } = new();
+
+    public Task<NotificationPreference?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(p => p.UserId == userId));
+
+    public Task AddAsync(NotificationPreference preference, CancellationToken cancellationToken)
+    {
+        Items.Add(preference);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlySet<Guid>> ListPushDisabledAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlySet<Guid>>(
+            Items.Where(p => !p.PushEnabled && userIds.Contains(p.UserId)).Select(p => p.UserId).ToHashSet());
+}
+
+/// <summary>The same rules as the SQL query, over the in-memory fakes.</summary>
+internal sealed class FakeMatchingDriverQueries : IMatchingDriverQueries
+{
+    private readonly FakeDriverRepository _drivers;
+    private readonly FakeVehicleRepository _vehicles;
+    private readonly FakeDriverAgendaRepository _agenda;
+    private readonly FakeNotificationPreferenceRepository _preferences;
+
+    public FakeMatchingDriverQueries(
+        FakeDriverRepository drivers, FakeVehicleRepository vehicles,
+        FakeDriverAgendaRepository agenda, FakeNotificationPreferenceRepository preferences)
+    {
+        _drivers = drivers;
+        _vehicles = vehicles;
+        _agenda = agenda;
+        _preferences = preferences;
+    }
+
+    public Task<IReadOnlyList<Guid>> ListUserIdsForNewFreightAsync(
+        FreightMatchCriteria criteria, int limit, CancellationToken cancellationToken)
+    {
+        var ids = _drivers.Items
+            .Where(d => d.Status == DriverStatus.Approved && d.UserId != criteria.CustomerId)
+            .Where(d => _vehicles.Items.Any(v => v.DriverProfileId == d.Id && v.IsActive
+                                                 && v.Type == criteria.VehicleType && v.CapacityKg >= criteria.CargoWeightKg))
+            .Where(d => !_agenda.Items.Any(s => s.DriverProfileId == d.Id && s.Overlaps(criteria.StartsAt, criteria.EndsAt)))
+            .Where(d => !_preferences.Items.Any(p => p.UserId == d.UserId && !p.NewFreightAlerts))
+            .Select(d => d.UserId)
+            .Take(limit)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<Guid>>(ids);
     }
 }

@@ -32,6 +32,9 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<FeeCharge> FeeCharges => Set<FeeCharge>();
+    public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

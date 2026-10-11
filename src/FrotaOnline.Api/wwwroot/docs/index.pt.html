@@ -25,13 +25,18 @@
     </a>
 
     <nav class="rail-nav">
+      <p class="rail-group">Começar</p>
       <a href="#start">Comece aqui</a>
       <a href="#tokens">Como funcionam as sessões</a>
       <a href="#flow">Ordem das chamadas</a>
+      <p class="rail-group">Guias</p>
       <a href="#onboarding">Cadastro do motorista</a>
+      <a href="#uploads">Envio de arquivos</a>
       <a href="#marketplace">Marketplace</a>
+      <a href="#payments">Pagamentos (Asaas)</a>
       <a href="#notifications">Notificações</a>
       <a href="#privacy">Privacidade</a>
+      <p class="rail-group">Referência</p>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Erros</a>
     </nav>
@@ -64,7 +69,7 @@
           <code id="base-url">/api/v1</code>
           <button type="button" class="copy" data-copy-target="base-url">Copiar</button>
         </div>
-        <p class="roadmap"><strong>Disponível:</strong> contas, cadastro do motorista, pedidos de frete, propostas e aprovação. <strong>Próximo:</strong> coleta e entrega, comprovante e registro do pagamento.</p>
+        <p class="roadmap"><strong>Disponível:</strong> contas, cadastro do motorista com envio de arquivos, pedidos de frete, propostas, andamento da entrega, notificações, assinaturas e pagamentos por Pix pelo Asaas. <strong>Próximo:</strong> envio da posição do motorista e filtro de fretes por região.</p>
       </div>
       <div class="roadline" aria-hidden="true"></div>
     </header>
@@ -184,7 +189,7 @@
             <tr><td>1</td><td><code>GET /terms/pending</code> e depois <code>POST /terms/accept</code></td><td>Aceite todos os termos ativos. Cada aceite grava a data e o endereço IP.</td></tr>
             <tr><td>2</td><td><code>PUT /driver/profile</code></td><td>Envie <code>taxId</code> (CPF ou CNPJ, letras permitidas), CNH e categoria. O taxId é obrigatório e validado pelos dígitos antes de gravar. Repita a chamada para corrigir dados enquanto o perfil estiver em rascunho ou rejeitado.</td></tr>
             <tr><td>3</td><td><code>POST /driver/vehicles</code></td><td>Cadastre pelo menos um veículo. A placa aceita <code>ABC1234</code> e <code>ABC1D23</code>.</td></tr>
-            <tr><td>4</td><td><code>POST /driver/documents</code></td><td>Registre os arquivos que você já enviou. A chave do storage precisa começar com <code>drivers/{seu id de usuário}/</code>.</td></tr>
+            <tr><td>4</td><td><code>POST /driver/documents</code></td><td>Registre os arquivos que você já enviou (veja <a href="#uploads">Envio de arquivos</a>: peça antes uma URL pré-assinada). A chave do storage precisa começar com <code>drivers/{seu id de usuário}/</code>.</td></tr>
             <tr><td>5</td><td><code>GET /driver/profile</code></td><td>O <code>checklist</code> mostra o que ainda falta: termos, veículo, documento.</td></tr>
             <tr><td>6</td><td><code>POST /driver/submit</code></td><td>Muda o status para <code>PendingReview</code> e trava o perfil. Se o checklist estiver incompleto, devolve os itens que faltam.</td></tr>
             <tr><td>7</td><td><code>GET /admin/drivers</code> e depois <code>approve</code> ou <code>reject</code></td><td>O admin analisa o dossiê. Aprovação ou rejeição (com motivo) envia um e-mail. O motorista rejeitado edita e envia de novo.</td></tr>
@@ -235,7 +240,8 @@
             <tr><td><code>GET /notifications</code></td><td>A caixa de entrada, mais nova primeiro. Query: <code>unreadOnly</code>, <code>page</code> (a partir de 1), <code>pageSize</code> (1 a 100, padrão 20). A resposta tem <code>items</code>, <code>unreadCount</code> para o contador do sino e <code>hasMore</code> para rolagem infinita. Cada item tem <code>type</code>, <code>title</code>, <code>body</code> e <code>targetType</code> + <code>targetId</code>, que dizem o que abrir ao tocar: <code>Freight</code>, <code>Proposal</code>, <code>Delivery</code>, <code>DriverProfile</code> ou <code>Fee</code>.</td></tr>
             <tr><td><code>GET /notifications/unread-count</code></td><td>Só <code>{ "unread": 3 }</code>, barato o bastante para consultar de tempos em tempos.</td></tr>
             <tr><td><code>POST /notifications/{id}/read</code>, <code>POST /notifications/read-all</code></td><td>Marca uma ou todas como lidas. Idempotente. Notificação de outra pessoa dá 404 <code>notification.not_found</code>.</td></tr>
-          </tbody>
+          <tr><td><code>GET /notifications/preferences</code>, <code>PUT /notifications/preferences</code></td><td>Duas chaves, ambas ligadas por padrão: <code>newFreightAlerts</code> (o motorista é avisado quando abre um frete compatível) e <code>pushEnabled</code> (desligada mantém a caixa de entrada mas silencia o celular). Envie só o que muda, por exemplo <code>{ "newFreightAlerts": false }</code> desliga os avisos de frete novo e mantém os demais pushes.</td></tr>
+            </tbody>
         </table>
       </div>
       <div class="table-wrap">
@@ -256,10 +262,74 @@
             <tr><td>Motorista confirma o pagamento</td><td>Cliente</td><td><code>PaymentConfirmed</code> (com o valor)</td><td>Delivery</td></tr>
             <tr><td>Admin aprova / rejeita o cadastro</td><td>Motorista</td><td><code>DriverApproved</code> / <code>DriverRejected</code></td><td>DriverProfile</td></tr>
             <tr><td>Admin registra o acerto da taxa</td><td>Motorista</td><td><code>FeeSettled</code> (com o valor)</td><td>Fee</td></tr>
-          </tbody>
+          <tr><td>Cliente publica um frete</td><td>Motoristas compatíveis (veja abaixo)</td><td><code>NewFreightAvailable</code> ("Cidade A → Cidade B", com a janela de 5 min ou 24 h)</td><td>Freight</td></tr>
+            <tr><td>O Pix de um frete é pago</td><td>Cliente e motorista</td><td><code>PaymentConfirmed</code> / <code>PaymentReceived</code> (a parte do motorista)</td><td>Delivery</td></tr>
+            <tr><td>Pagamento da assinatura confirmado</td><td>Motorista</td><td><code>SubscriptionActivated</code> (com a data até quando vale)</td><td>Subscription</td></tr>
+            <tr><td>O Pix da taxa é pago</td><td>Motorista</td><td><code>FeeSettled</code></td><td>Fee</td></tr>
+            </tbody>
         </table>
       </div>
+      <p class="prose"><strong>Aviso de frete compatível.</strong> Quando um frete é publicado, todo motorista que se encaixa nele é avisado: aprovado, com um veículo ativo do tipo exigido e capacidade suficiente, agenda livre durante a corrida e o aviso ligado. O cliente que publicou nunca é avisado, e no máximo 500 motoristas recebem o aviso por frete. Ainda não há filtro por distância (o app não coleta onde o motorista atua), então o aviso vai para motoristas compatíveis de qualquer cidade.</p>
       <p class="prose">Uma ação do motorista no meio da corrida envia uma só notificação (a mais relevante), mesmo que a entrega passe por mais de um status. O push leva os mesmos dados do item da caixa de entrada (<code>notificationId</code>, <code>type</code>, <code>targetType</code>, <code>targetId</code>). Um envio que falha é repetido um minuto depois, até 5 vezes, e a notificação fica na caixa de entrada de qualquer forma; quem já abriu a notificação no app não recebe o push. Com <code>Push:Provider</code> = <code>Firebase</code> o push sai de verdade pelo Firebase Cloud Messaging (credenciais pelas Application Default Credentials, ou seja, no GCP a conta de serviço do ambiente); o padrão só escreve no log. Excluir a conta (LGPD) apaga as notificações e os tokens de dispositivo.</p>
+    </section>
+
+    <section id="uploads" class="section">
+      <h2>Envio de arquivos</h2>
+      <p class="section-lede">Os arquivos não passam pela API. O app envia direto ao storage com uma URL pré-assinada e a API confere o resultado.</p>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Passo</th><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>POST /driver/documents/upload-url</code></td><td>Envie <code>{ "kind": "DriverDocument" | "VehiclePhoto", "contentType": "image/jpeg" | "image/png" | "application/pdf" }</code>. A resposta traz <code>storageKey</code>, <code>uploadUrl</code>, <code>method</code> (PUT), <code>headers</code>, <code>maxBytes</code> (10 MB) e <code>expiresAt</code> (15 minutos).</td></tr>
+            <tr><td>2</td><td><code>PUT {uploadUrl}</code> (no storage, não nesta API)</td><td>Envie o corpo do arquivo com exatamente os <code>headers</code> recebidos. Outro tipo ou um arquivo maior é recusado pelo storage.</td></tr>
+            <tr><td>3</td><td><code>POST /driver/documents</code></td><td>Registre a <code>storageKey</code>. A API olha o objeto de verdade: se não existe, <code>409 driver.file_not_uploaded</code>; se passou de 10 MB ou não é JPEG, PNG ou PDF, apaga o objeto e responde 400 (<code>driver.file_too_large</code> / <code>driver.file_type_not_allowed</code>). Tamanho e tipo gravados são os do storage, não os que o app informou.</td></tr>
+            <tr><td>Admin</td><td><code>GET /admin/drivers/{driverId}/files/{fileId}/url</code></td><td>Link de leitura que expira em 10 minutos. O bucket nunca é público.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">Sem <code>Storage__Provider=Gcs</code>, o endpoint upload-url responde <code>409 storage.not_configured</code> e o <code>POST /driver/documents</code> continua confiando no que o app envia (só em desenvolvimento). Excluir a conta também apaga os objetos da pessoa no storage.</p>
+    </section>
+
+    <section id="payments" class="section">
+      <h2>Pagamentos (Asaas)</h2>
+      <p class="section-lede">Assinaturas, Pix gerado pelo app com split e cobrança automática da taxa da plataforma. Dados de cartão nunca passam por esta API. Todos os endpoints daqui respondem <code>409 payments.not_configured</code> até o servidor ter <code>Payments__Provider=Asaas</code>, e <code>503 payments.unavailable</code> quando o Asaas não responde.</p>
+
+      <h3 class="mini">Assinatura do motorista</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /driver/subscription</code></td><td>Os dois planos (Básico R$ 79,90 até 3 veículos, Completo R$ 99,90 sem limite) e a assinatura atual. <code>hasAccess</code> é verdadeiro enquanto o motorista está dentro de um período pago.</td></tr>
+            <tr><td><code>POST /driver/subscription</code></td><td><code>{ "plan": "Basic" | "Full" }</code>, só motorista aprovado. Devolve <code>paymentUrl</code>: abra para o motorista pagar por Pix, boleto ou cartão. O plano vira <code>Active</code> quando o Asaas confirma o pagamento; cada mês pago soma um mês. Pedir de novo o mesmo plano antes de pagar devolve o mesmo link.</td></tr>
+            <tr><td><code>DELETE /driver/subscription</code></td><td>Interrompe as próximas cobranças. O motorista mantém o acesso já pago até <code>endsAt</code>.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">O Básico permite 3 veículos ativos: cadastrar o 4º responde <code>409 subscription.vehicle_limit</code>, e escolher o Básico com mais de 3 responde <code>subscription.too_many_vehicles</code>. Com <code>Subscriptions__RequiredToPropose=true</code> no servidor, enviar proposta sem período pago responde <code>403 subscription.required</code> (desligado por padrão).</p>
+
+      <h3 class="mini">Pagar o frete por Pix, com split entre motorista e plataforma</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>PUT /driver/payout-account</code></td><td>O motorista vincula a própria conta Asaas: <code>{ "walletId": "&lt;uuid&gt;" }</code>. É para onde vai a parte dele. O <code>GET</code> mostra se está configurada.</td></tr>
+            <tr><td><code>POST /deliveries/{id}/pix</code></td><td>Cliente, depois da entrega concluída. Envie <code>{ "taxId": "&lt;CPF ou CNPJ de quem paga&gt;" }</code> (o Asaas exige; o app não guarda). Devolve <code>pixPayload</code> (copia e cola), <code>pixQrCode</code> (PNG em base64), <code>expiresAt</code>, <code>driverReceives</code> e <code>platformFee</code>. O motorista recebe o preço menos R$ 4,90 direto na conta dele; a plataforma nunca segura o dinheiro do motorista. Pedir de novo devolve o mesmo Pix enquanto ele vale.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">Quando o Asaas confirma o pagamento, ele vira <code>Paid</code>, a taxa de R$ 4,90 do extrato do motorista é quitada sozinha e os dois lados são notificados. Sem conta vinculada a resposta é <code>409 payments.driver_without_payout_account</code>: pague direto ao motorista e peça que ele confirme com <code>POST /driver/deliveries/{id}/payment</code>.</p>
+
+      <h3 class="mini">Pagar a taxa da plataforma</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /driver/fees/pix</code></td><td>Um Pix com o saldo em aberto inteiro (fretes pagos fora do app). Quando é pago, o extrato é quitado automaticamente e o motorista recebe <code>FeeSettled</code>. A cobrança mínima é R$ 5,00: abaixo disso a resposta é <code>409 fee.below_minimum</code> e o saldo espera.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <h3 class="mini">Webhook (servidor para servidor)</h3>
+      <p class="prose"><code>POST /webhooks/asaas</code> é chamado pelo Asaas, nunca pelo app, e é protegido pelo cabeçalho <code>asaas-access-token</code>. Cada id de evento é processado uma vez, então uma entrega repetida não muda nada. Tratados: <code>PAYMENT_RECEIVED</code> e <code>PAYMENT_CONFIRMED</code> (assinatura, Pix do frete, Pix da taxa) e <code>SUBSCRIPTION_DELETED</code> / <code>SUBSCRIPTION_INACTIVATED</code>. O resto é confirmado e ignorado.</p>
     </section>
 
     <section id="privacy" class="section">
@@ -343,6 +413,17 @@
             <tr><td>409</td><td><code>request.conflict</code></td><td>Algo mudou enquanto a requisição rodava (por exemplo um frete passou a usar o endereço que estava sendo excluído). Recarregue e tente de novo.</td></tr>
             <tr><td>404</td><td><code>notification.not_found</code></td><td>Notificação inexistente ou de outro usuário.</td></tr>
             <tr><td>409</td><td><code>request.duplicate</code></td><td>Duas requisições iguais chegaram juntas e o banco barrou a segunda (índice único), por exemplo a confirmação de pagamento. Recarregue e confira o estado.</td></tr>
+            <tr><td>409</td><td><code>payments.not_configured</code></td><td>Os pagamentos online estão desligados neste servidor. Pague direto e confirme, ou peça para configurarem o Asaas.</td></tr>
+            <tr><td>503</td><td><code>payments.unavailable</code></td><td>O Asaas recusou ou não respondeu. Tente de novo em instantes.</td></tr>
+            <tr><td>409</td><td><code>payments.driver_without_payout_account</code></td><td>O motorista não vinculou uma conta, então não dá para gerar Pix com split.</td></tr>
+            <tr><td>409</td><td><code>payments.price_too_low</code></td><td>O preço combinado não cobre a taxa da plataforma nem o mínimo do provedor.</td></tr>
+            <tr><td>409</td><td><code>fee.nothing_to_charge</code>, <code>fee.below_minimum</code></td><td>Não há taxa devida, ou o saldo está abaixo da cobrança mínima de R$ 5,00.</td></tr>
+            <tr><td>409</td><td><code>subscription.already_active</code>, <code>subscription.too_many_vehicles</code>, <code>subscription.vehicle_limit</code></td><td>Já há um plano ativo, ou o limite de 3 veículos do Básico seria ultrapassado.</td></tr>
+            <tr><td>403</td><td><code>subscription.required</code></td><td>É preciso uma assinatura ativa para enviar propostas.</td></tr>
+            <tr><td>404</td><td><code>subscription.not_found</code></td><td>O motorista não tem assinatura.</td></tr>
+            <tr><td>409</td><td><code>storage.not_configured</code>, <code>driver.file_not_uploaded</code></td><td>Não há storage neste servidor, ou o arquivo não foi enviado antes de registrar.</td></tr>
+            <tr><td>400</td><td><code>driver.file_too_large</code>, <code>driver.file_type_not_allowed</code></td><td>O arquivo enviado passa de 10 MB ou não é JPEG, PNG nem PDF.</td></tr>
+            <tr><td>404</td><td><code>admin.file_not_found</code></td><td>O arquivo não pertence a esse motorista.</td></tr>
             <tr><td>400</td><td><code>route.missing_coordinates</code></td><td>Alguns endereços ainda não têm posição no mapa. A mensagem lista quais.</td></tr>
           </tbody>
         </table>

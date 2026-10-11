@@ -10,13 +10,14 @@ public class NotificationDispatcherTests
     private readonly FakeNotificationRepository _notifications = new();
     private readonly FakeDeviceTokenRepository _devices = new();
     private readonly FakePushSender _push = new();
+    private readonly FakeNotificationPreferenceRepository _preferences = new();
     private readonly FakeClock _clock = new();
     private readonly NotificationDispatcher _sut;
     private readonly Guid _userId = Guid.NewGuid();
 
     public NotificationDispatcherTests()
     {
-        _sut = new NotificationDispatcher(_notifications, _devices, _push, new FakeUnitOfWork(), _clock);
+        _sut = new NotificationDispatcher(_notifications, _devices, _preferences, _push, new FakeUnitOfWork(), _clock);
     }
 
     private Notification AddNotification(Guid? userId = null)

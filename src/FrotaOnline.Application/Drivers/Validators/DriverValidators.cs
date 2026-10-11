@@ -37,19 +37,30 @@ public sealed class RegisterVehicleRequestValidator : AbstractValidator<Register
     }
 }
 
+public sealed class CreateUploadUrlRequestValidator : AbstractValidator<CreateUploadUrlRequest>
+{
+    public CreateUploadUrlRequestValidator()
+    {
+        RuleFor(x => x.Kind).Must(kind => kind is MediaKind.DriverDocument or MediaKind.VehiclePhoto or MediaKind.DeliveryProof)
+            .WithMessage("Drivers can only upload DriverDocument, VehiclePhoto or DeliveryProof files here.");
+        RuleFor(x => x.ContentType).NotEmpty().Must(type => RegisterMediaRequestValidator.AllowedContentTypes.Contains(type))
+            .WithMessage("Content type must be one of: " + string.Join(", ", RegisterMediaRequestValidator.AllowedContentTypes) + ".");
+    }
+}
+
 public sealed class RegisterMediaRequestValidator : AbstractValidator<RegisterMediaRequest>
 {
     public const long MaxSizeBytes = 10 * 1024 * 1024;
 
-    private static readonly string[] ContentTypes = { "image/jpeg", "image/png", "application/pdf" };
+    public static readonly string[] AllowedContentTypes = { "image/jpeg", "image/png", "application/pdf" };
 
     public RegisterMediaRequestValidator()
     {
         RuleFor(x => x.Kind).Must(kind => kind is MediaKind.DriverDocument or MediaKind.VehiclePhoto or MediaKind.DeliveryProof)
             .WithMessage("Drivers can only register DriverDocument, VehiclePhoto or DeliveryProof files here.");
         RuleFor(x => x.StorageKey).NotEmpty().MaximumLength(512);
-        RuleFor(x => x.ContentType).NotEmpty().Must(type => ContentTypes.Contains(type))
-            .WithMessage("Content type must be one of: " + string.Join(", ", ContentTypes) + ".");
+        RuleFor(x => x.ContentType).NotEmpty().Must(type => AllowedContentTypes.Contains(type))
+            .WithMessage("Content type must be one of: " + string.Join(", ", AllowedContentTypes) + ".");
         RuleFor(x => x.SizeBytes).GreaterThan(0).LessThanOrEqualTo(MaxSizeBytes);
     }
 }

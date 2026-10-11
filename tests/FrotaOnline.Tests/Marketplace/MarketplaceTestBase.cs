@@ -4,6 +4,8 @@ using FrotaOnline.Application.Deliveries.Validators;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Notifications;
+using FrotaOnline.Application.Payments;
+using FrotaOnline.Tests.Payments;
 using FrotaOnline.Application.Routing;
 using FrotaOnline.Application.Routing.Validators;
 using FrotaOnline.Application.Marketplace.Dtos;
@@ -35,6 +37,10 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeFeeLedgerRepository Fees = new();
     private protected readonly FakeRoutingProvider Routing = new();
     private protected readonly FakeNotificationRepository SentNotifications = new();
+    private protected readonly FakeNotificationPreferenceRepository Preferences = new();
+    private protected readonly FakeSubscriptionRepository Subscriptions = new();
+    private protected readonly FakeSubscriptionSettings SubscriptionRules = new();
+    private protected readonly FakePaymentGateway Gateway = new();
 
     private protected NotificationPublisher Publisher => new(SentNotifications);
 
@@ -44,7 +50,11 @@ public abstract class MarketplaceTestBase
     protected readonly Guid CustomerId = Guid.NewGuid();
 
     protected FreightService FreightService => new(
-        Freights, Proposals, Addresses, FreightQueries, Terms, new RoutePlanner(Routing), UnitOfWork, Clock, new CreateFreightRequestValidator());
+        Freights, Proposals, Addresses, FreightQueries, Terms, new RoutePlanner(Routing),
+        new FakeMatchingDriverQueries(Drivers, Vehicles, Agenda, Preferences), Publisher,
+        UnitOfWork, Clock, new CreateFreightRequestValidator());
+
+    protected NotificationPreferenceService PreferenceService => new(Preferences, UnitOfWork);
 
     protected AddressService AddressService => new(
         Addresses, new FakeAddressUsageQueries(Freights, Deliveries), UnitOfWork, Clock, new CreateAddressRequestValidator());
@@ -53,7 +63,9 @@ public abstract class MarketplaceTestBase
         Addresses, Freights, Deliveries, Drivers, new RoutePlanner(Routing), new RoutePreviewRequestValidator());
 
     protected DriverMarketplaceService DriverMarketplace => new(
-        Drivers, Vehicles, Freights, Proposals, FreightQueries, Agenda, Publisher, UnitOfWork, Clock, new SubmitProposalRequestValidator());
+        Drivers, Vehicles, Freights, Proposals, FreightQueries, Agenda, SubscriptionPolicy, Publisher, UnitOfWork, Clock, new SubmitProposalRequestValidator());
+
+    private protected SubscriptionPolicy SubscriptionPolicy => new(Subscriptions, SubscriptionRules, Clock);
 
     protected ProposalSelectionService Selection => new(
         Freights, Proposals, Drivers, Vehicles, FreightQueries, Deliveries, Agenda, Publisher, UnitOfWork, Clock);

@@ -50,6 +50,11 @@ internal sealed class DriverProfileConfiguration : IEntityTypeConfiguration<Driv
         builder.Property(x => x.CnhNumber).HasMaxLength(11).IsRequired();
         builder.Property(x => x.CnhCategory).HasMaxLength(2).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(1000);
+        builder.Property(x => x.PaymentCustomerId).HasMaxLength(64);
+        builder.Property(x => x.PayoutWalletId).HasMaxLength(64);
+
+        // A payout account belongs to one driver: two drivers sharing one would mix up who gets paid.
+        builder.HasIndex(x => x.PayoutWalletId).IsUnique().HasFilter("\"PayoutWalletId\" IS NOT NULL");
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
     }
 }
@@ -132,6 +137,15 @@ internal sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<Device
     {
         builder.HasIndex(x => x.Token).IsUnique();
         builder.Property(x => x.Token).HasMaxLength(512);
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+    }
+}
+
+internal sealed class NotificationPreferenceConfiguration : IEntityTypeConfiguration<NotificationPreference>
+{
+    public void Configure(EntityTypeBuilder<NotificationPreference> builder)
+    {
+        builder.HasIndex(x => x.UserId).IsUnique();
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
     }
 }

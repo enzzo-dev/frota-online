@@ -130,6 +130,12 @@ internal sealed class FakePaymentRepository : IPaymentRepository
     public Task<bool> ExistsForDeliveryAsync(Guid deliveryId, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Any(p => p.DeliveryId == deliveryId));
 
+    public Task<Payment?> GetByDeliveryIdAsync(Guid deliveryId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(p => p.DeliveryId == deliveryId));
+
+    public Task<Payment?> GetByGatewayIdAsync(string gatewayPaymentId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(p => p.GatewayPaymentId == gatewayPaymentId));
+
     public Task AddAsync(Payment payment, CancellationToken cancellationToken)
     {
         Items.Add(payment);

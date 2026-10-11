@@ -26,7 +26,16 @@ internal sealed class AccountErasureStore : IAccountErasureStore
          select d.Id)
         .AnyAsync(cancellationToken);
 
-    public async Task EraseAsync(Guid userId, DateTime utcNow, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ListOpenSubscriptionIdsAsync(Guid userId, CancellationToken cancellationToken) =>
+        await (from s in _db.Subscriptions.AsNoTracking()
+               join d in _db.DriverProfiles.AsNoTracking() on s.DriverProfileId equals d.Id
+               where d.UserId == userId
+                     && s.Status != SubscriptionStatus.Cancelled
+                     && s.GatewaySubscriptionId != null
+               select s.GatewaySubscriptionId!)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<string>> EraseAsync(Guid userId, DateTime utcNow, CancellationToken cancellationToken)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
 
@@ -64,9 +73,16 @@ internal sealed class AccountErasureStore : IAccountErasureStore
                 .ExecuteUpdateAsync(
                     set => set
                         .SetProperty(x => x.PhoneNumber, "0")
+                        .SetProperty(x => x.PaymentUrl, (string?)null)
                         .SetProperty(x => x.Status, SubscriptionStatus.Cancelled)
                         .SetProperty(x => x.EndsAt, utcNow)
                         .SetProperty(x => x.UpdatedAt, utcNow),
+                    cancellationToken);
+
+            await _db.FeeCharges
+                .Where(c => c.DriverProfileId == driverId && c.Status == FeeChargeStatus.Pending)
+                .ExecuteUpdateAsync(
+                    set => set.SetProperty(c => c.Status, FeeChargeStatus.Cancelled).SetProperty(c => c.UpdatedAt, utcNow),
                     cancellationToken);
 
             await _db.Proposals
@@ -99,10 +115,16 @@ internal sealed class AccountErasureStore : IAccountErasureStore
                         && _db.MediaFiles.Any(m => m.Id == e.MediaFileId && m.OwnerUserId == userId))
             .ExecuteUpdateAsync(set => set.SetProperty(e => e.MediaFileId, (Guid?)null), cancellationToken);
 
+        var storageKeys = await _db.MediaFiles
+            .AsNoTracking()
+            .Where(m => m.OwnerUserId == userId)
+            .Select(m => m.StorageKey)
+            .ToListAsync(cancellationToken);
         await _db.MediaFiles.Where(m => m.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.DeviceTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _db.NotificationPreferences.Where(p => p.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.CustomerProfiles.Where(c => c.UserId == userId).ExecuteDeleteAsync(cancellationToken);
 
         // 4. Rows that stay but must stop identifying the person: through the domain.
@@ -120,5 +142,6 @@ internal sealed class AccountErasureStore : IAccountErasureStore
 
         await _db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        return storageKeys;
     }
 }

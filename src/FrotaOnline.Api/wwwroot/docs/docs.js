@@ -308,17 +308,33 @@
     }
   }
 
+  /* One chapter at a time: the left menu switches the visible section, and the address (#payments) says which one.
+     A link to something inside a chapter (#stop-2) opens that chapter and scrolls to it. */
   function watchSections() {
+    const sections = $$('main > section.section');
+    const ids = new Set(sections.map((section) => section.id));
+    const hero = document.querySelector('.hero');
     const links = new Map($$('.rail-nav a').map((a) => [a.getAttribute('href').slice(1), a]));
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        links.forEach((link) => link.classList.remove('active'));
-        const link = links.get(entry.target.id);
-        if (link) link.classList.add('active');
-      }
-    }, { rootMargin: '-30% 0px -60% 0px' });
-    links.forEach((_, id) => { const section = document.getElementById(id); if (section) observer.observe(section); });
+
+    function resolve() {
+      const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+      if (!id) return { panel: 'start', target: null };
+      if (ids.has(id)) return { panel: id, target: null };
+      const element = document.getElementById(id);
+      const section = element && element.closest('section.section');
+      return section ? { panel: section.id, target: element } : { panel: 'start', target: null };
+    }
+
+    function show() {
+      const { panel, target } = resolve();
+      sections.forEach((section) => { section.hidden = section.id !== panel; });
+      if (hero) hero.hidden = panel !== 'start';
+      links.forEach((link, id) => link.classList.toggle('active', id === panel));
+      (target || document.getElementById('top')).scrollIntoView({ block: 'start' });
+    }
+
+    window.addEventListener('hashchange', show);
+    show();
   }
 
   /* ---------- OpenAPI rendering ---------- */

@@ -26,6 +26,12 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
 
     public Guid? ReviewedByUserId { get; private set; }
 
+    /// <summary>The driver as a customer of the payment provider (subscription and fee charges). Created on first use.</summary>
+    public string? PaymentCustomerId { get; private set; }
+
+    /// <summary>The driver's own account at the payment provider: where the split of a Pix payment sends their share.</summary>
+    public string? PayoutWalletId { get; private set; }
+
     public bool CanOperate => Status == DriverStatus.Approved;
 
     public static DriverProfile Create(Guid userId, string taxId, string cnhNumber, string cnhCategory) => new()
@@ -49,6 +55,12 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
         CnhNumber = Guard.NotNullOrWhiteSpace(cnhNumber, nameof(cnhNumber));
         CnhCategory = Guard.NotNullOrWhiteSpace(cnhCategory, nameof(cnhCategory)).ToUpperInvariant();
     }
+
+    public void LinkPaymentCustomer(string customerId) =>
+        PaymentCustomerId = Guard.NotNullOrWhiteSpace(customerId, nameof(customerId));
+
+    public void SetPayoutWallet(string? walletId) =>
+        PayoutWalletId = string.IsNullOrWhiteSpace(walletId) ? null : walletId.Trim();
 
     public void SubmitForReview()
     {
@@ -87,6 +99,8 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
         CnhCategory = "--";
         RejectionReason = null;
         Status = DriverStatus.Removed;
+        PaymentCustomerId = null;
+        PayoutWalletId = null;
     }
 
     private void EnsurePendingReview()

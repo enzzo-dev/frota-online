@@ -56,8 +56,13 @@ public enum NotificationType
     PaymentConfirmed = 12,
     DriverApproved = 13,
     DriverRejected = 14,
-    FeeSettled = 15
+    FeeSettled = 15,
+    NewFreightAvailable = 16,
+    PaymentReceived = 17,
+    SubscriptionActivated = 18
 }
 
 /// <summary>What the app opens when the person taps a notification.</summary>
-public enum NotificationTarget { Freight = 1, Proposal = 2, Delivery = 3, DriverProfile = 4, Fee = 5 }
+public enum NotificationTarget { Freight = 1, Proposal = 2, Delivery = 3, DriverProfile = 4, Fee = 5, Subscription = 6 }
+
+public enum FeeChargeStatus { Pending = 1, Paid = 2, Cancelled = 3 }

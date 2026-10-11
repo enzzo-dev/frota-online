@@ -1,3 +1,4 @@
+using FrotaOnline.Tests.Payments;
 using FrotaOnline.Application.Abstractions.Privacy;
 using FrotaOnline.Application.Addresses.Dtos;
 using FrotaOnline.Application.Drivers.Dtos;
@@ -9,6 +10,7 @@ using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 using FrotaOnline.Tests.Auth;
+using FrotaOnline.Tests.Notifications;
 
 namespace FrotaOnline.Tests.Privacy;
 
@@ -19,13 +21,15 @@ public class PrivacyServiceTests
     private readonly FakeUserRepository _users = new();
     private readonly FakeClock _clock = new();
     private readonly FakeErasureStore _erasure = new();
+    private readonly FakeFileStorage _storage = new();
+    private readonly FakePaymentGateway _gateway = new();
     private readonly FakePasswordHasher _hasher = new();
     private readonly PrivacyService _sut;
 
     public PrivacyServiceTests()
     {
         _sut = new PrivacyService(
-            _users, new FakePersonalDataQueries(_users), _erasure, _hasher, _clock, new DeleteAccountRequestValidator());
+            _users, new FakePersonalDataQueries(_users), _erasure, _storage, _gateway, _hasher, _clock, new DeleteAccountRequestValidator());
     }
 
     private User AddUser(UserRole role = UserRole.Customer)
@@ -33,6 +37,58 @@ public class PrivacyServiceTests
         var user = User.Create("Maria Souza", "maria@example.com", "+5511999999999", _hasher.Hash(Password), role);
         _users.Items.Add(user);
         return user;
+    }
+
+    [Fact]
+    public async Task Delete_RemovesTheUsersFilesFromStorage()
+    {
+        var user = AddUser();
+        _storage.IsConfigured = true;
+        _erasure.StorageKeys.AddRange(new[] { $"drivers/{user.Id}/a.jpg", $"drivers/{user.Id}/b.pdf" });
+
+        await _sut.DeleteAccountAsync(user.Id, new DeleteAccountRequest(Password, true), CancellationToken.None);
+
+        Assert.Equal(2, _storage.Deleted.Count);
+    }
+
+    [Fact]
+    public async Task Delete_StopsTheRunningSubscriptionBeforeErasing()
+    {
+        var user = AddUser();
+        _gateway.IsConfigured = true;
+        _erasure.OpenSubscriptions.Add("sub_1");
+
+        var result = await _sut.DeleteAccountAsync(user.Id, new DeleteAccountRequest(Password, true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("sub_1", Assert.Single(_gateway.CancelledSubscriptions));
+        Assert.Single(_erasure.Erased);
+    }
+
+    [Fact]
+    public async Task Delete_WhenTheProviderCannotCancelTheSubscription_KeepsTheAccount()
+    {
+        var user = AddUser();
+        _gateway.IsConfigured = true;
+        _gateway.Fails = true;
+        _erasure.OpenSubscriptions.Add("sub_1");
+
+        var result = await _sut.DeleteAccountAsync(user.Id, new DeleteAccountRequest(Password, true), CancellationToken.None);
+
+        Assert.Equal("payments.unavailable", result.Error!.Code);
+        Assert.Empty(_erasure.Erased);
+    }
+
+    [Fact]
+    public async Task Delete_WithoutStorage_StillErasesTheAccount()
+    {
+        var user = AddUser();
+        _erasure.StorageKeys.Add($"drivers/{user.Id}/a.jpg");
+
+        var result = await _sut.DeleteAccountAsync(user.Id, new DeleteAccountRequest(Password, true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(_storage.Deleted);
     }
 
     [Fact]
@@ -194,10 +250,17 @@ internal sealed class FakeErasureStore : IAccountErasureStore
     public Task<bool> HasActiveDeliveriesAsync(Guid userId, CancellationToken cancellationToken) =>
         Task.FromResult(HasActiveDeliveries);
 
-    public Task EraseAsync(Guid userId, DateTime utcNow, CancellationToken cancellationToken)
+    public List<string> StorageKeys { get; } = new();
+
+    public List<string> OpenSubscriptions { get; } = new();
+
+    public Task<IReadOnlyList<string>> ListOpenSubscriptionIdsAsync(Guid userId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(OpenSubscriptions.ToList());
+
+    public Task<IReadOnlyList<string>> EraseAsync(Guid userId, DateTime utcNow, CancellationToken cancellationToken)
     {
         Erased.Add(userId);
-        return Task.CompletedTask;
+        return Task.FromResult<IReadOnlyList<string>>(StorageKeys.ToList());
     }
 }
 
