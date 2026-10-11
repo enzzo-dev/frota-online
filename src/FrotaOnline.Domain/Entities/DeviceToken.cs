@@ -26,4 +26,12 @@ public sealed class DeviceToken : BaseEntity
     };
 
     public void MarkSeen(DateTime utcNow) => LastSeenAt = utcNow;
+
+    /// <summary>The same phone signed in as another person (or a refreshed token): follow the latest login.</summary>
+    public void Reassign(Guid userId, DevicePlatform platform, DateTime utcNow)
+    {
+        UserId = Guard.NotEmpty(userId, nameof(userId));
+        Platform = platform;
+        LastSeenAt = utcNow;
+    }
 }

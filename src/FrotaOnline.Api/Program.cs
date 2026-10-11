@@ -4,16 +4,27 @@ using FrotaOnline.Api.OpenApi;
 using FrotaOnline.Application;
 using FrotaOnline.Infrastructure;
 using FrotaOnline.Infrastructure.Seeding;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtAuthentication();
+builder.Services.AddInternalJobsAuthentication(builder.Configuration);
 
 builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// Behind Cloud Run / a load balancer the app sees plain HTTP: trust X-Forwarded-Proto (so HTTPS redirection does not
+// loop) and X-Forwarded-For (so the consent IP is the client's). Safe here because the app is only reachable through it.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddExceptionHandler<UniqueViolationExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -28,6 +39,7 @@ builder.Services.AddOpenApi(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

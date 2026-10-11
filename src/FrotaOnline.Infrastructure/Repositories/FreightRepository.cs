@@ -19,14 +19,31 @@ internal sealed class FreightRepository : IFreightRepository
     public Task<FreightRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         WithStops().FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
 
-    public Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
-        _db.FreightRequests
+    public async Task<IReadOnlyList<ExpiredFreight>> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken)
+    {
+        var changed = await _db.FreightRequests
             .Where(f => f.Status == FreightStatus.Open && f.ProposalDeadline <= utcNow)
             .ExecuteUpdateAsync(
                 set => set
                     .SetProperty(f => f.Status, FreightStatus.Expired)
                     .SetProperty(f => f.UpdatedAt, utcNow),
                 cancellationToken);
+
+        if (changed == 0)
+        {
+            return Array.Empty<ExpiredFreight>();
+        }
+
+        // The UPDATE stamped these rows with this pass's timestamp. PostgreSQL keeps microseconds and .NET ticks are
+        // finer, so compare with a one-millisecond margin instead of equality.
+        var stamp = utcNow.AddMilliseconds(-1);
+
+        return await _db.FreightRequests
+            .AsNoTracking()
+            .Where(f => f.Status == FreightStatus.Expired && f.UpdatedAt >= stamp)
+            .Select(f => new ExpiredFreight(f.Id, f.CustomerId))
+            .ToListAsync(cancellationToken);
+    }
 
     public async Task AddAsync(FreightRequest freight, CancellationToken cancellationToken) =>
         await _db.FreightRequests.AddAsync(freight, cancellationToken);

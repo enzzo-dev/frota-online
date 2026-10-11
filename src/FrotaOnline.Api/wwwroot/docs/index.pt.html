@@ -30,6 +30,7 @@
       <a href="#flow">Ordem das chamadas</a>
       <a href="#onboarding">Cadastro do motorista</a>
       <a href="#marketplace">Marketplace</a>
+      <a href="#notifications">Notificações</a>
       <a href="#privacy">Privacidade</a>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Erros</a>
@@ -219,7 +220,46 @@
           </tbody>
         </table>
       </div>
-      <p class="prose">Uma rotina em segundo plano roda a cada 30 segundos e expira fretes e propostas fora da janela. Enquanto ela não roda, a API já recusa propostas que chegam atrasadas.</p>
+      <p class="prose">Um job expira fretes e propostas fora da janela: a cada 30 segundos dentro da API em desenvolvimento e, em produção, o Cloud Scheduler chama <code>POST /internal/jobs/expire</code> (e <code>/internal/jobs/dispatch-notifications</code> para os pushes) a cada minuto, autenticado com token OIDC do Google (<code>Jobs:Audience</code>, <code>Jobs:ServiceAccountEmail</code>). Enquanto ela não roda, a API já recusa propostas que chegam atrasadas.</p>
+    </section>
+
+    <section id="notifications" class="section">
+      <h2>Notificações</h2>
+      <p class="section-lede">Cada evento de negócio deixa uma notificação para a pessoa certa, na mesma transação da operação que a causou. Ela é a caixa de entrada do app, e um worker em segundo plano também a envia como push aos aparelhos que a pessoa registrou.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>PUT /devices</code></td><td>Registra o aparelho: <code>{ "token": "...", "platform": "Android" | "Ios" | "Web" }</code>, o token que o provedor de push deu ao app. Chame depois de cada login e quando o provedor trocar o token. Repetir é inofensivo; se o mesmo aparelho entrar com outra conta, o token passa para ela.</td></tr>
+            <tr><td><code>DELETE /devices?token=...</code></td><td>Chame no logout para o próximo usuário do aparelho não receber as notificações desta conta. Sempre 204.</td></tr>
+            <tr><td><code>GET /notifications</code></td><td>A caixa de entrada, mais nova primeiro. Query: <code>unreadOnly</code>, <code>page</code> (a partir de 1), <code>pageSize</code> (1 a 100, padrão 20). A resposta tem <code>items</code>, <code>unreadCount</code> para o contador do sino e <code>hasMore</code> para rolagem infinita. Cada item tem <code>type</code>, <code>title</code>, <code>body</code> e <code>targetType</code> + <code>targetId</code>, que dizem o que abrir ao tocar: <code>Freight</code>, <code>Proposal</code>, <code>Delivery</code>, <code>DriverProfile</code> ou <code>Fee</code>.</td></tr>
+            <tr><td><code>GET /notifications/unread-count</code></td><td>Só <code>{ "unread": 3 }</code>, barato o bastante para consultar de tempos em tempos.</td></tr>
+            <tr><td><code>POST /notifications/{id}/read</code>, <code>POST /notifications/read-all</code></td><td>Marca uma ou todas como lidas. Idempotente. Notificação de outra pessoa dá 404 <code>notification.not_found</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Evento</th><th>Quem recebe</th><th><code>type</code></th><th><code>targetType</code></th></tr></thead>
+          <tbody>
+            <tr><td>Motorista envia proposta</td><td>Cliente</td><td><code>ProposalReceived</code> (com o valor)</td><td>Freight</td></tr>
+            <tr><td>Cliente aprova a proposta</td><td>Motorista escolhido</td><td><code>ProposalApproved</code></td><td>Delivery</td></tr>
+            <tr><td>Cliente aprova outra proposta</td><td>Demais motoristas do frete</td><td><code>ProposalNotSelected</code></td><td>Proposal</td></tr>
+            <tr><td>A janela de propostas termina sem aprovação</td><td>Cliente</td><td><code>FreightExpired</code></td><td>Freight</td></tr>
+            <tr><td>Proposta vence sem resposta</td><td>Motorista</td><td><code>ProposalExpired</code></td><td>Proposal</td></tr>
+            <tr><td>Motorista sai para a coleta</td><td>Cliente</td><td><code>DeliveryStarted</code></td><td>Delivery</td></tr>
+            <tr><td>Primeira coleta concluída</td><td>Cliente</td><td><code>DeliveryPickedUp</code></td><td>Delivery</td></tr>
+            <tr><td>Outra parada concluída</td><td>Cliente</td><td><code>DeliveryStopCompleted</code> ("2 de 3")</td><td>Delivery</td></tr>
+            <tr><td>Última parada concluída</td><td>Cliente</td><td><code>DeliveryCompleted</code></td><td>Delivery</td></tr>
+            <tr><td>Ocorrência registrada</td><td>Cliente</td><td><code>DeliveryIncident</code> (com o texto)</td><td>Delivery</td></tr>
+            <tr><td>Motorista cancela / cliente cancela</td><td>Cliente / Motorista</td><td><code>DeliveryCancelled</code> (com o motivo)</td><td>Delivery</td></tr>
+            <tr><td>Motorista confirma o pagamento</td><td>Cliente</td><td><code>PaymentConfirmed</code> (com o valor)</td><td>Delivery</td></tr>
+            <tr><td>Admin aprova / rejeita o cadastro</td><td>Motorista</td><td><code>DriverApproved</code> / <code>DriverRejected</code></td><td>DriverProfile</td></tr>
+            <tr><td>Admin registra o acerto da taxa</td><td>Motorista</td><td><code>FeeSettled</code> (com o valor)</td><td>Fee</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">Uma ação do motorista no meio da corrida envia uma só notificação (a mais relevante), mesmo que a entrega passe por mais de um status. O push leva os mesmos dados do item da caixa de entrada (<code>notificationId</code>, <code>type</code>, <code>targetType</code>, <code>targetId</code>). Um envio que falha é repetido um minuto depois, até 5 vezes, e a notificação fica na caixa de entrada de qualquer forma; quem já abriu a notificação no app não recebe o push. Com <code>Push:Provider</code> = <code>Firebase</code> o push sai de verdade pelo Firebase Cloud Messaging (credenciais pelas Application Default Credentials, ou seja, no GCP a conta de serviço do ambiente); o padrão só escreve no log. Excluir a conta (LGPD) apaga as notificações e os tokens de dispositivo.</p>
     </section>
 
     <section id="privacy" class="section">
@@ -301,6 +341,7 @@
             <tr><td>409</td><td><code>address.in_use</code></td><td>O endereço já foi usado em um frete e não pode ser editado. Salve um novo.</td></tr>
             <tr><td>409</td><td><code>address.in_active_use</code></td><td>O endereço está em um frete aberto ou numa entrega em andamento e não pode ser excluído.</td></tr>
             <tr><td>409</td><td><code>request.conflict</code></td><td>Algo mudou enquanto a requisição rodava (por exemplo um frete passou a usar o endereço que estava sendo excluído). Recarregue e tente de novo.</td></tr>
+            <tr><td>404</td><td><code>notification.not_found</code></td><td>Notificação inexistente ou de outro usuário.</td></tr>
             <tr><td>409</td><td><code>request.duplicate</code></td><td>Duas requisições iguais chegaram juntas e o banco barrou a segunda (índice único), por exemplo a confirmação de pagamento. Recarregue e confira o estado.</td></tr>
             <tr><td>400</td><td><code>route.missing_coordinates</code></td><td>Alguns endereços ainda não têm posição no mapa. A mensagem lista quais.</td></tr>
           </tbody>

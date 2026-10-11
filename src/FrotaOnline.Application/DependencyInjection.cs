@@ -5,6 +5,7 @@ using FrotaOnline.Application.Auth;
 using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Marketplace;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Application.Privacy;
 using FrotaOnline.Application.Routing;
 using FrotaOnline.Application.Terms;
@@ -36,6 +37,10 @@ public static class DependencyInjection
         services.AddScoped<IDeliveryPaymentService, DeliveryPaymentService>();
         services.AddScoped<IFeeService, FeeService>();
         services.AddScoped<ICustomerDeliveryService, CustomerDeliveryService>();
+        services.AddScoped<INotificationPublisher, NotificationPublisher>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IDeviceService, DeviceService>();
+        services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
         return services;
     }
 }

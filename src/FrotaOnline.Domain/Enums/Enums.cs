@@ -39,3 +39,25 @@ public enum MediaKind { DriverDocument = 1, VehiclePhoto = 2, CargoPhoto = 3, De
 public enum DevicePlatform { Android = 1, Ios = 2, Web = 3 }
 
 public enum TermType { TermsOfUse = 1, PrivacyPolicy = 2 }
+
+public enum NotificationType
+{
+    ProposalReceived = 1,
+    ProposalApproved = 2,
+    ProposalNotSelected = 3,
+    ProposalExpired = 4,
+    FreightExpired = 5,
+    DeliveryStarted = 6,
+    DeliveryPickedUp = 7,
+    DeliveryStopCompleted = 8,
+    DeliveryCompleted = 9,
+    DeliveryIncident = 10,
+    DeliveryCancelled = 11,
+    PaymentConfirmed = 12,
+    DriverApproved = 13,
+    DriverRejected = 14,
+    FeeSettled = 15
+}
+
+/// <summary>What the app opens when the person taps a notification.</summary>
+public enum NotificationTarget { Freight = 1, Proposal = 2, Delivery = 3, DriverProfile = 4, Fee = 5 }

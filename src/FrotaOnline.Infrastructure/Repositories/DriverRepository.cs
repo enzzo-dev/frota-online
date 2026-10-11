@@ -23,6 +23,14 @@ internal sealed class DriverRepository : IDriverRepository
     public Task<bool> CnhInUseAsync(string cnhNumber, Guid exceptUserId, CancellationToken cancellationToken) =>
         _db.DriverProfiles.AnyAsync(d => d.CnhNumber == cnhNumber && d.UserId != exceptUserId, cancellationToken);
 
+    public async Task<IReadOnlyDictionary<Guid, Guid>> ListUserIdsAsync(
+        IReadOnlyCollection<Guid> profileIds, CancellationToken cancellationToken) =>
+        await _db.DriverProfiles
+            .AsNoTracking()
+            .Where(d => profileIds.Contains(d.Id))
+            .Select(d => new { d.Id, d.UserId })
+            .ToDictionaryAsync(d => d.Id, d => d.UserId, cancellationToken);
+
     public async Task AddAsync(DriverProfile profile, CancellationToken cancellationToken) =>
         await _db.DriverProfiles.AddAsync(profile, cancellationToken);
 }

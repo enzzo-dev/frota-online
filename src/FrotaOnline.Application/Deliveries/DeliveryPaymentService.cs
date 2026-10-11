@@ -7,6 +7,7 @@ using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Marketplace;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 
@@ -17,6 +18,7 @@ public sealed class DeliveryPaymentService : IDeliveryPaymentService
     private readonly IDriverRepository _drivers;
     private readonly IDeliveryRepository _deliveries;
     private readonly IPaymentRepository _payments;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<ConfirmPaymentRequest> _validator;
@@ -25,6 +27,7 @@ public sealed class DeliveryPaymentService : IDeliveryPaymentService
         IDriverRepository drivers,
         IDeliveryRepository deliveries,
         IPaymentRepository payments,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<ConfirmPaymentRequest> validator)
@@ -32,6 +35,7 @@ public sealed class DeliveryPaymentService : IDeliveryPaymentService
         _drivers = drivers;
         _deliveries = deliveries;
         _payments = payments;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _validator = validator;
@@ -72,6 +76,8 @@ public sealed class DeliveryPaymentService : IDeliveryPaymentService
         payment.MarkPaid(_clock.UtcNow, string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim());
 
         await _payments.AddAsync(payment, cancellationToken);
+        await _notifications.PublishAsync(
+            NotificationMessages.PaymentConfirmed(delivery.CustomerId, delivery.Id, payment.Amount), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(new PaymentResponse(

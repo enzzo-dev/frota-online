@@ -7,6 +7,7 @@ using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Marketplace.Dtos;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -21,6 +22,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
     private readonly IProposalRepository _proposals;
     private readonly IFreightQueries _queries;
     private readonly IDriverAgendaRepository _agenda;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<SubmitProposalRequest> _validator;
@@ -32,6 +34,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         IProposalRepository proposals,
         IFreightQueries queries,
         IDriverAgendaRepository agenda,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<SubmitProposalRequest> validator)
@@ -42,6 +45,7 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         _proposals = proposals;
         _queries = queries;
         _agenda = agenda;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _validator = validator;
@@ -143,6 +147,8 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
             freight.Id, profile.Id, vehicle.Id, request.Price, request.Message, freight.ProposalDeadline);
 
         await _proposals.AddAsync(proposal, cancellationToken);
+        await _notifications.PublishAsync(
+            NotificationMessages.ProposalReceived(freight.CustomerId, freight.Id, request.Price), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(FreightMapper.ToResponse(proposal));

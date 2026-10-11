@@ -28,14 +28,31 @@ internal sealed class ProposalRepository : IProposalRepository
             .ThenBy(p => p.Id)
             .ToListAsync(cancellationToken);
 
-    public Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken) =>
-        _db.Proposals
+    public async Task<IReadOnlyList<ExpiredProposal>> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken)
+    {
+        var changed = await _db.Proposals
             .Where(p => p.Status == ProposalStatus.Pending && p.ExpiresAt <= utcNow)
             .ExecuteUpdateAsync(
                 set => set
                     .SetProperty(p => p.Status, ProposalStatus.Expired)
                     .SetProperty(p => p.UpdatedAt, utcNow),
                 cancellationToken);
+
+        if (changed == 0)
+        {
+            return Array.Empty<ExpiredProposal>();
+        }
+
+        // The UPDATE stamped these rows with this pass's timestamp. PostgreSQL keeps microseconds and .NET ticks are
+        // finer, so compare with a one-millisecond margin instead of equality.
+        var stamp = utcNow.AddMilliseconds(-1);
+
+        return await _db.Proposals
+            .AsNoTracking()
+            .Where(p => p.Status == ProposalStatus.Expired && p.UpdatedAt >= stamp)
+            .Select(p => new ExpiredProposal(p.Id, p.DriverProfileId))
+            .ToListAsync(cancellationToken);
+    }
 
     public Task<bool> HasPendingAsync(Guid freightRequestId, Guid driverProfileId, CancellationToken cancellationToken) =>
         _db.Proposals.AnyAsync(

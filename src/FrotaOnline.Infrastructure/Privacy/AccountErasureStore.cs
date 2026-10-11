@@ -102,6 +102,7 @@ internal sealed class AccountErasureStore : IAccountErasureStore
         await _db.MediaFiles.Where(m => m.OwnerUserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.DeviceTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.CustomerProfiles.Where(c => c.UserId == userId).ExecuteDeleteAsync(cancellationToken);
 
         // 4. Rows that stay but must stop identifying the person: through the domain.

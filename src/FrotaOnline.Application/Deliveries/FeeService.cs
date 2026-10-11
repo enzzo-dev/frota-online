@@ -6,6 +6,7 @@ using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Drivers;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Domain.Entities;
 
 namespace FrotaOnline.Application.Deliveries;
@@ -15,6 +16,7 @@ public sealed class FeeService : IFeeService
     private readonly IDriverRepository _drivers;
     private readonly IFeeLedgerRepository _ledger;
     private readonly IFeeQueries _queries;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<SettleFeeRequest> _validator;
 
@@ -22,12 +24,14 @@ public sealed class FeeService : IFeeService
         IDriverRepository drivers,
         IFeeLedgerRepository ledger,
         IFeeQueries queries,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IValidator<SettleFeeRequest> validator)
     {
         _drivers = drivers;
         _ledger = ledger;
         _queries = queries;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _validator = validator;
     }
@@ -78,6 +82,8 @@ public sealed class FeeService : IFeeService
 
         await _ledger.AddAsync(
             FeeLedger.Settle(driver.Id, null, request.Amount, request.Description), cancellationToken);
+        await _notifications.PublishAsync(
+            NotificationMessages.FeeSettled(driver.UserId, driver.Id, request.Amount), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(await _queries.GetStatementAsync(driver.Id, cancellationToken));

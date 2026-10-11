@@ -3,6 +3,8 @@ using FrotaOnline.Tests.Marketplace;
 using FrotaOnline.Application.Admin.Dtos;
 using FrotaOnline.Application.Admin.Validators;
 using FrotaOnline.Application.Common;
+using FrotaOnline.Application.Notifications;
+using FrotaOnline.Tests.Notifications;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 using FrotaOnline.Tests.Auth;
@@ -15,6 +17,7 @@ public class DriverReviewServiceTests
     private readonly FakeUserRepository _users = new();
     private readonly FakeEmailSender _email = new();
     private readonly FakeClock _clock = new();
+    private readonly FakeNotificationRepository _notifications = new();
     private readonly FakeVehicleRepository _vehicles = new();
     private readonly FakeMediaFileRepository _media = new();
     private readonly Guid _adminId = Guid.NewGuid();
@@ -24,7 +27,7 @@ public class DriverReviewServiceTests
     {
         _sut = new DriverReviewService(
             _drivers, new FakeDriverReviewQueries(_drivers, _users), _users, _vehicles, _media, _email,
-            new FakeUnitOfWork(), _clock, new RejectDriverRequestValidator());
+            new NotificationPublisher(_notifications), new FakeUnitOfWork(), _clock, new RejectDriverRequestValidator());
     }
 
     private DriverProfile AddDriver(bool pending = true)
@@ -66,6 +69,30 @@ public class DriverReviewServiceTests
         Assert.Equal(DriverStatus.Approved, profile.Status);
         Assert.Equal(_adminId, profile.ReviewedByUserId);
         Assert.Equal("joao@example.com", Assert.Single(_email.Sent).To);
+    }
+
+    [Fact]
+    public async Task Approve_NotifiesTheDriverInTheApp()
+    {
+        var profile = AddDriver();
+
+        await _sut.ApproveAsync(_adminId, profile.Id, CancellationToken.None);
+
+        var notification = Assert.Single(_notifications.Items);
+        Assert.Equal(NotificationType.DriverApproved, notification.Type);
+        Assert.Equal(profile.UserId, notification.UserId);
+    }
+
+    [Fact]
+    public async Task Reject_NotifiesTheDriverWithTheReason()
+    {
+        var profile = AddDriver();
+
+        await _sut.RejectAsync(_adminId, profile.Id, new RejectDriverRequest("CNH ilegível"), CancellationToken.None);
+
+        var notification = Assert.Single(_notifications.Items);
+        Assert.Equal(NotificationType.DriverRejected, notification.Type);
+        Assert.Contains("CNH ilegível", notification.Body);
     }
 
     [Fact]

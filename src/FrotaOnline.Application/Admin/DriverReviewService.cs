@@ -7,6 +7,7 @@ using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
 using FrotaOnline.Application.Admin.Dtos;
 using FrotaOnline.Application.Common;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Application.Drivers.Dtos;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -23,6 +24,7 @@ public sealed class DriverReviewService : IDriverReviewService
     private readonly IVehicleRepository _vehicles;
     private readonly IMediaFileRepository _media;
     private readonly IEmailSender _email;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<RejectDriverRequest> _rejectValidator;
@@ -34,6 +36,7 @@ public sealed class DriverReviewService : IDriverReviewService
         IVehicleRepository vehicles,
         IMediaFileRepository media,
         IEmailSender email,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<RejectDriverRequest> rejectValidator)
@@ -44,6 +47,7 @@ public sealed class DriverReviewService : IDriverReviewService
         _vehicles = vehicles;
         _media = media;
         _email = email;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _rejectValidator = rejectValidator;
@@ -94,6 +98,7 @@ public sealed class DriverReviewService : IDriverReviewService
         }
 
         profile.Approve(reviewerId, _clock.UtcNow);
+        await _notifications.PublishAsync(NotificationMessages.DriverApproved(user.Id, profile.Id), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await _email.SendAsync(
@@ -122,6 +127,8 @@ public sealed class DriverReviewService : IDriverReviewService
 
         var (profile, user) = loaded.Value;
         profile.Reject(reviewerId, request.Reason, _clock.UtcNow);
+        await _notifications.PublishAsync(
+            NotificationMessages.DriverRejected(user.Id, profile.Id, profile.RejectionReason), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await _email.SendAsync(

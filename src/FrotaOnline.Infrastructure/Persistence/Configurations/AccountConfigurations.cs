@@ -106,6 +106,26 @@ internal sealed class UserConsentConfiguration : IEntityTypeConfiguration<UserCo
     }
 }
 
+internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.Property(x => x.Title).HasMaxLength(120).IsRequired();
+        builder.Property(x => x.Body).HasMaxLength(400).IsRequired();
+
+        // The inbox: a person's notifications, newest first, optionally only the unread ones.
+        builder.HasIndex(x => new { x.UserId, x.CreatedAt });
+        builder.HasIndex(x => new { x.UserId, x.ReadAt });
+
+        // The push queue: only rows still waiting are indexed, so the worker's poll stays cheap as the table grows.
+        builder.HasIndex(x => x.CreatedAt)
+            .HasFilter("\"PushDispatchedAt\" IS NULL")
+            .HasDatabaseName("IX_Notifications_PendingPush");
+
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+    }
+}
+
 internal sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceToken>
 {
     public void Configure(EntityTypeBuilder<DeviceToken> builder)

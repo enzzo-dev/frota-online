@@ -7,6 +7,7 @@ using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Marketplace;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
 
@@ -20,6 +21,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
     private readonly IDriverAgendaRepository _agenda;
     private readonly IMediaFileRepository _media;
     private readonly IFeeLedgerRepository _fees;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<CompleteStopRequest> _completeValidator;
@@ -33,6 +35,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         IDriverAgendaRepository agenda,
         IMediaFileRepository media,
         IFeeLedgerRepository fees,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<CompleteStopRequest> completeValidator,
@@ -45,6 +48,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         _agenda = agenda;
         _media = media;
         _fees = fees;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _completeValidator = completeValidator;
@@ -71,6 +75,8 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         var now = _clock.UtcNow;
         delivery.Advance(DeliveryStatus.ToPickup, now);
         await _deliveries.AddEventAsync(NewEvent(delivery, DeliveryStatus.ToPickup, now), cancellationToken);
+        await _notifications.PublishAsync(
+            NotificationMessages.DeliveryStarted(delivery.CustomerId, delivery.Id), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(Progress(delivery, freight));
@@ -121,6 +127,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         }
 
         var now = _clock.UtcNow;
+        var firstPickup = delivery.Status == DeliveryStatus.ToPickup;
         stop.Complete(now);
 
         // Collecting the first cargo puts the truck on the road; later stops keep it in transit.
@@ -156,6 +163,15 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
             await ReleaseAgendaAsync(delivery.Id, now, cancellationToken);
         }
 
+        // One notification per action: the most meaningful thing that just happened.
+        var completed = ordered.Count(s => s.IsCompleted);
+        var message = finished
+            ? NotificationMessages.DeliveryCompleted(delivery.CustomerId, delivery.Id)
+            : firstPickup
+                ? NotificationMessages.DeliveryPickedUp(delivery.CustomerId, delivery.Id)
+                : NotificationMessages.DeliveryStopCompleted(delivery.CustomerId, delivery.Id, completed, ordered.Count);
+        await _notifications.PublishAsync(message, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success(Progress(delivery, freight));
     }
@@ -187,6 +203,8 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         await _deliveries.AddEventAsync(
             DeliveryEvent.Create(delivery.Id, DeliveryStatus.Incident, now, request.Note, null, null, null),
             cancellationToken);
+        await _notifications.PublishAsync(
+            NotificationMessages.DeliveryIncident(delivery.CustomerId, delivery.Id, request.Note), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(Progress(delivery, freight));
@@ -256,6 +274,23 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
             DeliveryEvent.Create(delivery.Id, DeliveryStatus.Cancelled, now, $"Cancelled by the {who}: {reason}", null, null, null),
             cancellationToken);
         await ReleaseAgendaAsync(delivery.Id, now, cancellationToken);
+
+        // The other side is told: the customer when the driver cancels, the driver when the customer does.
+        if (who == "driver")
+        {
+            await _notifications.PublishAsync(
+                NotificationMessages.DeliveryCancelledByDriver(delivery.CustomerId, delivery.Id, reason), cancellationToken);
+        }
+        else
+        {
+            var driver = await _drivers.GetByIdAsync(delivery.DriverProfileId, cancellationToken);
+            if (driver is not null)
+            {
+                await _notifications.PublishAsync(
+                    NotificationMessages.DeliveryCancelledByCustomer(driver.UserId, delivery.Id, reason), cancellationToken);
+            }
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(Progress(delivery, freight));

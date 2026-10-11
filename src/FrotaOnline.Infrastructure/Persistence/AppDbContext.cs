@@ -31,6 +31,7 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<FeeLedger> FeeLedgers => Set<FeeLedger>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

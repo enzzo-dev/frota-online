@@ -5,6 +5,7 @@ using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Marketplace.Dtos;
+using FrotaOnline.Application.Notifications;
 using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -20,6 +21,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
     private readonly IFreightQueries _queries;
     private readonly IDeliveryRepository _deliveries;
     private readonly IDriverAgendaRepository _agenda;
+    private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
 
@@ -31,6 +33,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         IFreightQueries queries,
         IDeliveryRepository deliveries,
         IDriverAgendaRepository agenda,
+        INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock)
     {
@@ -41,6 +44,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         _queries = queries;
         _deliveries = deliveries;
         _agenda = agenda;
+        _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
     }
@@ -112,14 +116,24 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         await _agenda.AddAsync(DriverAgendaSlot.Create(driver.Id, delivery.Id, startsAt, endsAt), cancellationToken);
 
         proposal.Accept();
-        foreach (var other in await _proposals.ListPendingByFreightAsync(freight.Id, cancellationToken))
+        var messages = new List<NotificationMessage> { NotificationMessages.ProposalApproved(driver.UserId, delivery.Id) };
+
+        var others = (await _proposals.ListPendingByFreightAsync(freight.Id, cancellationToken))
+            .Where(p => p.Id != proposal.Id)
+            .ToList();
+        var userIds = await _drivers.ListUserIdsAsync(
+            others.Select(p => p.DriverProfileId).Distinct().ToList(), cancellationToken);
+
+        foreach (var other in others)
         {
-            if (other.Id != proposal.Id)
+            other.Reject();
+            if (userIds.TryGetValue(other.DriverProfileId, out var otherUserId))
             {
-                other.Reject();
+                messages.Add(NotificationMessages.ProposalNotSelected(otherUserId, other.Id));
             }
         }
 
+        await _notifications.PublishAsync(messages, cancellationToken);
         freight.Approve(proposal.Id, now);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

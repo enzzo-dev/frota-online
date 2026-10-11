@@ -3,6 +3,8 @@ using FrotaOnline.Domain.Enums;
 
 namespace FrotaOnline.Application.Abstractions.Marketplace;
 
+public sealed record ExpiredProposal(Guid ProposalId, Guid DriverProfileId);
+
 public interface IProposalRepository
 {
     Task<Proposal?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
@@ -12,10 +14,10 @@ public interface IProposalRepository
     Task<IReadOnlyList<Proposal>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Moves every pending proposal whose window ended to Expired with one UPDATE statement.
-    /// Returns the number of rows changed. Bypasses the change tracker on purpose.
+    /// Moves every pending proposal whose window ended to Expired with one UPDATE statement and returns
+    /// the proposals that changed (so their drivers can be told). Bypasses the change tracker on purpose.
     /// </summary>
-    Task<int> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ExpiredProposal>> ExpireDueAsync(DateTime utcNow, CancellationToken cancellationToken);
 
     Task<bool> HasPendingAsync(Guid freightRequestId, Guid driverProfileId, CancellationToken cancellationToken);
 

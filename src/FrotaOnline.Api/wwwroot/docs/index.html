@@ -30,6 +30,7 @@
       <a href="#flow">Call order</a>
       <a href="#onboarding">Driver onboarding</a>
       <a href="#marketplace">Marketplace</a>
+      <a href="#notifications">Notifications</a>
       <a href="#privacy">Privacy</a>
       <a href="#endpoints">Endpoints</a>
       <a href="#errors">Errors</a>
@@ -219,7 +220,46 @@
           </tbody>
         </table>
       </div>
-      <p class="prose">A background job runs every 30 seconds and expires freights and proposals past their window. Until it runs, the API already refuses proposals that arrive late.</p>
+      <p class="prose">A job expires freights and proposals past their window: every 30 seconds in-process in development, and in production Cloud Scheduler calls <code>POST /internal/jobs/expire</code> (and <code>/internal/jobs/dispatch-notifications</code> for pushes) every minute, authenticated with a Google OIDC token (<code>Jobs:Audience</code>, <code>Jobs:ServiceAccountEmail</code>). Until it runs, the API already refuses proposals that arrive late.</p>
+    </section>
+
+    <section id="notifications" class="section">
+      <h2>Notifications</h2>
+      <p class="section-lede">Every business event leaves a notification for the right person, in the same transaction as the operation that caused it. It is the in-app inbox, and a background worker also sends it as a push to the devices the person registered.</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>PUT /devices</code></td><td>Register the phone: <code>{ "token": "...", "platform": "Android" | "Ios" | "Web" }</code>, the token the push provider gave the app. Call it after every login and when the provider issues a new token. Repeating it is harmless; if the same phone signs in as someone else, the token moves to that account.</td></tr>
+            <tr><td><code>DELETE /devices?token=...</code></td><td>Call it on logout so the next person using the phone does not receive this account's notifications. Always 204.</td></tr>
+            <tr><td><code>GET /notifications</code></td><td>The inbox, newest first. Query: <code>unreadOnly</code>, <code>page</code> (from 1), <code>pageSize</code> (1 to 100, default 20). The response has <code>items</code>, <code>unreadCount</code> for the bell badge and <code>hasMore</code> for infinite scroll. Each item has <code>type</code>, <code>title</code>, <code>body</code> (Portuguese), and <code>targetType</code> + <code>targetId</code>, which say what to open when it is tapped: <code>Freight</code>, <code>Proposal</code>, <code>Delivery</code>, <code>DriverProfile</code> or <code>Fee</code>.</td></tr>
+            <tr><td><code>GET /notifications/unread-count</code></td><td>Just <code>{ "unread": 3 }</code>, cheap enough to poll for the badge.</td></tr>
+            <tr><td><code>POST /notifications/{id}/read</code>, <code>POST /notifications/read-all</code></td><td>Mark one or all as read. Idempotent. Someone else's notification is a 404 <code>notification.not_found</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Event</th><th>Who is told</th><th><code>type</code></th><th><code>targetType</code></th></tr></thead>
+          <tbody>
+            <tr><td>A driver sends a proposal</td><td>Customer</td><td><code>ProposalReceived</code> (with the price)</td><td>Freight</td></tr>
+            <tr><td>The customer approves a proposal</td><td>The chosen driver</td><td><code>ProposalApproved</code></td><td>Delivery</td></tr>
+            <tr><td>The customer approves another proposal</td><td>The other drivers on that freight</td><td><code>ProposalNotSelected</code></td><td>Proposal</td></tr>
+            <tr><td>The proposal window ends with no approval</td><td>Customer</td><td><code>FreightExpired</code></td><td>Freight</td></tr>
+            <tr><td>A proposal expires unanswered</td><td>Driver</td><td><code>ProposalExpired</code></td><td>Proposal</td></tr>
+            <tr><td>The driver leaves for the pickup</td><td>Customer</td><td><code>DeliveryStarted</code></td><td>Delivery</td></tr>
+            <tr><td>First pickup done</td><td>Customer</td><td><code>DeliveryPickedUp</code></td><td>Delivery</td></tr>
+            <tr><td>Another stop done</td><td>Customer</td><td><code>DeliveryStopCompleted</code> ("2 de 3")</td><td>Delivery</td></tr>
+            <tr><td>Last stop done</td><td>Customer</td><td><code>DeliveryCompleted</code></td><td>Delivery</td></tr>
+            <tr><td>Incident reported</td><td>Customer</td><td><code>DeliveryIncident</code> (with the text)</td><td>Delivery</td></tr>
+            <tr><td>The driver cancels / the customer cancels</td><td>Customer / Driver</td><td><code>DeliveryCancelled</code> (with the reason)</td><td>Delivery</td></tr>
+            <tr><td>The driver confirms the payment</td><td>Customer</td><td><code>PaymentConfirmed</code> (with the amount)</td><td>Delivery</td></tr>
+            <tr><td>The admin approves / rejects the registration</td><td>Driver</td><td><code>DriverApproved</code> / <code>DriverRejected</code></td><td>DriverProfile</td></tr>
+            <tr><td>The admin records a fee settlement</td><td>Driver</td><td><code>FeeSettled</code> (with the amount)</td><td>Fee</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose">One driver action in the middle of a run sends one notification (the most relevant one), even when the delivery moves through more than one status. The push carries the same data as the inbox item (<code>notificationId</code>, <code>type</code>, <code>targetType</code>, <code>targetId</code>). A failed send is retried a minute later, up to 5 times, and the inbox entry is there either way; someone who already opened the notification in the app gets no push. Set <code>Push:Provider</code> to <code>Firebase</code> to send real pushes through Firebase Cloud Messaging (credentials from Application Default Credentials, so on GCP the runtime service account); the default only writes them to the log. Deleting an account (LGPD) erases its notifications and device tokens.</p>
     </section>
 
     <section id="privacy" class="section">
@@ -301,6 +341,7 @@
             <tr><td>409</td><td><code>address.in_use</code></td><td>The address was already used in a freight and cannot be edited. Save a new one.</td></tr>
             <tr><td>409</td><td><code>address.in_active_use</code></td><td>The address is in an open freight or a delivery in progress and cannot be deleted.</td></tr>
             <tr><td>409</td><td><code>request.conflict</code></td><td>Something changed while the request ran (for example a freight started using the address being deleted). Reload and try again.</td></tr>
+            <tr><td>404</td><td><code>notification.not_found</code></td><td>The notification does not exist or belongs to someone else.</td></tr>
             <tr><td>409</td><td><code>request.duplicate</code></td><td>Two identical requests arrived together and the database rejected the second one (unique index), for example the payment confirmation. Reload and check the current state.</td></tr>
             <tr><td>400</td><td><code>route.missing_coordinates</code></td><td>Some addresses have no map position yet. The message lists them.</td></tr>
           </tbody>

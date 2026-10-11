@@ -56,11 +56,14 @@ public static class DependencyInjection
         services.AddScoped<IDriverAgendaRepository, DriverAgendaRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IFeeLedgerRepository, FeeLedgerRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
 
         // Read side: IQueryable projections executed by PostgreSQL.
         services.AddScoped<IFreightQueries, FreightQueries>();
         services.AddScoped<IDeliveryQueries, DeliveryQueries>();
         services.AddScoped<IFeeQueries, FeeQueries>();
+        services.AddScoped<INotificationQueries, NotificationQueries>();
         services.AddScoped<IAddressUsageQueries, AddressUsageQueries>();
         services.AddScoped<IDriverReviewQueries, DriverReviewQueries>();
         services.AddScoped<ITermAcceptanceChecker, SqlTermAcceptanceChecker>();
@@ -83,7 +86,27 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IEmailSender, LoggingEmailSender>();
-        services.AddHostedService<FreightExpirationWorker>();
+        // Push delivery. To use Firebase (FCM) or another provider, write a class that implements IPushSender and register it here.
+        // Push.Provider = "Firebase" sends real pushes (credentials come from Application Default Credentials, so on
+        // GCP the service account of the runtime is used); anything else only logs them.
+        if (string.Equals(configuration["Push:Provider"], "Firebase", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IPushSender, FirebasePushSender>();
+        }
+        else
+        {
+            services.AddSingleton<IPushSender, LoggingPushSender>();
+        }
+
+
+        // Background jobs. In production (Cloud Run) they are triggered by Cloud Scheduler through
+        // /internal/jobs/*, because a hosted service is not reliable when instances scale to zero or run in parallel.
+        // Jobs:RunInProcess = true runs them inside the API instead (local development, single instance).
+        if (configuration.GetValue<bool>("Jobs:RunInProcess"))
+        {
+            services.AddHostedService<FreightExpirationWorker>();
+            services.AddHostedService<NotificationDispatchWorker>();
+        }
 
         return services;
     }

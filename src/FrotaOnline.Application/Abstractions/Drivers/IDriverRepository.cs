@@ -14,5 +14,8 @@ public interface IDriverRepository
     /// <summary>True when another user already registered this CNH.</summary>
     Task<bool> CnhInUseAsync(string cnhNumber, Guid exceptUserId, CancellationToken cancellationToken);
 
+    /// <summary>Maps driver profile ids to the user ids behind them, in one query. Unknown ids are left out.</summary>
+    Task<IReadOnlyDictionary<Guid, Guid>> ListUserIdsAsync(IReadOnlyCollection<Guid> profileIds, CancellationToken cancellationToken);
+
     Task AddAsync(DriverProfile profile, CancellationToken cancellationToken);
 }

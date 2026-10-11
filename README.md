@@ -20,6 +20,7 @@ A página é um guia com um passo a passo em quatro paradas e uma lista de endpo
 | Pedidos de frete: criar, listar, cancelar, expirar | Pronto |
 | Propostas do motorista, ranking por preço e aprovação que cria a entrega e reserva a agenda | Pronto |
 | Andamento da entrega (paradas em ordem, ocorrência, cancelamento, comprovante), confirmação de pagamento, extrato de taxas e visão do cliente | Pronto |
+| Notificações: caixa de entrada no app, contador de não lidas, registro de dispositivos e envio de push (provedor ainda por plugar) | Pronto |
 
 ## Diagramas
 
@@ -219,6 +220,46 @@ As configurações são aplicadas em camadas: `appsettings.json`, depois `appset
 - `Jwt:SecretKey` segue a mesma regra: no mínimo 32 caracteres, diferente em cada ambiente e definida com `Jwt__SecretKey` fora do Development.
 - Staging e Production usam emissor e audiência de JWT próprios, então um token de um ambiente não vale no outro.
 - Para outro ambiente, rode `dotnet ef database update ...` com `ASPNETCORE_ENVIRONMENT` e `ConnectionStrings__Default` definidos.
+
+### Variáveis de ambiente para subir em Staging e Production
+
+Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:SecretKey` é `Jwt__SecretKey`. Variáveis de ambiente vencem os arquivos `appsettings`.
+
+**Obrigatórias** (a API não inicia sem elas):
+
+| Variável | Exemplo | Observação |
+| --- | --- | --- |
+| `ASPNETCORE_ENVIRONMENT` | `Production` ou `Staging` | Carrega `appsettings.{Environment}.json`. Fora de `Development` a documentação (`/docs`, `/swagger`, `/openapi`) e o seed do admin ficam desligados. |
+| `ConnectionStrings__Default` | `Host=...;Port=5432;Database=frotaonline;Username=...;Password=...` | Um banco por ambiente. No Cloud SQL pelo Cloud Run use o socket: `Host=/cloudsql/<projeto>:<regiao>:<instancia>;Database=frotaonline;Username=...;Password=...`. Guarde no Secret Manager. |
+| `Jwt__SecretKey` | 32+ caracteres aleatórios | Diferente em cada ambiente e nunca igual à de desenvolvimento (que está no histórico do Git: gere outra e descarte a antiga). Trocar a chave invalida todos os tokens emitidos. Secret Manager. |
+
+**Necessárias para o que já está implementado em produção:**
+
+| Variável | Valor | Para quê |
+| --- | --- | --- |
+| `Push__Provider` | `Firebase` (padrão `Logging`, que só escreve no log) | Liga o envio real de push pelo FCM. |
+| `GOOGLE_APPLICATION_CREDENTIALS` | caminho do JSON da conta de serviço | Só fora do GCP ou em máquina local. No Cloud Run/GKE não defina: vale a conta de serviço do serviço, com o papel de administrador da API do Firebase Cloud Messaging. |
+| `Jobs__Audience` | URL do serviço no Cloud Run | Audiência do token OIDC que o Cloud Scheduler envia. |
+| `Jobs__ServiceAccountEmail` | `scheduler@<projeto>.iam.gserviceaccount.com` | Única conta aceita em `/internal/jobs/*`. Vazio = tudo recusado. |
+| `Jobs__RunInProcess` | `false` (padrão) | Deixe `false` em produção; `true` roda os jobs dentro da API (só desenvolvimento ou instância única). |
+| `Routing__BaseUrl` | URL do seu OSRM | O servidor público padrão (`router.project-osrm.org`) é só para teste e não tem garantia de disponibilidade: suba o seu (imagem `osrm/osrm-backend` com o mapa do Brasil). |
+
+**Opcionais** (têm padrão no `appsettings.json`):
+
+| Variável | Padrão | Para quê |
+| --- | --- | --- |
+| `Jwt__Issuer` / `Jwt__Audience` | `FrotaOnline` / `FrotaOnline.Clients` (Staging: `FrotaOnline.Staging` / `FrotaOnline.Staging.Clients`) | Mantenha diferentes por ambiente para um token de um não valer no outro. |
+| `Jwt__AccessTokenMinutes` / `Jwt__RefreshTokenDays` | `15` / `30` | Duração das sessões. |
+| `Routing__TimeoutSeconds` | `4` | Passou disso, o frete segue sem a linha da rota. |
+| `Logging__LogLevel__Default` | `Information` (Production: `Warning`) | Nível de log. |
+| `AllowedHosts` | `*` | Restrinja ao domínio da API em produção. |
+| `PORT` / `ASPNETCORE_URLS` | `8080` no contêiner .NET | O Cloud Run injeta `PORT`; não precisa mexer. |
+
+**Só em Development** (ignoradas nos outros ambientes): `Seed__Admin__FullName`, `Seed__Admin__Email` e `Seed__Admin__Password`. Como o seed não roda em Staging nem Production, o primeiro admin desses ambientes precisa ser criado à parte (por exemplo um script SQL ou um comando único, ainda não existe na API). Planeje isso antes do primeiro deploy.
+
+> **Lembrete: CORS ainda não está implementado.** A API não tem nenhuma política de CORS (`AddCors` / `UseCors`). Um app mobile nativo não é afetado, mas qualquer front-end web (inclusive a versão Web do app, `platform: Web`, e a página de docs servida de outro domínio) terá as chamadas bloqueadas pelo navegador. Antes de publicar um front-end web: definir uma política nomeada que libere só as origens de cada ambiente (por exemplo `Cors__AllowedOrigins__0=https://app.seudominio.com.br`, nunca `*` junto de `Authorization`), permitir os métodos e cabeçalhos usados (`Authorization`, `Content-Type`) e chamar `app.UseCors(...)` depois do `UseForwardedHeaders` e antes de `UseAuthentication`. As rotas `/internal/jobs/*` não precisam de CORS, pois são chamadas pelo Cloud Scheduler.
+
+Checklist de deploy: (1) criar o banco e aplicar as migrations com `ConnectionStrings__Default` do ambiente; (2) definir os segredos acima; (3) criar os dois jobs do Cloud Scheduler (veja "Jobs em produção"); (4) publicar o termo de uso inicial e criar o primeiro admin; (5) conferir `GET /health`; (6) configurar o CORS, se houver front-end web.
 
 Para manter a sua chave JWT de desenvolvimento fora do repositório:
 
@@ -447,6 +488,66 @@ Admin: `GET /api/v1/admin/drivers/{driverId}/fees` e `POST .../fees/settle` (`am
 
 Depois de atualizar, gere a migration (ela inclui o índice único de `Payments.DeliveryId`; se já houver pagamentos duplicados de teste, apague-os antes).
 
+## Notificações (`/api/v1/notifications` e `/api/v1/devices`, qualquer usuário logado)
+
+Cada evento de negócio grava uma notificação para a pessoa certa, **na mesma transação** da operação que a causou: não existe notificação de algo que foi desfeito, e uma operação confirmada nunca perde a sua. A linha gravada é a caixa de entrada do app; um job (a cada 5 segundos em desenvolvimento, a cada minuto pelo Cloud Scheduler em produção; veja "Jobs em produção") lê as que ainda não foram enviadas e dispara o push aos dispositivos registrados da pessoa. Se o provedor falhar, tenta de novo um minuto depois, até 5 vezes (cada lote é reservado por um minuto no banco com `FOR UPDATE SKIP LOCKED`, então duas instâncias da API nunca enviam o mesmo push); a notificação continua na caixa de entrada de qualquer forma. Quem já abriu a notificação no app antes do envio não recebe o push.
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| GET | `/notifications` | Caixa de entrada, mais nova primeiro. Query: `unreadOnly` (padrão `false`), `page` (a partir de 1) e `pageSize` (1 a 100, padrão 20; valores fora disso são ajustados). Devolve `items`, `unreadCount` (para o contador do sino), `page`, `pageSize` e `hasMore` (rolagem infinita). |
+| GET | `/notifications/unread-count` | Só o número de não lidas: `{ "unread": 3 }`. |
+| POST | `/notifications/{id}/read` | Marca como lida (idempotente; mantém a primeira data de leitura). 204, ou 404 `notification.not_found` se não for sua. |
+| POST | `/notifications/read-all` | Marca todas como lidas. 204. |
+| PUT | `/devices` | Registra o aparelho para push: `{ "token": "...", "platform": "Android" \| "Ios" \| "Web" }`. Chame depois de cada login e quando o provedor trocar o token. Repetir é inofensivo; se o mesmo aparelho entrar com outra conta, o token passa para ela. 204. |
+| DELETE | `/devices?token=...` | Chame no logout, para o próximo usuário do aparelho não receber as notificações desta conta. Sempre 204. |
+
+Cada item da caixa de entrada traz `type`, `title`, `body` (em português), `targetType` e `targetId`, que dizem o que abrir ao tocar. O push leva os mesmos dados (`notificationId`, `type`, `targetType`, `targetId`).
+
+| Evento | Quem recebe | `type` | `targetType` |
+| --- | --- | --- | --- |
+| Motorista envia proposta | Cliente | `ProposalReceived` (com o valor) | `Freight` |
+| Cliente aprova a proposta | Motorista escolhido | `ProposalApproved` | `Delivery` |
+| Cliente aprova outra proposta | Demais motoristas do frete | `ProposalNotSelected` | `Proposal` |
+| Janela de propostas termina sem aprovação | Cliente | `FreightExpired` | `Freight` |
+| Proposta vence sem resposta | Motorista | `ProposalExpired` | `Proposal` |
+| Motorista sai para a coleta | Cliente | `DeliveryStarted` | `Delivery` |
+| Primeira coleta concluída | Cliente | `DeliveryPickedUp` | `Delivery` |
+| Outra parada concluída | Cliente | `DeliveryStopCompleted` ("2 de 3") | `Delivery` |
+| Última parada concluída | Cliente | `DeliveryCompleted` | `Delivery` |
+| Ocorrência registrada | Cliente | `DeliveryIncident` (com o texto) | `Delivery` |
+| Motorista cancela | Cliente | `DeliveryCancelled` (com o motivo) | `Delivery` |
+| Cliente cancela | Motorista | `DeliveryCancelled` (com o motivo) | `Delivery` |
+| Motorista confirma o pagamento | Cliente | `PaymentConfirmed` (com o valor) | `Delivery` |
+| Admin aprova o cadastro | Motorista | `DriverApproved` | `DriverProfile` |
+| Admin rejeita o cadastro | Motorista | `DriverRejected` (com o motivo) | `DriverProfile` |
+| Admin registra o acerto da taxa | Motorista | `FeeSettled` (com o valor) | `Fee` |
+
+Por ação do motorista no meio da corrida sai uma só notificação (a mais relevante), mesmo que a entrega passe por mais de um status. O e-mail de aprovação e rejeição do cadastro continua saindo como antes, além da notificação no app.
+
+O envio real do push depende de um provedor. Por padrão (`Push:Provider` = `Logging`) `IPushSender` é implementado por `LoggingPushSender`, que só escreve no log. Com `"Push": { "Provider": "Firebase" }` entra o `FirebasePushSender` (Firebase Cloud Messaging, gratuito, para Android, iOS e Web). As credenciais vêm das Application Default Credentials: no GCP é a conta de serviço do Cloud Run/GKE (com o papel de administrador da API do Firebase Cloud Messaging); localmente, aponte `GOOGLE_APPLICATION_CREDENTIALS` para o JSON da conta de serviço. Tokens que o FCM marca como inexistentes são apagados sozinhos. Ao excluir a conta (LGPD), as notificações e os tokens de dispositivo da pessoa são apagados.
+
+Depois de atualizar, gere a migration: ela cria a tabela `Notifications` (com o índice parcial `IX_Notifications_PendingPush`, que mantém barata a leitura da fila de push).
+
+### Jobs em produção (GCP)
+
+No Cloud Run um `BackgroundService` não é confiável (a CPU é limitada fora das requisições, a instância pode escalar a zero e várias podem rodar juntas). Por isso a expiração de fretes e o envio de push são **endpoints internos chamados pelo Cloud Scheduler**, que é barato (3 jobs grátis por conta) e deixa o Cloud Run escalar a zero:
+
+| Rota | O que faz |
+| --- | --- |
+| `POST /internal/jobs/expire` | Expira fretes e propostas fora da janela e avisa as pessoas. Resposta `{ freights, proposals }`. |
+| `POST /internal/jobs/dispatch-notifications` | Envia um lote de pushes pendentes. Resposta `{ settled }`. Pode rodar em várias instâncias ao mesmo tempo. |
+
+As rotas não aparecem na documentação e só aceitam o token OIDC do Google emitido para a conta de serviço do Scheduler. Configure:
+
+```
+Jobs__Audience=https://<url-do-servico-cloud-run>
+Jobs__ServiceAccountEmail=scheduler@<projeto>.iam.gserviceaccount.com
+```
+
+e crie dois jobs no Cloud Scheduler (frequência mínima de 1 minuto: `* * * * *`), método POST, com autenticação "OIDC token" usando essa conta de serviço e a mesma audiência. Com `ServiceAccountEmail` vazio todas as chamadas são recusadas. Como o Scheduler não passa de 1 minuto, o push pode atrasar até 1 minuto; a API continua recusando propostas atrasadas na hora, então a expiração não depende do job. Para avisos mais rápidos, a evolução é publicar em Pub/Sub ou Cloud Tasks logo após o commit, mantendo o Scheduler como rede de segurança.
+
+Em desenvolvimento `Jobs:RunInProcess` é `true` e os dois jobs rodam dentro da API (expiração a cada 30 s, push a cada 5 s), sem Scheduler. Não ligue isso em produção com mais de uma instância.
+
 ## Endpoints de administração (`/api/v1/admin`, perfil Admin)
 
 | Método | Rota | Descrição |
@@ -499,6 +600,7 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 400 | `delivery.invalid_proof` | O comprovante precisa ser um `DeliveryProof` do próprio motorista. |
 | 409 | `payment.not_delivered`, `payment.already_confirmed` | Pagamento só após a entrega, uma vez. |
 | 409 | `fee.exceeds_balance` | O acerto passa do saldo em aberto. |
+| 404 | `notification.not_found` | Notificação inexistente ou de outro usuário. |
 | 400 | `route.missing_coordinates` | Algum endereço da rota ainda não tem latitude e longitude. A mensagem lista quais. |
 | 409 | `address.in_use` | O endereço já foi usado em um frete e não pode ser editado. Salve um novo. |
 | 409 | `address.in_active_use` | O endereço está num frete aberto ou numa entrega em andamento e não pode ser excluído. |
@@ -526,6 +628,7 @@ dotnet test
 - **SOLID:** os serviços dependem de interfaces definidas na Application. A Infrastructure as implementa, então trocar o hasher ou o formato do token mexe em uma única classe.
 - **As regras de domínio ficam nas entidades:** setters privados, métodos de criação e transições explícitas. Movimentos inválidos lançam `DomainException`.
 - **Constantes de negócio:** taxa da plataforma de R$ 4,90 por frete, janelas de proposta de 5 minutos (mesmo dia) e 24 horas (agendado), assinaturas de R$ 79,90 e R$ 99,90.
+- **Notificações usam o padrão "caixa de saída" simplificado:** o serviço só enfileira a linha (`INotificationPublisher`), o `SaveChanges` da operação a confirma junto, e o envio do push acontece depois, fora da requisição (`INotificationDispatcher` + worker). Falha do provedor nunca desfaz nem atrasa a operação de negócio. Em produção os jobs são chamados pelo Cloud Scheduler, e o lote de push é reservado no banco (`SKIP LOCKED`), então várias instâncias convivem sem duplicar pushes.
 - **Falhas esperadas usam `Result<T>`;** a API as converte em respostas de problem details.
 - **Consultas pesadas rodam no banco** (`IQueryable` + projeção para DTO); os testes unitários usam fakes em memória, então o SQL real precisa de teste de integração com PostgreSQL.
 - **As chaves estrangeiras nunca apagam em cascata,** para que registros financeiros e de auditoria sobrevivam.
