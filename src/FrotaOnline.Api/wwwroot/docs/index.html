@@ -263,6 +263,7 @@
             <tr><td>The admin approves / rejects the registration</td><td>Driver</td><td><code>DriverApproved</code> / <code>DriverRejected</code></td><td>DriverProfile</td></tr>
             <tr><td>The admin records a fee settlement</td><td>Driver</td><td><code>FeeSettled</code> (with the amount)</td><td>Fee</td></tr>
           <tr><td>A customer posts a freight</td><td>Compatible drivers (see below)</td><td><code>NewFreightAvailable</code> ("City A → City B", with the 5 min or 24 h window)</td><td>Freight</td></tr>
+            <tr><td>A card or wallet payment is refused</td><td>Customer</td><td><code>PaymentFailed</code></td><td>Delivery</td></tr>
             <tr><td>The Pix of a freight is paid</td><td>Customer and driver</td><td><code>PaymentConfirmed</code> / <code>PaymentReceived</code> (the driver’s share)</td><td>Delivery</td></tr>
             <tr><td>A subscription payment is confirmed</td><td>Driver</td><td><code>SubscriptionActivated</code> (with the date it is valid until)</td><td>Subscription</td></tr>
             <tr><td>The fee Pix is paid</td><td>Driver</td><td><code>FeeSettled</code></td><td>Fee</td></tr>
@@ -291,8 +292,8 @@
     </section>
 
     <section id="payments" class="section">
-      <h2>Payments (Asaas)</h2>
-      <p class="section-lede">Subscriptions, a Pix issued by the app with split, and automatic collection of the platform fee. Card data never touches this API. Every endpoint here answers <code>409 payments.not_configured</code> until the server has <code>Payments__Provider=Asaas</code>, and <code>503 payments.unavailable</code> when Asaas cannot be reached.</p>
+      <h2>Payments (Asaas and Mercado Pago)</h2>
+      <p class="section-lede">Subscriptions, a Pix issued by the app with split, and automatic collection of the platform fee. Only paying a freight by card makes the card pass through this API (and it is never stored). Every endpoint here answers <code>409 payments.not_configured</code> until the server has <code>Payments__Provider=Asaas</code> (and <code>Payments__WalletProvider=MercadoPago</code> for Apple Pay), and <code>503 payments.unavailable</code> when Asaas cannot be reached.</p>
 
       <h3 class="mini">Driver subscription</h3>
 <div class="table-wrap">
@@ -319,6 +320,34 @@
       </div>
       <p class="prose">When Asaas confirms the payment, it becomes <code>Paid</code>, the R$ 4.90 fee in the driver’s statement is settled by itself, and both sides are notified. Without a linked account the answer is <code>409 payments.driver_without_payout_account</code>: pay the driver directly and let them confirm with <code>POST /driver/deliveries/{id}/payment</code>.</p>
 
+      <h3 class="mini">Paying a freight by credit card</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /deliveries/{id}/card</code></td><td>Customer, after the delivery is completed. New card: <code>{ "card": { "holderName", "number", "expiryMonth", "expiryYear", "ccv" }, "holder": { "taxId", "postalCode", "addressNumber", "phone" }, "saveCard": false }</code>. Saved card: <code>{ "savedCardId": "&lt;uuid&gt;" }</code>. This is the only route where the card passes through the API: it goes on to Asaas in the same request and is never stored or logged. HTTPS only. The split is the same as the Pix. The payment stays <code>Pending</code> until Asaas confirms; a refused card answers <code>409 payments.card_declined</code> and nothing is charged.</td></tr>
+            <tr><td><code>GET /customer/cards</code></td><td>Saved cards: <code>id</code>, <code>brand</code> and <code>last4</code>. Only Asaas’s token is kept, never the number. At most 5.</td></tr>
+            <tr><td><code>DELETE /customer/cards/{id}</code></td><td>Removes a saved card.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">While a card or wallet payment is being confirmed, another attempt answers <code>409 payments.in_progress</code>. If Asaas refuses the capture afterwards, the payment becomes <code>Failed</code>, the customer receives <code>PaymentFailed</code> and can try again.</p>
+
+      <h3 class="mini">Apple Pay through Mercado Pago</h3>
+      <p class="prose"><strong>Before promising it to customers:</strong> Mercado Pago documents Apple Pay (iOS only, Visa and Mastercard, after commercial enablement) and <strong>does not document Google Pay</strong>; Asaas documents neither wallet. Confirm with Mercado Pago Brazil. The backend takes a card token made by the Mercado Pago SDK in the app, whichever wallet it came from.</p>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Call</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /driver/wallet-account/authorization</code></td><td>The driver connects their own Mercado Pago account once. Returns <code>authorizationUrl</code> (valid 15 minutes): open it in the browser. After they allow it, Mercado Pago calls <code>GET /callbacks/mercadopago/oauth</code>, which stores the tokens encrypted.</td></tr>
+            <tr><td><code>GET /driver/wallet-account</code></td><td><code>{ "connected": true | false }</code>.</td></tr>
+            <tr><td><code>DELETE /driver/wallet-account</code></td><td>Deletes the stored tokens.</td></tr>
+            <tr><td><code>POST /deliveries/{id}/wallet</code></td><td>Customer. After Apple Pay returns the token through the SDK: <code>{ "cardToken": "...", "paymentMethodId": "visa" }</code>. The payment is created on the driver’s account with the R$ 4.90 commission for the platform. <code>approved</code> settles at once; <code>in_process</code> waits for Mercado Pago’s notice. A driver without a connected account: <code>409 payments.driver_without_wallet_account</code>.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">Mercado Pago deducts its own fee first and the platform commission comes out of what is left, so the card fee falls on the driver’s side. The server needs <code>Payments__WalletProvider=MercadoPago</code> and the keys described in the README.</p>
+
       <h3 class="mini">Paying the platform fee</h3>
 <div class="table-wrap">
         <table class="grid">
@@ -330,6 +359,7 @@
       </div>
       <h3 class="mini">Webhook (server to server)</h3>
       <p class="prose"><code>POST /webhooks/asaas</code> is called by Asaas, never by the app, and is protected by the <code>asaas-access-token</code> header. Each event id is processed once, so a repeated delivery changes nothing. Handled: <code>PAYMENT_RECEIVED</code> and <code>PAYMENT_CONFIRMED</code> (subscription, freight Pix, fee Pix) and <code>SUBSCRIPTION_DELETED</code> / <code>SUBSCRIPTION_INACTIVATED</code>. Anything else is acknowledged and ignored.</p>
+      <p class="prose"><code>POST /webhooks/mercadopago</code> is called by Mercado Pago and protected by the <code>x-signature</code> signature. The notice only says something changed: the real status is read from Mercado Pago, and <code>approved</code> settles while <code>rejected</code>/<code>cancelled</code> mark the payment <code>Failed</code>. At Asaas, a card refused at capture arrives as <code>PAYMENT_CREDIT_CARD_CAPTURE_REFUSED</code>.</p>
     </section>
 
     <section id="privacy" class="section">
@@ -416,6 +446,10 @@
             <tr><td>409</td><td><code>payments.not_configured</code></td><td>Online payments are off on this server. Pay directly and confirm, or ask the team to configure Asaas.</td></tr>
             <tr><td>503</td><td><code>payments.unavailable</code></td><td>Asaas refused or could not be reached. Try again in a moment.</td></tr>
             <tr><td>409</td><td><code>payments.driver_without_payout_account</code></td><td>The driver has not linked an account, so a Pix with split cannot be issued.</td></tr>
+            <tr><td>409</td><td><code>payments.driver_without_wallet_account</code></td><td>The driver has not connected a Mercado Pago account, so wallet payment is unavailable.</td></tr>
+            <tr><td>409</td><td><code>payments.card_declined</code></td><td>The card was refused or its data not accepted. Nothing was charged.</td></tr>
+            <tr><td>409</td><td><code>payments.in_progress</code></td><td>A card or wallet payment for this freight is still being confirmed.</td></tr>
+            <tr><td>404</td><td><code>payments.card_not_found</code></td><td>Saved card not found.</td></tr>
             <tr><td>409</td><td><code>payments.price_too_low</code></td><td>The agreed price does not cover the platform fee or the provider’s minimum.</td></tr>
             <tr><td>409</td><td><code>fee.nothing_to_charge</code>, <code>fee.below_minimum</code></td><td>No fee is owed, or the balance is under the R$ 5.00 minimum charge.</td></tr>
             <tr><td>409</td><td><code>subscription.already_active</code>, <code>subscription.too_many_vehicles</code>, <code>subscription.vehicle_limit</code></td><td>A plan is already active, or the Basic plan’s 3-vehicle limit would be exceeded.</td></tr>

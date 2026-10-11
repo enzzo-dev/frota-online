@@ -26,29 +26,23 @@ public interface IPixPaymentService
 /// </summary>
 public sealed class PixPaymentService : IPixPaymentService
 {
-    private readonly IDeliveryRepository _deliveries;
+    private readonly IFreightChargePreparer _preparer;
     private readonly IPaymentRepository _payments;
-    private readonly IDriverRepository _drivers;
-    private readonly IUserRepository _users;
     private readonly IPaymentGateway _gateway;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<CreatePixRequest> _validator;
 
     public PixPaymentService(
-        IDeliveryRepository deliveries,
+        IFreightChargePreparer preparer,
         IPaymentRepository payments,
-        IDriverRepository drivers,
-        IUserRepository users,
         IPaymentGateway gateway,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<CreatePixRequest> validator)
     {
-        _deliveries = deliveries;
+        _preparer = preparer;
         _payments = payments;
-        _drivers = drivers;
-        _users = users;
         _gateway = gateway;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -64,15 +58,19 @@ public sealed class PixPaymentService : IPixPaymentService
             return Result.Failure<PixPaymentResponse>(ValidationMapper.ToError(validation));
         }
 
-        var delivery = await _deliveries.GetByIdAsync(deliveryId, cancellationToken);
-        if (delivery is null || delivery.CustomerId != customerId)
+        var prepared = await _preparer.PrepareAsync(customerId, deliveryId, cancellationToken);
+        if (prepared.IsFailure)
         {
-            return Result.Failure<PixPaymentResponse>(PaymentErrors.NotYourDelivery);
+            return Result.Failure<PixPaymentResponse>(prepared.Error!);
         }
 
-        if (delivery.Status != DeliveryStatus.Delivered)
+        var (delivery, driver, customer, driverShare, existing, _) = prepared.Value;
+        var now = _clock.UtcNow;
+
+        // Asking again while the Pix is still good just returns it.
+        if (existing is not null && existing.IsPixUsable(now))
         {
-            return Result.Failure<PixPaymentResponse>(DeliveryErrors.PaymentNotDelivered);
+            return Result.Success(ToResponse(existing, delivery));
         }
 
         if (!_gateway.IsConfigured)
@@ -80,47 +78,13 @@ public sealed class PixPaymentService : IPixPaymentService
             return Result.Failure<PixPaymentResponse>(PaymentErrors.GatewayNotConfigured);
         }
 
-        var now = _clock.UtcNow;
-        var existing = await _payments.GetByDeliveryIdAsync(delivery.Id, cancellationToken);
-        if (existing is not null)
-        {
-            // Asking again while the Pix is still good just returns it; a paid or outside-the-app payment is final.
-            if (existing.IsPixUsable(now))
-            {
-                return Result.Success(ToResponse(existing, delivery));
-            }
-
-            if (existing.Status != PaymentStatus.Pending || existing.GatewayPaymentId is null)
-            {
-                return Result.Failure<PixPaymentResponse>(DeliveryErrors.PaymentAlreadyConfirmed);
-            }
-        }
-
-        var driver = await _drivers.GetByIdAsync(delivery.DriverProfileId, cancellationToken);
-        if (driver?.PayoutWalletId is null)
+        if (driver.PayoutWalletId is null)
         {
             return Result.Failure<PixPaymentResponse>(PaymentErrors.DriverCannotReceive);
         }
 
-        var driverShare = delivery.AgreedPrice - delivery.PlatformFee;
-        if (driverShare <= 0 || delivery.AgreedPrice < PaymentErrors.MinimumCharge)
-        {
-            return Result.Failure<PixPaymentResponse>(PaymentErrors.PriceTooLow);
-        }
-
-        var customer = await _users.GetByIdAsync(customerId, cancellationToken);
-        if (customer is null)
-        {
-            return Result.Failure<PixPaymentResponse>(PaymentErrors.NotYourDelivery);
-        }
-
         try
         {
-            if (existing?.GatewayPaymentId is not null)
-            {
-                await TryCancelAsync(existing.GatewayPaymentId, cancellationToken);
-            }
-
             var customerRef = await _gateway.CreateCustomerAsync(
                 new GatewayCustomer(
                     customer.FullName, customer.Email, BrazilianDocuments.NormalizeTaxId(request.TaxId),
@@ -149,23 +113,12 @@ public sealed class PixPaymentService : IPixPaymentService
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _preparer.CancelReplacedPixAsync(prepared.Value, cancellationToken);
             return Result.Success(ToResponse(existing, delivery));
         }
         catch (PaymentGatewayException)
         {
             return Result.Failure<PixPaymentResponse>(PaymentErrors.GatewayUnavailable);
-        }
-    }
-
-    private async Task TryCancelAsync(string chargeId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _gateway.CancelChargeAsync(chargeId, cancellationToken);
-        }
-        catch (PaymentGatewayException)
-        {
-            // Already expired or removed at the provider: the new charge replaces it either way.
         }
     }
 

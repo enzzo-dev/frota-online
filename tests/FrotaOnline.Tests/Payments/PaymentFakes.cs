@@ -74,6 +74,11 @@ internal sealed class FakePaymentGateway : IPaymentGateway
 
     public List<PixChargeRequest> PixCharges { get; } = new();
 
+    public List<CardChargeRequest> CardCharges { get; } = new();
+
+    /// <summary>When true the next card charge is refused by the provider.</summary>
+    public bool DeclineCards { get; set; }
+
     public List<string> CancelledSubscriptions { get; } = new();
 
     public List<string> CancelledCharges { get; } = new();
@@ -121,10 +126,128 @@ internal sealed class FakePaymentGateway : IPaymentGateway
         return Task.FromResult(new PixCharge(id, $"000201pix{id}", "base64png", PixExpiresAt));
     }
 
+    public Task<CardCharge> CreateCardChargeAsync(CardChargeRequest request, CancellationToken cancellationToken)
+    {
+        ThrowIfFailing();
+        if (DeclineCards)
+        {
+            throw new PaymentDeclinedException("declined");
+        }
+
+        CardCharges.Add(request);
+        var id = $"pay_{++_counter}";
+        return Task.FromResult(new CardCharge(id, "CONFIRMED", $"tok_{id}", "VISA", "1111"));
+    }
+
     public Task CancelChargeAsync(string chargeId, CancellationToken cancellationToken)
     {
         ThrowIfFailing();
         CancelledCharges.Add(chargeId);
         return Task.CompletedTask;
     }
+}
+
+internal sealed class FakeSavedCardRepository : ISavedCardRepository
+{
+    public List<SavedCard> Items { get; } = new();
+
+    public Task<IReadOnlyList<SavedCard>> ListByUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SavedCard>>(Items.Where(c => c.UserId == userId).ToList());
+
+    public Task<SavedCard?> GetAsync(Guid userId, Guid cardId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(c => c.UserId == userId && c.Id == cardId));
+
+    public Task AddAsync(SavedCard card, CancellationToken cancellationToken)
+    {
+        Items.Add(card);
+        return Task.CompletedTask;
+    }
+
+    public void Remove(SavedCard card) => Items.Remove(card);
+}
+
+internal sealed class FakeWalletAccountRepository : IWalletAccountRepository
+{
+    public List<WalletAccount> Items { get; } = new();
+
+    public Task<WalletAccount?> GetByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(a => a.DriverProfileId == driverProfileId));
+
+    public Task AddAsync(WalletAccount account, CancellationToken cancellationToken)
+    {
+        Items.Add(account);
+        return Task.CompletedTask;
+    }
+
+    public void Remove(WalletAccount account) => Items.Remove(account);
+}
+
+/// <summary>Not real encryption: a reversible marker, enough to check that tokens are never stored as received.</summary>
+internal sealed class FakeSecretProtector : ISecretProtector
+{
+    public string Protect(string plainText) => "enc:" + plainText;
+
+    public bool TryUnprotect(string protectedText, out string plainText)
+    {
+        var ok = protectedText.StartsWith("enc:", StringComparison.Ordinal);
+        plainText = ok ? protectedText[4..] : string.Empty;
+        return ok;
+    }
+}
+
+internal sealed class FakeWalletGateway : IWalletPaymentGateway
+{
+    private int _counter;
+
+    public bool IsConfigured { get; set; } = true;
+
+    public bool Fails { get; set; }
+
+    public bool Declines { get; set; }
+
+    /// <summary>Status the provider answers for the next charge and for later reads of it.</summary>
+    public string Status { get; set; } = "approved";
+
+    public List<WalletChargeRequest> Charges { get; } = new();
+
+    public List<string> Refreshed { get; } = new();
+
+    public DateTime TokenExpiresAt { get; set; } = new(2027, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    public string BuildAuthorizationUrl(string state) => $"https://auth.example/authorize?state={state}";
+
+    public Task<SellerAuthorization> ExchangeCodeAsync(string code, CancellationToken cancellationToken)
+    {
+        if (Fails || code == "bad")
+        {
+            throw new PaymentGatewayException("provider down");
+        }
+
+        return Task.FromResult(new SellerAuthorization("mp-user-1", "access-1", "refresh-1", TokenExpiresAt));
+    }
+
+    public Task<SellerAuthorization> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        Refreshed.Add(refreshToken);
+        return Task.FromResult(new SellerAuthorization("mp-user-1", "access-2", "refresh-2", TokenExpiresAt));
+    }
+
+    public Task<WalletCharge> ChargeAsync(WalletChargeRequest request, CancellationToken cancellationToken)
+    {
+        if (Fails)
+        {
+            throw new PaymentGatewayException("provider down");
+        }
+
+        if (Declines)
+        {
+            throw new PaymentDeclinedException("rejected");
+        }
+
+        Charges.Add(request);
+        return Task.FromResult(new WalletCharge($"mp_{++_counter}", Status));
+    }
+
+    public Task<WalletCharge> GetPaymentAsync(string paymentId, string sellerAccessToken, CancellationToken cancellationToken) =>
+        Task.FromResult(new WalletCharge(paymentId, Status));
 }

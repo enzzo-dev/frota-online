@@ -57,3 +57,36 @@ internal sealed class WebhookEventRepository : IWebhookEventRepository
     public async Task AddAsync(WebhookEvent webhookEvent, CancellationToken cancellationToken) =>
         await _db.WebhookEvents.AddAsync(webhookEvent, cancellationToken);
 }
+
+internal sealed class SavedCardRepository : ISavedCardRepository
+{
+    private readonly AppDbContext _db;
+
+    public SavedCardRepository(AppDbContext db) => _db = db;
+
+    public async Task<IReadOnlyList<SavedCard>> ListByUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        await _db.SavedCards.Where(c => c.UserId == userId).OrderBy(c => c.CreatedAt).ToListAsync(cancellationToken);
+
+    public Task<SavedCard?> GetAsync(Guid userId, Guid cardId, CancellationToken cancellationToken) =>
+        _db.SavedCards.FirstOrDefaultAsync(c => c.UserId == userId && c.Id == cardId, cancellationToken);
+
+    public async Task AddAsync(SavedCard card, CancellationToken cancellationToken) =>
+        await _db.SavedCards.AddAsync(card, cancellationToken);
+
+    public void Remove(SavedCard card) => _db.SavedCards.Remove(card);
+}
+
+internal sealed class WalletAccountRepository : IWalletAccountRepository
+{
+    private readonly AppDbContext _db;
+
+    public WalletAccountRepository(AppDbContext db) => _db = db;
+
+    public Task<WalletAccount?> GetByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
+        _db.WalletAccounts.FirstOrDefaultAsync(a => a.DriverProfileId == driverProfileId, cancellationToken);
+
+    public async Task AddAsync(WalletAccount account, CancellationToken cancellationToken) =>
+        await _db.WalletAccounts.AddAsync(account, cancellationToken);
+
+    public void Remove(WalletAccount account) => _db.WalletAccounts.Remove(account);
+}

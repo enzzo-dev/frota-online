@@ -100,6 +100,7 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.HasIndex(x => x.DeliveryId).IsUnique();
         builder.Property(x => x.ExternalReference).HasMaxLength(128);
         builder.Property(x => x.GatewayPaymentId).HasMaxLength(64);
+        builder.Property(x => x.Gateway).HasMaxLength(32);
         builder.Property(x => x.PixPayload).HasMaxLength(1024);
         builder.Property(x => x.PixQrCode).HasMaxLength(16384);
         builder.HasIndex(x => x.GatewayPaymentId).HasFilter("\"GatewayPaymentId\" IS NOT NULL");
@@ -151,5 +152,32 @@ internal sealed class WebhookEventConfiguration : IEntityTypeConfiguration<Webho
         builder.Property(x => x.EventId).HasMaxLength(128);
         builder.Property(x => x.EventType).HasMaxLength(64);
         builder.HasIndex(x => x.EventId).IsUnique();
+    }
+}
+
+internal sealed class SavedCardConfiguration : IEntityTypeConfiguration<SavedCard>
+{
+    public void Configure(EntityTypeBuilder<SavedCard> builder)
+    {
+        builder.Property(x => x.GatewayCustomerId).HasMaxLength(64);
+        builder.Property(x => x.Token).HasMaxLength(128);
+        builder.Property(x => x.Brand).HasMaxLength(32);
+        builder.Property(x => x.Last4).HasMaxLength(4);
+        builder.HasIndex(x => x.UserId);
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId);
+    }
+}
+
+internal sealed class WalletAccountConfiguration : IEntityTypeConfiguration<WalletAccount>
+{
+    public void Configure(EntityTypeBuilder<WalletAccount> builder)
+    {
+        builder.Property(x => x.ProviderUserId).HasMaxLength(64);
+        builder.Property(x => x.AccessTokenProtected).HasMaxLength(2048);
+        builder.Property(x => x.RefreshTokenProtected).HasMaxLength(2048);
+        // One connected account per driver, and one driver per provider account.
+        builder.HasIndex(x => x.DriverProfileId).IsUnique();
+        builder.HasIndex(x => x.ProviderUserId).IsUnique();
+        builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
     }
 }

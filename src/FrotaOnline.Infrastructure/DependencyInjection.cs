@@ -64,6 +64,8 @@ public static class DependencyInjection
         services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IFeeChargeRepository, FeeChargeRepository>();
+        services.AddScoped<ISavedCardRepository, SavedCardRepository>();
+        services.AddScoped<IWalletAccountRepository, WalletAccountRepository>();
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
         services.AddScoped<INotificationPreferenceRepository, NotificationPreferenceRepository>();
 
@@ -124,6 +126,29 @@ public static class DependencyInjection
         else
         {
             services.AddSingleton<IPaymentGateway, NoPaymentGateway>();
+        }
+
+        // Wallet payments (Apple Pay) and the driver's account connection, by Mercado Pago. Needs the OAuth application, the
+        // webhook secret and the key that encrypts the drivers' tokens.
+        if (string.Equals(configuration["Payments:WalletProvider"], "MercadoPago", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var key in new[] { "ClientId", "ClientSecret", "RedirectUri", "WebhookSecret", "TokenEncryptionKey" })
+            {
+                if (string.IsNullOrWhiteSpace(configuration[$"Payments:MercadoPago:{key}"]))
+                {
+                    throw new InvalidOperationException($"Payments:MercadoPago:{key} is required when Payments:WalletProvider is MercadoPago.");
+                }
+            }
+
+            services.AddHttpClient<IWalletPaymentGateway, MercadoPagoWalletGateway>();
+            services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
+            services.AddSingleton<IWalletWebhookAuthenticator, MercadoPagoWebhookAuthenticator>();
+        }
+        else
+        {
+            services.AddSingleton<IWalletPaymentGateway, NoWalletPaymentGateway>();
+            services.AddSingleton<ISecretProtector, DisabledSecretProtector>();
+            services.AddSingleton<IWalletWebhookAuthenticator, DisabledWalletWebhookAuthenticator>();
         }
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();

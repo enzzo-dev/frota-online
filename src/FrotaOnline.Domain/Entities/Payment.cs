@@ -28,6 +28,9 @@ public sealed class Payment : BaseEntity, IAggregateRoot
     /// <summary>Id of the charge at the payment provider; set when the app itself issued the Pix.</summary>
     public string? GatewayPaymentId { get; private set; }
 
+    /// <summary>Which provider holds <see cref="GatewayPaymentId"/>: <see cref="PaymentProviders.Asaas"/> or <see cref="PaymentProviders.MercadoPago"/>.</summary>
+    public string? Gateway { get; private set; }
+
     /// <summary>Pix "copia e cola" code the customer pays.</summary>
     public string? PixPayload { get; private set; }
 
@@ -55,24 +58,59 @@ public sealed class Payment : BaseEntity, IAggregateRoot
         Amount = Guard.Positive(amount, nameof(amount)),
         Method = PaymentMethod.Pix,
         PaidOutsideApp = false,
+        Gateway = PaymentProviders.Asaas,
         GatewayPaymentId = Guard.NotNullOrWhiteSpace(gatewayPaymentId, nameof(gatewayPaymentId)),
         PixPayload = Guard.NotNullOrWhiteSpace(payload, nameof(payload)),
         PixQrCode = qrCode,
         PixExpiresAt = expiresAt
     };
 
-    /// <summary>The previous Pix expired unpaid: attach a fresh one to the same payment (there is one payment per delivery).</summary>
+    /// <summary>
+    /// A card or wallet (Apple Pay, Google Pay) payment started in the app. It stays pending until the provider confirms it
+    /// by webhook, so the money is only counted once.
+    /// </summary>
+    public static Payment CreateOnline(Guid deliveryId, decimal amount, string gateway, string gatewayPaymentId) => new()
+    {
+        DeliveryId = Guard.NotEmpty(deliveryId, nameof(deliveryId)),
+        Amount = Guard.Positive(amount, nameof(amount)),
+        Method = PaymentMethod.Card,
+        PaidOutsideApp = false,
+        Gateway = Guard.NotNullOrWhiteSpace(gateway, nameof(gateway)),
+        GatewayPaymentId = Guard.NotNullOrWhiteSpace(gatewayPaymentId, nameof(gatewayPaymentId))
+    };
+
+    /// <summary>The earlier attempt expired or failed: attach a fresh Pix to the same payment (one payment per delivery).</summary>
     public void ReissuePix(string gatewayPaymentId, string payload, string? qrCode, DateTime expiresAt)
     {
-        if (Status != PaymentStatus.Pending)
-        {
-            throw new DomainException($"A payment in status {Status} cannot get a new Pix.");
-        }
-
+        EnsureCanRestart();
+        Method = PaymentMethod.Pix;
+        Status = PaymentStatus.Pending;
+        Gateway = PaymentProviders.Asaas;
         GatewayPaymentId = Guard.NotNullOrWhiteSpace(gatewayPaymentId, nameof(gatewayPaymentId));
         PixPayload = Guard.NotNullOrWhiteSpace(payload, nameof(payload));
         PixQrCode = qrCode;
         PixExpiresAt = expiresAt;
+    }
+
+    /// <summary>The earlier attempt was cancelled or failed: start a new card or wallet charge on the same payment.</summary>
+    public void RestartOnline(string gateway, string gatewayPaymentId)
+    {
+        EnsureCanRestart();
+        Method = PaymentMethod.Card;
+        Status = PaymentStatus.Pending;
+        Gateway = Guard.NotNullOrWhiteSpace(gateway, nameof(gateway));
+        GatewayPaymentId = Guard.NotNullOrWhiteSpace(gatewayPaymentId, nameof(gatewayPaymentId));
+        PixPayload = null;
+        PixQrCode = null;
+        PixExpiresAt = null;
+    }
+
+    private void EnsureCanRestart()
+    {
+        if (Status == PaymentStatus.Paid)
+        {
+            throw new DomainException("A paid payment cannot be charged again.");
+        }
     }
 
     public bool IsPixUsable(DateTime utcNow) =>
@@ -99,4 +137,14 @@ public sealed class Payment : BaseEntity, IAggregateRoot
 
         Status = PaymentStatus.Failed;
     }
+}
+
+/// <summary>The providers a charge can live at.</summary>
+public static class PaymentProviders
+{
+    /// <summary>Pix, card and subscriptions.</summary>
+    public const string Asaas = "Asaas";
+
+    /// <summary>Wallet and card payments with a token made by the app (Apple Pay); the driver is paid through their own account.</summary>
+    public const string MercadoPago = "MercadoPago";
 }

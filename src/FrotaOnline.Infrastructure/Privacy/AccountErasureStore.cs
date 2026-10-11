@@ -125,6 +125,12 @@ internal sealed class AccountErasureStore : IAccountErasureStore
         await _db.DeviceTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await _db.NotificationPreferences.Where(p => p.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await _db.SavedCards.Where(c => c.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        if (driverId is not null)
+        {
+            await _db.WalletAccounts.Where(a => a.DriverProfileId == driverId).ExecuteDeleteAsync(cancellationToken);
+        }
+
         await _db.CustomerProfiles.Where(c => c.UserId == userId).ExecuteDeleteAsync(cancellationToken);
 
         // 4. Rows that stay but must stop identifying the person: through the domain.

@@ -15,13 +15,21 @@ public sealed class CustomerDeliveriesController : ApiControllerBase
     private readonly ICustomerDeliveryService _deliveries;
     private readonly IDeliveryProgressService _progress;
     private readonly IPixPaymentService _pix;
+    private readonly ICardPaymentService _cards;
+    private readonly IWalletPaymentService _wallets;
 
     public CustomerDeliveriesController(
-        ICustomerDeliveryService deliveries, IDeliveryProgressService progress, IPixPaymentService pix)
+        ICustomerDeliveryService deliveries,
+        IDeliveryProgressService progress,
+        IPixPaymentService pix,
+        ICardPaymentService cards,
+        IWalletPaymentService wallets)
     {
         _deliveries = deliveries;
         _progress = progress;
         _pix = pix;
+        _cards = cards;
+        _wallets = wallets;
     }
 
     [HttpGet]
@@ -57,4 +65,27 @@ public sealed class CustomerDeliveriesController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Pix(Guid deliveryId, [FromBody] CreatePixRequest request, CancellationToken cancellationToken) =>
         Handle(await _pix.CreateForDeliveryAsync(CurrentUserId, deliveryId, request, cancellationToken), Ok);
+
+    [HttpPost("{deliveryId:guid}/card")]
+    [EndpointSummary("Pay the freight by credit card")]
+    [EndpointDescription("After the delivery is completed. Body: { \"savedCardId\": \"<uuid>\" } to use a saved card, or { \"card\": { \"holderName\", \"number\", \"expiryMonth\": \"MM\", \"expiryYear\": \"YYYY\", \"ccv\" }, \"holder\": { \"taxId\", \"postalCode\", \"addressNumber\", \"phone\" }, \"saveCard\": true|false } for a new one. The card goes to the payment provider in this one request; the app server never stores or logs it, only the provider's token when saveCard is true. The payment is split by the provider: driverReceives goes to the driver's account, platformFee stays with the platform. The status stays Pending until the provider confirms (a notification arrives); a refused card answers 409 payments.card_declined and nothing is charged. Use HTTPS only.")]
+    [ProducesResponseType<CardPaymentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Card(Guid deliveryId, [FromBody] PayWithCardRequest request, CancellationToken cancellationToken) =>
+        Handle(
+            await _cards.PayAsync(
+                CurrentUserId, deliveryId, request, HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0", cancellationToken),
+            Ok);
+
+    [HttpPost("{deliveryId:guid}/wallet")]
+    [EndpointSummary("Pay the freight with Apple Pay (Mercado Pago)")]
+    [EndpointDescription("After the delivery is completed. The app opens Apple Pay with the Mercado Pago SDK, which returns a card token; send it here: { \"cardToken\": \"...\", \"paymentMethodId\": \"visa\" }. The payment is created on the driver's own connected account and the platform keeps only its fee. approved settles at once; in_process settles when the provider confirms. 409 payments.driver_without_wallet_account when the driver has not connected their Mercado Pago account (pay by Pix or card instead).")]
+    [ProducesResponseType<WalletPaymentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Wallet(Guid deliveryId, [FromBody] WalletPaymentRequest request, CancellationToken cancellationToken) =>
+        Handle(await _wallets.PayAsync(CurrentUserId, deliveryId, request, cancellationToken), Ok);
 }

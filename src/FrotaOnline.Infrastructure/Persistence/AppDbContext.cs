@@ -33,6 +33,8 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<FeeCharge> FeeCharges => Set<FeeCharge>();
+    public DbSet<SavedCard> SavedCards => Set<SavedCard>();
+    public DbSet<WalletAccount> WalletAccounts => Set<WalletAccount>();
     public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 

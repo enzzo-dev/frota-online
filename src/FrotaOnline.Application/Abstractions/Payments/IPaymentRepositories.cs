@@ -33,3 +33,23 @@ public interface ISubscriptionSettings
 {
     bool RequiredToPropose { get; }
 }
+
+public interface ISavedCardRepository
+{
+    Task<IReadOnlyList<SavedCard>> ListByUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task<SavedCard?> GetAsync(Guid userId, Guid cardId, CancellationToken cancellationToken);
+
+    Task AddAsync(SavedCard card, CancellationToken cancellationToken);
+
+    void Remove(SavedCard card);
+}
+
+public interface IWalletAccountRepository
+{
+    Task<WalletAccount?> GetByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken);
+
+    Task AddAsync(WalletAccount account, CancellationToken cancellationToken);
+
+    void Remove(WalletAccount account);
+}

@@ -59,7 +59,8 @@ public enum NotificationType
     FeeSettled = 15,
     NewFreightAvailable = 16,
     PaymentReceived = 17,
-    SubscriptionActivated = 18
+    SubscriptionActivated = 18,
+    PaymentFailed = 19
 }
 
 /// <summary>What the app opens when the person taps a notification.</summary>

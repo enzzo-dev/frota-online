@@ -86,6 +86,11 @@ public static class NotificationMessages
             $"O motorista registrou o recebimento de {Money(amount)}.",
             NotificationTarget.Delivery, deliveryId);
 
+    public static NotificationMessage PaymentFailed(Guid customerId, Guid deliveryId) =>
+        new(customerId, NotificationType.PaymentFailed, "Pagamento não aprovado",
+            "O pagamento do frete não foi aprovado. Tente outro cartão ou pague por Pix.",
+            NotificationTarget.Delivery, deliveryId);
+
     public static NotificationMessage DriverApproved(Guid driverUserId, Guid driverProfileId) =>
         new(driverUserId, NotificationType.DriverApproved, "Cadastro aprovado",
             "Seu cadastro como motorista foi aprovado. Você já pode enviar propostas de frete.",

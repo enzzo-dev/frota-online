@@ -47,6 +47,10 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IPayoutAccountService, PayoutAccountService>();
         services.AddScoped<IPixPaymentService, PixPaymentService>();
+        services.AddScoped<IFreightChargePreparer, FreightChargePreparer>();
+        services.AddScoped<ICardPaymentService, CardPaymentService>();
+        services.AddScoped<IWalletPaymentService, WalletPaymentService>();
+        services.AddScoped<IWalletAccountService, WalletAccountService>();
         services.AddScoped<IFeeChargeService, FeeChargeService>();
         services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
         return services;

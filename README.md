@@ -23,6 +23,7 @@ A página é um guia dividido em capítulos, um por vez, escolhidos no menu da e
 | Notificações: caixa de entrada no app, contador de não lidas, registro de dispositivos e envio de push (FCM), aviso de frete compatível e preferências | Pronto |
 | Upload de documentos e fotos por URL pré-assinada (Google Cloud Storage) | Pronto |
 | Pagamentos pelo Asaas: assinaturas, Pix do frete com split e Pix da taxa da plataforma | Pronto no código; precisa de conta Asaas e testes no sandbox |
+| Cartão de crédito (Asaas, com cartão salvo por token) e Apple Pay (Mercado Pago, conta do motorista por OAuth) | Pronto no código; precisa de contas, habilitação do Apple Pay no Mercado Pago e testes nos sandboxes. Google Pay: não documentado pelo Mercado Pago, veja "Cartão e carteiras digitais" |
 
 ## Diagramas
 
@@ -248,6 +249,12 @@ Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:Secre
 | `Payments__Asaas__ApiKey` | chave de API da conta Asaas da plataforma | Obrigatória com `Asaas` (a API não inicia sem ela). Uma chave para o sandbox e outra para produção. Secret Manager. |
 | `Payments__Asaas__BaseUrl` | `https://api.asaas.com/v3` em produção | O padrão do projeto é o sandbox (`https://api-sandbox.asaas.com/v3`). A documentação do Asaas mostra dois endereços de sandbox; use o que aparece na sua conta. |
 | `Payments__Asaas__WebhookToken` | 32 a 255 caracteres aleatórios, sem espaços | O mesmo valor que você cadastra no webhook do Asaas (campo "token de autenticação"). Sem ele, o webhook recusa tudo (401). Secret Manager. |
+| `Payments__WalletProvider` | `MercadoPago` (padrão `None`) | Liga o pagamento com carteira (Apple Pay) e a conexão da conta do motorista. Com `None`, `409 payments.not_configured`. Com `MercadoPago`, os cinco valores abaixo são obrigatórios (a API não inicia sem eles). |
+| `Payments__MercadoPago__ClientId` / `ClientSecret` | credenciais da aplicação em "Suas integrações" do Mercado Pago | `ClientSecret` no Secret Manager. |
+| `Payments__MercadoPago__RedirectUri` | `https://<sua-api>/api/v1/callbacks/mercadopago/oauth` | Cadastre o mesmo endereço na aplicação do Mercado Pago. |
+| `Payments__MercadoPago__WebhookSecret` | "chave secreta" do webhook, no painel | Valida o cabeçalho `x-signature`. Sem ela o webhook recusa tudo (401). Secret Manager. |
+| `Payments__MercadoPago__TokenEncryptionKey` | base64 de 32 bytes aleatórios (`openssl rand -base64 32`) | Criptografa (AES-256-GCM) os tokens dos motoristas no banco. Perdê-la desconecta todos os motoristas. Secret Manager. |
+| `Payments__MercadoPago__AppReturnUrl` / `NotificationUrl` | opcionais | `AppReturnUrl`: deep link do app para onde o navegador volta depois de o motorista conectar a conta (recebe `?status=ok` ou `?status=error`). `NotificationUrl`: endereço do webhook enviado em cada pagamento (`/api/v1/webhooks/mercadopago`), se você não o cadastrar no painel. |
 | `Subscriptions__RequiredToPropose` | `false` (padrão) | `true` exige assinatura ativa para enviar propostas. Deixe `false` até o lançamento dos planos. |
 | `Storage__Provider` | `Gcs` (padrão `None`) | Liga o upload real por URL pré-assinada no Google Cloud Storage. Com `None` o upload fica desligado (`409 storage.not_configured`). |
 | `Storage__Bucket` | nome do bucket | Obrigatório com `Gcs`. Bucket privado, sem acesso público. A conta de serviço precisa de `roles/storage.objectAdmin` no bucket e de `roles/iam.serviceAccountTokenCreator` em si mesma (assinatura V4 sem arquivo de chave). |
@@ -553,6 +560,7 @@ Cada item da caixa de entrada traz `type`, `title`, `body` (em português), `tar
 | Admin registra o acerto da taxa | Motorista | `FeeSettled` (com o valor) | `Fee` |
 | Cliente paga o Pix do frete | Cliente e motorista | `PaymentConfirmed` (cliente) e `PaymentReceived` (motorista, com a parte dele) | `Delivery` |
 | Pagamento da assinatura confirmado | Motorista | `SubscriptionActivated` (com a data até quando vale) | `Subscription` |
+| Pagamento com cartão ou carteira recusado | Cliente | `PaymentFailed` | `Delivery` |
 | Pix da taxa pago | Motorista | `FeeSettled` | `Fee` |
 | Cliente publica um frete | Motoristas compatíveis (veja abaixo) | `NewFreightAvailable` ("Cidade A → Cidade B", com a janela de 5 min ou 24 h) | `Freight` |
 
@@ -592,7 +600,7 @@ Em desenvolvimento `Jobs:RunInProcess` é `true` e os dois jobs rodam dentro da 
 
 ## Pagamentos pelo Asaas (assinaturas, Pix com split e taxa)
 
-O Asaas é o provedor de pagamentos. A API nunca vê dados de cartão: a assinatura é paga na página hospedada do Asaas e o Pix é um código gerado por ele. Tudo fica desligado até `Payments__Provider=Asaas` (veja as variáveis de ambiente) e cada endpoint responde `409 payments.not_configured` sem isso. Se o Asaas estiver fora do ar ou recusar o pedido, a resposta é `503 payments.unavailable` e o detalhe vai para o log.
+O Asaas é o provedor de pagamentos. A assinatura é paga na página hospedada do Asaas e o Pix é um código gerado por ele; só o pagamento do frete com cartão (item 6) passa dados de cartão pela API. Tudo fica desligado até `Payments__Provider=Asaas` (veja as variáveis de ambiente) e cada endpoint responde `409 payments.not_configured` sem isso. Se o Asaas estiver fora do ar ou recusar o pedido, a resposta é `503 payments.unavailable` e o detalhe vai para o log.
 
 > **Como foi feito:** o código foi escrito a partir da documentação oficial do Asaas (API v3), porque o repositório Dirige Aí não estava acessível. Nada foi testado contra o sandbox: antes de usar, rode o fluxo de ponta a ponta no sandbox (assinar, pagar o Pix de teste, ver o webhook chegar) e compare os nomes de campos com o que o Dirige Aí já faz em produção.
 
@@ -642,14 +650,64 @@ No painel do Asaas, cadastre o webhook apontando para `https://<sua-api>/api/v1/
 | `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` de cobrança de assinatura | Ativa o plano ou soma um mês; notifica o motorista (`SubscriptionActivated`). |
 | `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` do Pix de um frete | Pagamento `Paid`, taxa quitada, notificações. |
 | `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` do Pix da taxa | Quita o extrato do motorista. |
+| `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` do cartão de um frete | Igual ao Pix do frete: `Paid`, taxa quitada, notificações. |
+| `PAYMENT_CREDIT_CARD_CAPTURE_REFUSED` do cartão de um frete | Pagamento `Failed`; o cliente recebe `PaymentFailed` e pode tentar outro cartão. |
 | `SUBSCRIPTION_DELETED`, `SUBSCRIPTION_INACTIVATED` | Marca como cancelada, mantendo o período pago. |
 | Qualquer outro | Registrado e respondido com `200`, sem efeito. Estornos ainda são tratados à mão no painel do Asaas. |
 
 O Asaas entrega cada evento pelo menos uma vez, e pausa a fila depois de 15 falhas seguidas. Por isso: o `id` do evento é gravado (`WebhookEvents`, único) e um evento repetido não faz nada; uma cobrança de cartão que manda `CONFIRMED` e depois `RECEIVED` é contada uma vez só; e o endpoint responde `200` a tudo que não usa. Uma falha inesperada devolve `500` para o Asaas tentar de novo.
 
+### 6. Cartão de crédito (`POST /api/v1/deliveries/{id}/card`, perfil Customer)
+
+Depois da entrega concluída, o cliente paga com cartão. **Esta é a única rota em que dados de cartão passam pela API**: o cartão segue ao Asaas na mesma requisição e não é guardado nem registrado em log; o escopo PCI do servidor é o de quem recebe e repassa o cartão (use só HTTPS e confirme com o Asaas o que ele exige da sua conta).
+
+Corpo, com **uma** das duas formas:
+
+```json
+{ "card": { "holderName": "MARIA CLIENTE", "number": "4111 1111 1111 1111", "expiryMonth": "12", "expiryYear": "2030", "ccv": "123" },
+  "holder": { "taxId": "52998224725", "postalCode": "01310-100", "addressNumber": "1000", "phone": "11988887777" },
+  "saveCard": false }
+```
+
+```json
+{ "savedCardId": "<uuid de GET /api/v1/customer/cards>" }
+```
+
+- O split é o mesmo do Pix: `driverReceives` vai para a conta Asaas do motorista, `platformFee` fica com a plataforma. Exige a conta de recebimento do item 2 (`409 payments.driver_without_payout_account`).
+- O pagamento nasce `Pending` e só vira `Paid` quando o webhook confirma (a resposta mostra `status`). Cartão recusado: `409 payments.card_declined` e nada é cobrado. Cartão aprovado e depois recusado na captura (`PAYMENT_CREDIT_CARD_CAPTURE_REFUSED`): vira `Failed`, o cliente é avisado e pode tentar de novo.
+- Enquanto um pagamento de cartão ou carteira está sendo confirmado, outro pedido devolve `409 payments.in_progress` (evita cobrar duas vezes). Um Pix ainda aberto é cancelado quando um cartão o substitui.
+- **Cartão salvo:** com `saveCard: true` o Asaas devolve um token, que é guardado com a marca e os 4 últimos dígitos (`SavedCards`); o número e o código de segurança nunca. O token só vale para o cliente do Asaas em que foi criado, e por isso a linha guarda esse cliente. Máximo de 5 cartões por pessoa. `GET /api/v1/customer/cards` lista (`id`, `brand`, `last4`) e `DELETE /api/v1/customer/cards/{id}` remove. A tokenização precisa ser habilitada pelo gerente de contas do Asaas na produção (no sandbox já funciona). Excluir a conta apaga os cartões salvos.
+- `remoteIp` (obrigatório no Asaas) é o IP do dispositivo do cliente, lido da requisição (o `X-Forwarded-For` do Cloud Run já é tratado).
+
+### 7. Cartão e carteiras digitais: Apple Pay pelo Mercado Pago
+
+> **O que a documentação permite (conferido):** o Mercado Pago documenta Apple Pay no Checkout API (Visa e Mastercard, só iOS, mediante habilitação pela equipe comercial; a página que li é a da Colômbia e não cita o Brasil). **Google Pay não aparece na documentação do Mercado Pago que consultei.** O Asaas não documenta nenhuma das duas carteiras. Antes de prometer Apple Pay/Google Pay a clientes, confirme com o Mercado Pago do Brasil se a sua conta tem cada uma habilitada. O backend abaixo não depende da carteira: ele recebe um *token de cartão* feito pelo SDK do Mercado Pago no app, venha de Apple Pay, de Google Pay (se for habilitado) ou do Card Brick.
+
+Como o split do Mercado Pago funciona (Split de pagamentos 1:1): o pagamento é criado **com o access token do vendedor**, ou seja, do motorista, com `application_fee` para a plataforma. Por isso cada motorista conecta a conta Mercado Pago dele uma vez, por OAuth:
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| GET | `/api/v1/driver/wallet-account` | `{ "connected": true \| false }`. |
+| POST | `/api/v1/driver/wallet-account/authorization` | Devolve `authorizationUrl`: o app abre no navegador, o motorista entra no Mercado Pago e autoriza. Vale 15 minutos. |
+| GET | `/api/v1/callbacks/mercadopago/oauth` | Para onde o Mercado Pago manda o navegador. Troca o `code` pelos tokens e salva a conexão. O `state` é criptografado e amarrado ao motorista, então um terceiro não consegue ligar a própria conta ao perfil de outro. Redireciona para `AppReturnUrl` se configurada. |
+| DELETE | `/api/v1/driver/wallet-account` | Apaga os tokens guardados. |
+
+Os tokens do motorista ficam criptografados no banco (AES-256-GCM, chave em `Payments__MercadoPago__TokenEncryptionKey`), são renovados sozinhos quando faltam menos de 24 horas para vencer e são apagados na exclusão da conta.
+
+**Pagar (`POST /api/v1/deliveries/{id}/wallet`, perfil Customer):** o app abre o Apple Pay com o SDK do Mercado Pago, recebe o token e envia `{ "cardToken": "...", "paymentMethodId": "visa" }`.
+
+- O pagamento é criado na conta do motorista com `application_fee = R$ 4,90`. `approved` quita na hora (pagamento `Paid`, taxa quitada, notificações); `in_process` fica `Pending` até o Mercado Pago avisar. Rejeitado: `409 payments.card_declined`, nada fica registrado.
+- A chave de idempotência é derivada da entrega e do token, então repetir a mesma chamada não cobra duas vezes.
+- Motorista sem conta conectada: `409 payments.driver_without_wallet_account` (use Pix ou cartão).
+- **Quem paga a tarifa:** o Mercado Pago desconta a tarifa dele primeiro e só então a comissão da plataforma, ou seja, a tarifa do cartão sai do lado do motorista (a plataforma recebe os R$ 4,90 inteiros). Reembolso é dividido proporcionalmente entre as duas contas, e só dá para devolver tudo se o motorista tiver saldo.
+- Só circula saldo entre contas Mercado Pago: transferências de bancos externos não entram no split.
+
+**Webhook (`POST /api/v1/webhooks/mercadopago`):** cadastre no painel do Mercado Pago (evento "Pagamentos"), com a chave secreta em `Payments__MercadoPago__WebhookSecret`. A assinatura (`x-signature`, HMAC-SHA256 de `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`) é conferida; o corpo da notificação **não é confiado**: o status real é lido no Mercado Pago com o token do motorista. `approved` quita, `rejected`/`cancelled` marcam `Failed`; qualquer outra coisa responde `200` sem efeito. Falha ao consultar o Mercado Pago devolve `500` para ele tentar de novo.
+
+
 ### Migration e conta Asaas
 
-Gere a migration: ela cria `FeeCharges` e `WebhookEvents` e acrescenta colunas em `DriverProfiles` (`PaymentCustomerId`, `PayoutWalletId`, único), `Subscriptions` (`GatewaySubscriptionId`, `PaymentUrl`) e `Payments` (`GatewayPaymentId`, `PixPayload`, `PixQrCode`, `PixExpiresAt`). Na conta Asaas da plataforma é preciso ter uma chave Pix cadastrada (sem ela o QR code só vale até o fim do dia), o webhook configurado e, para o split funcionar, que as contas dos motoristas existam no Asaas.
+Gere a migration: ela cria `FeeCharges` e `WebhookEvents` e acrescenta colunas em `DriverProfiles` (`PaymentCustomerId`, `PayoutWalletId`, único), `Subscriptions` (`GatewaySubscriptionId`, `PaymentUrl`) e `Payments` (`Gateway`, `GatewayPaymentId`, `PixPayload`, `PixQrCode`, `PixExpiresAt`), além das tabelas `SavedCards` e `WalletAccounts` (cartão salvo e conta Mercado Pago do motorista). Na conta Asaas da plataforma é preciso ter uma chave Pix cadastrada (sem ela o QR code só vale até o fim do dia), o webhook configurado e, para o split funcionar, que as contas dos motoristas existam no Asaas.
 
 ## Endpoints de administração (`/api/v1/admin`, perfil Admin)
 

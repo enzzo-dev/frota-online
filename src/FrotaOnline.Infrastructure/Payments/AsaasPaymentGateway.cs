@@ -129,13 +129,87 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
         return new PixCharge(id, payload, image, ParseExpiry(root));
     }
 
+    public async Task<CardCharge> CreateCardChargeAsync(CardChargeRequest request, CancellationToken cancellationToken)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["customer"] = request.CustomerId,
+            ["billingType"] = "CREDIT_CARD",
+            ["value"] = request.Value,
+            ["dueDate"] = request.DueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["description"] = request.Description,
+            ["externalReference"] = request.ExternalReference,
+            // The payer's device address, not the server's: the provider uses it against fraud.
+            ["remoteIp"] = request.RemoteIp
+        };
+
+        if (request.CardToken is not null)
+        {
+            body["creditCardToken"] = request.CardToken;
+        }
+        else if (request.Card is { } card && request.Holder is { } holder)
+        {
+            body["creditCard"] = new Dictionary<string, object?>
+            {
+                ["holderName"] = card.HolderName,
+                ["number"] = card.Number,
+                ["expiryMonth"] = card.ExpiryMonth,
+                ["expiryYear"] = card.ExpiryYear,
+                ["ccv"] = card.Ccv
+            };
+            body["creditCardHolderInfo"] = new Dictionary<string, object?>
+            {
+                ["name"] = holder.Name,
+                ["email"] = holder.Email,
+                ["cpfCnpj"] = holder.TaxId,
+                ["postalCode"] = holder.PostalCode,
+                ["addressNumber"] = holder.AddressNumber,
+                ["mobilePhone"] = NormalizePhone(holder.Phone)
+            };
+        }
+        else
+        {
+            throw new PaymentGatewayException("A card charge needs a card or a saved token.");
+        }
+
+        if (request.Splits.Count > 0)
+        {
+            body["split"] = request.Splits
+                .Select(s => new Dictionary<string, object?> { ["walletId"] = s.WalletId, ["fixedValue"] = s.FixedValue })
+                .ToList();
+        }
+
+        // A 400 here means the card or its data was not accepted; the charge is not saved at the provider.
+        using var response = await SendAsync(HttpMethod.Post, "payments", body, cancellationToken, declineOnBadRequest: true);
+        using var document = await ParseAsync(response, cancellationToken);
+        var root = document.RootElement;
+
+        var id = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            throw new PaymentGatewayException("The provider answer has no id.");
+        }
+
+        var status = root.TryGetProperty("status", out var statusElement) ? statusElement.GetString() ?? string.Empty : string.Empty;
+        string? token = null, brand = null, last4 = null;
+        if (root.TryGetProperty("creditCard", out var info) && info.ValueKind == JsonValueKind.Object)
+        {
+            token = info.TryGetProperty("creditCardToken", out var t) ? t.GetString() : null;
+            brand = info.TryGetProperty("creditCardBrand", out var b) ? b.GetString() : null;
+            last4 = info.TryGetProperty("creditCardNumber", out var n) ? n.GetString() : null;
+        }
+
+        return new CardCharge(id, status, token, brand, last4);
+    }
+
     public async Task CancelChargeAsync(string chargeId, CancellationToken cancellationToken)
     {
         using var response = await SendAsync(HttpMethod.Delete, $"payments/{chargeId}", null, cancellationToken, allowNotFound: true);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
-        HttpMethod method, string path, object? body, CancellationToken cancellationToken, bool allowNotFound = false)
+        HttpMethod method, string path, object? body, CancellationToken cancellationToken,
+        bool allowNotFound = false, bool declineOnBadRequest = false)
     {
         using var request = new HttpRequestMessage(method, path);
         if (body is not null)
@@ -161,7 +235,13 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
 
         var text = await response.Content.ReadAsStringAsync(cancellationToken);
         _logger.LogError("Asaas {Method} {Path} answered {Status}: {Body}", method, path, (int)response.StatusCode, text);
+        var declined = declineOnBadRequest && response.StatusCode == System.Net.HttpStatusCode.BadRequest;
         response.Dispose();
+        if (declined)
+        {
+            throw new PaymentDeclinedException("The provider did not accept the card.");
+        }
+
         throw new PaymentGatewayException($"The payment provider refused the request ({(int)response.StatusCode}).");
     }
 

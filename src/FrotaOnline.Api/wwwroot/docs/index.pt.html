@@ -259,6 +259,7 @@
             <tr><td>Última parada concluída</td><td>Cliente</td><td><code>DeliveryCompleted</code></td><td>Delivery</td></tr>
             <tr><td>Ocorrência registrada</td><td>Cliente</td><td><code>DeliveryIncident</code> (com o texto)</td><td>Delivery</td></tr>
             <tr><td>Motorista cancela / cliente cancela</td><td>Cliente / Motorista</td><td><code>DeliveryCancelled</code> (com o motivo)</td><td>Delivery</td></tr>
+            <tr><td>Pagamento com cartão ou carteira recusado</td><td>Cliente</td><td><code>PaymentFailed</code></td><td>Delivery</td></tr>
             <tr><td>Motorista confirma o pagamento</td><td>Cliente</td><td><code>PaymentConfirmed</code> (com o valor)</td><td>Delivery</td></tr>
             <tr><td>Admin aprova / rejeita o cadastro</td><td>Motorista</td><td><code>DriverApproved</code> / <code>DriverRejected</code></td><td>DriverProfile</td></tr>
             <tr><td>Admin registra o acerto da taxa</td><td>Motorista</td><td><code>FeeSettled</code> (com o valor)</td><td>Fee</td></tr>
@@ -291,8 +292,8 @@
     </section>
 
     <section id="payments" class="section">
-      <h2>Pagamentos (Asaas)</h2>
-      <p class="section-lede">Assinaturas, Pix gerado pelo app com split e cobrança automática da taxa da plataforma. Dados de cartão nunca passam por esta API. Todos os endpoints daqui respondem <code>409 payments.not_configured</code> até o servidor ter <code>Payments__Provider=Asaas</code>, e <code>503 payments.unavailable</code> quando o Asaas não responde.</p>
+      <h2>Pagamentos (Asaas e Mercado Pago)</h2>
+      <p class="section-lede">Assinaturas, Pix gerado pelo app com split e cobrança automática da taxa da plataforma. Só o pagamento do frete com cartão faz o cartão passar por esta API (e ele não é guardado). Todos os endpoints daqui respondem <code>409 payments.not_configured</code> até o servidor ter <code>Payments__Provider=Asaas</code> (e <code>Payments__WalletProvider=MercadoPago</code> para o Apple Pay), e <code>503 payments.unavailable</code> quando o Asaas não responde.</p>
 
       <h3 class="mini">Assinatura do motorista</h3>
 <div class="table-wrap">
@@ -319,6 +320,34 @@
       </div>
       <p class="prose">Quando o Asaas confirma o pagamento, ele vira <code>Paid</code>, a taxa de R$ 4,90 do extrato do motorista é quitada sozinha e os dois lados são notificados. Sem conta vinculada a resposta é <code>409 payments.driver_without_payout_account</code>: pague direto ao motorista e peça que ele confirme com <code>POST /driver/deliveries/{id}/payment</code>.</p>
 
+      <h3 class="mini">Pagar o frete com cartão de crédito</h3>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /deliveries/{id}/card</code></td><td>Cliente, depois da entrega concluída. Cartão novo: <code>{ "card": { "holderName", "number", "expiryMonth", "expiryYear", "ccv" }, "holder": { "taxId", "postalCode", "addressNumber", "phone" }, "saveCard": false }</code>. Cartão salvo: <code>{ "savedCardId": "&lt;uuid&gt;" }</code>. Esta é a única rota em que o cartão passa pela API: segue ao Asaas na mesma requisição e não é guardado nem registrado em log. Use só HTTPS. O split é o mesmo do Pix. O pagamento fica <code>Pending</code> até o Asaas confirmar; cartão recusado responde <code>409 payments.card_declined</code> e nada é cobrado.</td></tr>
+            <tr><td><code>GET /customer/cards</code></td><td>Cartões salvos: <code>id</code>, <code>brand</code> e <code>last4</code>. Só o token do Asaas é guardado, nunca o número. No máximo 5.</td></tr>
+            <tr><td><code>DELETE /customer/cards/{id}</code></td><td>Remove um cartão salvo.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">Enquanto um pagamento de cartão ou carteira está sendo confirmado, outro pedido responde <code>409 payments.in_progress</code>. Se o Asaas recusar a captura depois, o pagamento vira <code>Failed</code>, o cliente recebe <code>PaymentFailed</code> e pode tentar de novo.</p>
+
+      <h3 class="mini">Apple Pay pelo Mercado Pago</h3>
+      <p class="prose"><strong>Antes de prometer ao cliente:</strong> o Mercado Pago documenta o Apple Pay (só iOS, Visa e Mastercard, mediante habilitação comercial) e <strong>não documenta o Google Pay</strong>; o Asaas não documenta nenhuma das duas carteiras. Confirme com o Mercado Pago do Brasil. O backend recebe um token de cartão feito pelo SDK do Mercado Pago no app, seja qual for a carteira de origem.</p>
+<div class="table-wrap">
+        <table class="grid">
+          <thead><tr><th>Chamada</th><th>O que acontece</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /driver/wallet-account/authorization</code></td><td>O motorista conecta a própria conta Mercado Pago uma vez. Devolve <code>authorizationUrl</code> (vale 15 minutos): abra no navegador. Depois de autorizar, o Mercado Pago chama <code>GET /callbacks/mercadopago/oauth</code>, que guarda os tokens criptografados.</td></tr>
+            <tr><td><code>GET /driver/wallet-account</code></td><td><code>{ "connected": true | false }</code>.</td></tr>
+            <tr><td><code>DELETE /driver/wallet-account</code></td><td>Apaga os tokens guardados.</td></tr>
+            <tr><td><code>POST /deliveries/{id}/wallet</code></td><td>Cliente. Depois de o Apple Pay devolver o token pelo SDK: <code>{ "cardToken": "...", "paymentMethodId": "visa" }</code>. O pagamento é criado na conta do motorista com a comissão de R$ 4,90 para a plataforma. <code>approved</code> quita na hora; <code>in_process</code> espera o aviso do Mercado Pago. Motorista sem conta conectada: <code>409 payments.driver_without_wallet_account</code>.</td></tr>
+            </tbody>
+        </table>
+      </div>
+      <p class="prose">A tarifa do Mercado Pago é descontada primeiro e a comissão da plataforma sai do que sobra, então a tarifa do cartão fica do lado do motorista. O servidor precisa de <code>Payments__WalletProvider=MercadoPago</code> e das chaves descritas no README.</p>
+
       <h3 class="mini">Pagar a taxa da plataforma</h3>
 <div class="table-wrap">
         <table class="grid">
@@ -330,6 +359,7 @@
       </div>
       <h3 class="mini">Webhook (servidor para servidor)</h3>
       <p class="prose"><code>POST /webhooks/asaas</code> é chamado pelo Asaas, nunca pelo app, e é protegido pelo cabeçalho <code>asaas-access-token</code>. Cada id de evento é processado uma vez, então uma entrega repetida não muda nada. Tratados: <code>PAYMENT_RECEIVED</code> e <code>PAYMENT_CONFIRMED</code> (assinatura, Pix do frete, Pix da taxa) e <code>SUBSCRIPTION_DELETED</code> / <code>SUBSCRIPTION_INACTIVATED</code>. O resto é confirmado e ignorado.</p>
+      <p class="prose"><code>POST /webhooks/mercadopago</code> é chamado pelo Mercado Pago e protegido pela assinatura <code>x-signature</code>. A notificação só avisa que algo mudou: o status real é lido no Mercado Pago, e <code>approved</code> quita enquanto <code>rejected</code>/<code>cancelled</code> marcam o pagamento como <code>Failed</code>. No Asaas, o cartão recusado na captura chega como <code>PAYMENT_CREDIT_CARD_CAPTURE_REFUSED</code>.</p>
     </section>
 
     <section id="privacy" class="section">
@@ -416,6 +446,10 @@
             <tr><td>409</td><td><code>payments.not_configured</code></td><td>Os pagamentos online estão desligados neste servidor. Pague direto e confirme, ou peça para configurarem o Asaas.</td></tr>
             <tr><td>503</td><td><code>payments.unavailable</code></td><td>O Asaas recusou ou não respondeu. Tente de novo em instantes.</td></tr>
             <tr><td>409</td><td><code>payments.driver_without_payout_account</code></td><td>O motorista não vinculou uma conta, então não dá para gerar Pix com split.</td></tr>
+            <tr><td>409</td><td><code>payments.driver_without_wallet_account</code></td><td>O motorista não conectou a conta Mercado Pago, então não dá para pagar com carteira.</td></tr>
+            <tr><td>409</td><td><code>payments.card_declined</code></td><td>O cartão foi recusado ou os dados não foram aceitos. Nada foi cobrado.</td></tr>
+            <tr><td>409</td><td><code>payments.in_progress</code></td><td>Um pagamento de cartão ou carteira deste frete ainda está sendo confirmado.</td></tr>
+            <tr><td>404</td><td><code>payments.card_not_found</code></td><td>Cartão salvo não encontrado.</td></tr>
             <tr><td>409</td><td><code>payments.price_too_low</code></td><td>O preço combinado não cobre a taxa da plataforma nem o mínimo do provedor.</td></tr>
             <tr><td>409</td><td><code>fee.nothing_to_charge</code>, <code>fee.below_minimum</code></td><td>Não há taxa devida, ou o saldo está abaixo da cobrança mínima de R$ 5,00.</td></tr>
             <tr><td>409</td><td><code>subscription.already_active</code>, <code>subscription.too_many_vehicles</code>, <code>subscription.vehicle_limit</code></td><td>Já há um plano ativo, ou o limite de 3 veículos do Básico seria ultrapassado.</td></tr>

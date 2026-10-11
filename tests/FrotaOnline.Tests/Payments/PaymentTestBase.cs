@@ -24,8 +24,25 @@ public abstract class PaymentTestBase : MarketplaceTestBase
 
     private protected PayoutAccountService PayoutService => new(Drivers, UnitOfWork, new UpdatePayoutAccountRequestValidator());
 
+    private protected readonly FakeSavedCardRepository SavedCards = new();
+    private protected readonly FakeWalletAccountRepository WalletAccounts = new();
+    private protected readonly FakeWalletGateway Wallet = new();
+    private protected readonly FakeSecretProtector Secrets = new();
+
+    private protected FreightChargePreparer Preparer => new(Deliveries, Payments, Drivers, Users, Gateway);
+
     private protected PixPaymentService PixService => new(
-        Deliveries, Payments, Drivers, Users, Gateway, UnitOfWork, Clock, new CreatePixRequestValidator());
+        Preparer, Payments, Gateway, UnitOfWork, Clock, new CreatePixRequestValidator());
+
+    private protected CardPaymentService CardService => new(
+        Preparer, Payments, SavedCards, Gateway, UnitOfWork, Clock, new PayWithCardRequestValidator());
+
+    private protected WalletPaymentService WalletService => new(
+        Preparer, Payments, WalletAccounts, Wallet, Secrets, Webhooks, Deliveries, UnitOfWork, Clock,
+        new WalletPaymentRequestValidator());
+
+    private protected WalletAccountService WalletAccountService => new(
+        Drivers, WalletAccounts, Wallet, Secrets, UnitOfWork, Clock);
 
     private protected FeeChargeService FeeChargeService => new(
         Drivers, Users, Fees, FeeCharges, Gateway, UnitOfWork, Clock);

@@ -18,6 +18,25 @@ public static class PaymentErrors
             "The driver has not linked a payout account yet, so a Pix with split cannot be issued. Pay the driver directly and ask them to confirm.",
             ErrorType.Conflict);
 
+    public static readonly Error DriverCannotReceiveWallet =
+        new("payments.driver_without_wallet_account",
+            "The driver has not connected their Mercado Pago account yet, so wallet payments are not available for this freight. Pay by Pix or card.",
+            ErrorType.Conflict);
+
+    public static readonly Error PaymentInProgress =
+        new("payments.in_progress",
+            "A card or wallet payment for this freight is already being confirmed. Wait for the result before trying again.",
+            ErrorType.Conflict);
+
+    public static readonly Error CardDeclined =
+        new("payments.card_declined", "The card was not accepted. Check the data or try another card.", ErrorType.Conflict);
+
+    public static readonly Error CardNotFound =
+        new("payments.card_not_found", "Saved card not found.", ErrorType.NotFound);
+
+    public static readonly Error WalletAuthorizationInvalid =
+        new("wallet.authorization_invalid", "The authorisation link is invalid or has expired. Start the connection again.", ErrorType.Validation);
+
     public static readonly Error PriceTooLow =
         new("payments.price_too_low", "The agreed price is not enough to cover the platform fee.", ErrorType.Conflict);
 

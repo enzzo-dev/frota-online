@@ -8,6 +8,38 @@ public sealed class PaymentOptions
     public string Provider { get; init; } = "None";
 
     public AsaasOptions Asaas { get; init; } = new();
+
+    /// <summary><c>MercadoPago</c> or <c>None</c> (default): Apple Pay / wallet payments and the driver's account connection.</summary>
+    public string WalletProvider { get; init; } = "None";
+
+    public MercadoPagoOptions MercadoPago { get; init; } = new();
+}
+
+public sealed class MercadoPagoOptions
+{
+    public string ApiUrl { get; init; } = "https://api.mercadopago.com";
+
+    public string AuthUrl { get; init; } = "https://auth.mercadopago.com.br/authorization";
+
+    /// <summary>Application id and secret (Mercado Pago "Suas integrações"). The secret is a secret.</summary>
+    public string ClientId { get; init; } = string.Empty;
+
+    public string ClientSecret { get; init; } = string.Empty;
+
+    /// <summary>Public address of <c>GET /api/v1/callbacks/mercadopago/oauth</c>; must be registered in the application.</summary>
+    public string RedirectUri { get; init; } = string.Empty;
+
+    /// <summary>Optional: where the browser goes after the driver connects the account (a deep link into the app).</summary>
+    public string AppReturnUrl { get; init; } = string.Empty;
+
+    /// <summary>Optional: address Mercado Pago calls for each payment (<c>POST /api/v1/webhooks/mercadopago</c>). Otherwise set in the panel.</summary>
+    public string NotificationUrl { get; init; } = string.Empty;
+
+    /// <summary>Secret of the webhook signature (panel: Webhooks). A secret.</summary>
+    public string WebhookSecret { get; init; } = string.Empty;
+
+    /// <summary>Base64 of 32 random bytes: encrypts the drivers' tokens in the database. A secret; losing it disconnects every driver.</summary>
+    public string TokenEncryptionKey { get; init; } = string.Empty;
 }
 
 public sealed class AsaasOptions

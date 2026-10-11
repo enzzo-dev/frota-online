@@ -70,6 +70,9 @@ public sealed class PaymentWebhookService : IPaymentWebhookService
             case "PAYMENT_RECEIVED" or "PAYMENT_CONFIRMED" when notification.Payment is not null:
                 await HandlePaidAsync(notification.Payment, cancellationToken);
                 break;
+            case "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED" or "PAYMENT_FAILED" when notification.Payment is not null:
+                await HandleFailedAsync(notification.Payment, cancellationToken);
+                break;
             case "SUBSCRIPTION_DELETED" or "SUBSCRIPTION_INACTIVATED" when notification.SubscriptionId is not null:
                 await HandleSubscriptionEndedAsync(notification.SubscriptionId, cancellationToken);
                 break;
@@ -111,6 +114,23 @@ public sealed class PaymentWebhookService : IPaymentWebhookService
         }
     }
 
+    /// <summary>A card or wallet payment the provider refused: the customer can try again with another card.</summary>
+    private async Task HandleFailedAsync(WebhookPayment payment, CancellationToken cancellationToken)
+    {
+        var freightPayment = await _payments.GetByGatewayIdAsync(payment.Id, cancellationToken);
+        if (freightPayment is not { Status: PaymentStatus.Pending, Method: PaymentMethod.Card })
+        {
+            return;
+        }
+
+        var delivery = await _deliveries.GetByIdAsync(freightPayment.DeliveryId, cancellationToken);
+        freightPayment.MarkFailed();
+        if (delivery is not null)
+        {
+            await _notifications.PublishAsync(NotificationMessages.PaymentFailed(delivery.CustomerId, delivery.Id), cancellationToken);
+        }
+    }
+
     private async Task<bool> ActivateSubscriptionAsync(string gatewaySubscriptionId, DateTime now, CancellationToken cancellationToken)
     {
         var subscription = await _subscriptions.GetByGatewayIdAsync(gatewaySubscriptionId, cancellationToken);
@@ -148,7 +168,7 @@ public sealed class PaymentWebhookService : IPaymentWebhookService
 
         // The split already sent the platform its fee, so the fee accrued when the delivery was completed is now paid.
         await _ledger.AddAsync(
-            FeeLedger.Settle(delivery.DriverProfileId, delivery.Id, delivery.PlatformFee, "Platform fee kept by the Pix split"),
+            FeeLedger.Settle(delivery.DriverProfileId, delivery.Id, delivery.PlatformFee, "Platform fee kept by the payment split"),
             cancellationToken);
 
         var driver = await _drivers.GetByIdAsync(delivery.DriverProfileId, cancellationToken);
