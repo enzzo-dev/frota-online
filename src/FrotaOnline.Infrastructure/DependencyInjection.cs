@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IFreightQueries, FreightQueries>();
         services.AddScoped<IDeliveryQueries, DeliveryQueries>();
         services.AddScoped<IFeeQueries, FeeQueries>();
+        services.AddScoped<IAddressUsageQueries, AddressUsageQueries>();
         services.AddScoped<IDriverReviewQueries, DriverReviewQueries>();
         services.AddScoped<ITermAcceptanceChecker, SqlTermAcceptanceChecker>();
         services.AddScoped<IPersonalDataQueries, PersonalDataQueries>();

@@ -1,6 +1,7 @@
 using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Deliveries.Validators;
+using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Routing;
 using FrotaOnline.Application.Routing.Validators;
@@ -39,6 +40,9 @@ public abstract class MarketplaceTestBase
 
     protected FreightService FreightService => new(
         Freights, Proposals, Addresses, FreightQueries, Terms, new RoutePlanner(Routing), UnitOfWork, Clock, new CreateFreightRequestValidator());
+
+    protected AddressService AddressService => new(
+        Addresses, new FakeAddressUsageQueries(Freights, Deliveries), UnitOfWork, Clock, new CreateAddressRequestValidator());
 
     protected RouteService RouteService => new(
         Addresses, Freights, Deliveries, Drivers, new RoutePlanner(Routing), new RoutePreviewRequestValidator());

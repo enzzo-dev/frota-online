@@ -12,23 +12,32 @@ namespace FrotaOnline.Api.Extensions;
 internal sealed class UniqueViolationExceptionHandler : IExceptionHandler
 {
     private const string UniqueViolation = "23505";
+    private const string ForeignKeyViolation = "23503";
 
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        if (exception is not DbUpdateException { InnerException: PostgresException { SqlState: UniqueViolation } })
+        if (exception is not DbUpdateException { InnerException: PostgresException postgres })
+        {
+            return false;
+        }
+
+        // 23503: another request started using a row (for example a new freight at an address) while this one deleted it.
+        var (title, detail) = postgres.SqlState switch
+        {
+            UniqueViolation => ("request.duplicate", "The same action was already done by another request. Reload and check the current state."),
+            ForeignKeyViolation => ("request.conflict", "Something changed while this request ran. Reload and try again."),
+            _ => ((string?)null, (string?)null)
+        };
+
+        if (title is null)
         {
             return false;
         }
 
         httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
         await httpContext.Response.WriteAsJsonAsync(
-            new ProblemDetails
-            {
-                Status = StatusCodes.Status409Conflict,
-                Title = "request.duplicate",
-                Detail = "The same action was already done by another request. Reload and check the current state."
-            },
+            new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = title, Detail = detail },
             cancellationToken);
         return true;
     }

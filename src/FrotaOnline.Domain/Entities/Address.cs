@@ -30,6 +30,35 @@ public sealed class Address : BaseEntity
 
     public double? Longitude { get; private set; }
 
+    /// <summary>Set when the customer deleted an address that past freights still point to. The data is kept for that history.</summary>
+    public DateTime? DeletedAt { get; private set; }
+
+    public bool IsDeleted => DeletedAt is not null;
+
+    /// <summary>Replaces every field. Coordinates not sent are cleared, so the caller sends them again.</summary>
+    public void Update(
+        string label, string street, string number, string? complement,
+        string district, string city, string state, string zipCode, double? latitude, double? longitude)
+    {
+        if (IsDeleted)
+        {
+            throw new DomainException("A deleted address cannot be edited.");
+        }
+
+        Label = Guard.NotNullOrWhiteSpace(label, nameof(label));
+        Street = Guard.NotNullOrWhiteSpace(street, nameof(street));
+        Number = Guard.NotNullOrWhiteSpace(number, nameof(number));
+        Complement = complement?.Trim();
+        District = Guard.NotNullOrWhiteSpace(district, nameof(district));
+        City = Guard.NotNullOrWhiteSpace(city, nameof(city));
+        State = Guard.NotNullOrWhiteSpace(state, nameof(state)).ToUpperInvariant();
+        ZipCode = Guard.NotNullOrWhiteSpace(zipCode, nameof(zipCode));
+        Latitude = latitude;
+        Longitude = longitude;
+    }
+
+    public void MarkDeleted(DateTime utcNow) => DeletedAt ??= utcNow;
+
     /// <summary>
     /// Keeps only city and state. Freight stops still point to this row, so it cannot be deleted,
     /// but nothing left can locate a home or a business.

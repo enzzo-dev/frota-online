@@ -1,5 +1,6 @@
 using FrotaOnline.Application.Abstractions.Addresses;
 using FrotaOnline.Application.Abstractions.Marketplace;
+using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Routing;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Domain.Entities;
@@ -15,7 +16,7 @@ internal sealed class FakeAddressRepository : IAddressRepository
         Task.FromResult(Items.FirstOrDefault(a => a.Id == id));
 
     public Task<IReadOnlyList<Address>> ListByOwnerAsync(Guid ownerUserId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<Address>>(Items.Where(a => a.OwnerUserId == ownerUserId).ToList());
+        Task.FromResult<IReadOnlyList<Address>>(Items.Where(a => a.OwnerUserId == ownerUserId && !a.IsDeleted).ToList());
 
     public Task<IReadOnlyList<Address>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Address>>(Items.Where(a => ids.Contains(a.Id)).ToList());
@@ -25,6 +26,8 @@ internal sealed class FakeAddressRepository : IAddressRepository
         Items.Add(address);
         return Task.CompletedTask;
     }
+
+    public void Remove(Address address) => Items.Remove(address);
 }
 
 internal sealed class FakeFreightRepository : IFreightRepository
@@ -161,5 +164,29 @@ internal sealed class FakeRoutingProvider : IRoutingProvider
         Calls++;
         LastPoints = points.ToList();
         return Task.FromResult<RoutePath?>(Available ? new RoutePath(12_500, 1_800, points) : null);
+    }
+}
+
+/// <summary>Same rule as the SQL: open freight or unfinished delivery = Active; any other freight = History.</summary>
+internal sealed class FakeAddressUsageQueries : IAddressUsageQueries
+{
+    private readonly FakeFreightRepository _freights;
+    private readonly FakeDeliveryRepository _deliveries;
+
+    public FakeAddressUsageQueries(FakeFreightRepository freights, FakeDeliveryRepository deliveries)
+    {
+        _freights = freights;
+        _deliveries = deliveries;
+    }
+
+    public Task<AddressUsage> GetUsageAsync(Guid addressId, CancellationToken cancellationToken)
+    {
+        var freights = _freights.Items.Where(f => f.Stops.Any(s => s.AddressId == addressId)).ToList();
+        var active = freights.Any(f =>
+            f.Status == FreightStatus.Open
+            || (f.Status == FreightStatus.Approved && _deliveries.Items.Any(d =>
+                d.FreightRequestId == f.Id && d.Status != DeliveryStatus.Delivered && d.Status != DeliveryStatus.Cancelled)));
+
+        return Task.FromResult(active ? AddressUsage.Active : freights.Count > 0 ? AddressUsage.History : AddressUsage.None);
     }
 }

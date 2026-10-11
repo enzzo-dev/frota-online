@@ -28,4 +28,24 @@ public sealed class AddressesController : ApiControllerBase
     public async Task<IActionResult> Create(CreateAddressRequest request, CancellationToken cancellationToken) =>
         Handle(await _addresses.CreateAsync(CurrentUserId, request, cancellationToken),
             address => StatusCode(StatusCodes.Status201Created, address));
+
+    [HttpPut("{addressId:guid}")]
+    [EndpointSummary("Edit an address")]
+    [EndpointDescription("Same body as saving one: every field is replaced, so send latitude and longitude again (together) or they are cleared. Only an address no freight ever used can be edited; otherwise 409 address.in_use and the app should save a new address.")]
+    [ProducesResponseType<AddressResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Update(
+        Guid addressId, CreateAddressRequest request, CancellationToken cancellationToken) =>
+        Handle(await _addresses.UpdateAsync(CurrentUserId, addressId, request, cancellationToken), Ok);
+
+    [HttpDelete("{addressId:guid}")]
+    [EndpointSummary("Delete an address")]
+    [EndpointDescription("An address no freight ever used is removed. One used only by finished freights disappears from the list but is kept for their history. One used by an open freight or a delivery in progress is refused with 409 address.in_active_use: cancel that freight first.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(Guid addressId, CancellationToken cancellationToken) =>
+        HandleEmpty(await _addresses.DeleteAsync(CurrentUserId, addressId, cancellationToken), NoContent);
 }

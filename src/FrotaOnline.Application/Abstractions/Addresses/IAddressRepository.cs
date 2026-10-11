@@ -11,4 +11,7 @@ public interface IAddressRepository
     Task<IReadOnlyList<Address>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 
     Task AddAsync(Address address, CancellationToken cancellationToken);
+
+    /// <summary>Hard delete. Only for an address no freight ever used.</summary>
+    void Remove(Address address);
 }

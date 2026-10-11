@@ -46,7 +46,7 @@ public sealed class RouteService : IRouteService
         }
 
         var found = (await _addresses.ListByIdsAsync(request.AddressIds, cancellationToken)).ToDictionary(a => a.Id);
-        if (request.AddressIds.Any(id => !found.TryGetValue(id, out var a) || a.OwnerUserId != customerId))
+        if (request.AddressIds.Any(id => !found.TryGetValue(id, out var a) || a.OwnerUserId != customerId || a.IsDeleted))
         {
             return Result.Failure<RouteMapResponse>(AddressErrors.NotFound);
         }

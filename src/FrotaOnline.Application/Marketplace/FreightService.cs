@@ -70,7 +70,7 @@ public sealed class FreightService : IFreightService
 
         var addressIds = request.Stops.Select(s => s.AddressId).Distinct().ToList();
         var found = (await _addresses.ListByIdsAsync(addressIds, cancellationToken)).ToDictionary(a => a.Id);
-        if (addressIds.Any(id => !found.TryGetValue(id, out var address) || address.OwnerUserId != customerId))
+        if (addressIds.Any(id => !found.TryGetValue(id, out var address) || address.OwnerUserId != customerId || address.IsDeleted))
         {
             return Result.Failure<FreightResponse>(AddressErrors.NotFound);
         }

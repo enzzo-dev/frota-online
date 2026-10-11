@@ -377,6 +377,8 @@ O e-mail anonimizado libera o e-mail original para um novo cadastro. Os access t
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | GET / POST | `/addresses` | Lista e cadastra endereços (de coleta e de entrega). UF válida e CEP com 8 dígitos. `latitude` (-90 a 90) e `longitude` (-180 a 180) são opcionais, mas vão sempre juntas (só uma das duas dá 400): o app consulta uma API pública de geocodificação com o endereço digitado e envia o ponto. A API não geocodifica sozinha, e sem o ponto o endereço funciona, mas a rota no mapa não pode ser desenhada (`route.missing_coordinates`). |
+| PUT | `/addresses/{id}` | Edita o endereço com o mesmo corpo do cadastro. Substitui todos os campos, então envie `latitude` e `longitude` de novo (juntas) ou elas são apagadas. Só vale para endereço que nenhum frete usou; senão 409 `address.in_use` e o app salva um endereço novo. |
+| DELETE | `/addresses/{id}` | Endereço que nenhum frete usou é apagado de vez. Se só fretes encerrados (expirados, cancelados ou entregues) o usaram, some da lista mas os dados ficam para o histórico deles. Se um frete aberto ou uma entrega em andamento o usa, 409 `address.in_active_use`: cancele o frete antes. Responde 204. |
 | POST | `/freights` | Cria o pedido com uma lista `stops` na ordem da corrida. Cada parada é `Pickup` ou `Delivery`, com endereço, observação e `items` opcionais (`description`, `quantity`). Pode haver várias coletas e várias entregas; a primeira parada precisa ser coleta e a última entrega, que é o endereço final. Os endereços são diferentes e do próprio cliente (pessoa ou empresa), até 20 paradas e 50 itens por parada. Informe também a carga, o peso total (até 60 t), o tipo de veículo e, opcional, `scheduledPickupAt` em UTC (com `Z`). Exige os termos aceitos. Sem data o frete é do dia e a janela de propostas é de 5 minutos; agendado, 24 horas. |
 | GET | `/freights?status=` | Pedidos do cliente, com a quantidade de propostas pendentes. |
 | GET | `/freights/{id}` | Detalhe do pedido, com todas as paradas, endereços e itens. |
@@ -435,7 +437,7 @@ Motorista, em `/api/v1/driver` (perfil Driver):
 | POST | `/deliveries/{id}/start` | Sai para a primeira coleta (`Scheduled` vira `ToPickup`). |
 | POST | `/deliveries/{id}/stops/{stopId}/complete` | Conclui a próxima parada, sempre na ordem. Corpo opcional: `note`, `latitude` e `longitude` (juntas) e `proofMediaFileId` (arquivo `DeliveryProof` do próprio motorista, registrado em `POST /driver/documents`). A primeira coleta leva a entrega a `PickedUp` e `InTransit`; a última parada marca `Delivered`, lança a taxa de R$ 4,90 no extrato e libera a agenda. |
 | POST | `/deliveries/{id}/incident` | Registra ocorrência (`Incident`); depois disso só dá para cancelar. |
-| POST | `/deliveries/{id}/cancel` | Cancela em `Scheduled`, `ToPickup` ou após ocorrência. Libera a agenda. |
+| POST | `/deliveries/{id}/cancel` | Cancelamento do motorista, com `reason`. Vale antes da primeira coleta (`Scheduled` ou `ToPickup`, inclusive já a caminho) e depois de uma ocorrência. Depois que a primeira coleta é concluída (`PickedUp` ou `InTransit`) responde 409 `delivery.invalid_status`: registre uma ocorrência primeiro. Libera a agenda e não gera taxa. |
 | POST | `/deliveries/{id}/payment` | Depois de `Delivered`, confirma o pagamento (`method`: Pix, Cash, Card, Other; `reference` opcional). Uma vez por entrega (índice único; uma segunda chamada simultânea responde 409 `request.duplicate`). O dinheiro vai direto do cliente ao motorista. |
 | GET | `/fees` | Extrato: saldo, total lançado, total acertado e os 200 lançamentos mais recentes. |
 
@@ -498,6 +500,9 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 409 | `payment.not_delivered`, `payment.already_confirmed` | Pagamento só após a entrega, uma vez. |
 | 409 | `fee.exceeds_balance` | O acerto passa do saldo em aberto. |
 | 400 | `route.missing_coordinates` | Algum endereço da rota ainda não tem latitude e longitude. A mensagem lista quais. |
+| 409 | `address.in_use` | O endereço já foi usado em um frete e não pode ser editado. Salve um novo. |
+| 409 | `address.in_active_use` | O endereço está num frete aberto ou numa entrega em andamento e não pode ser excluído. |
+| 409 | `request.conflict` | Algo mudou enquanto a requisição rodava (por exemplo um frete passou a usar o endereço que estava sendo excluído). Recarregue e tente de novo. |
 | 409 | `request.duplicate` | Duas requisições iguais chegaram juntas e o banco barrou a segunda (índice único), por exemplo a confirmação de pagamento. Recarregue e confira o estado. |
 
 ## Consultas e desempenho
