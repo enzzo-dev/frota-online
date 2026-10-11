@@ -48,12 +48,16 @@ internal sealed class FakeFreightQueries : IFreightQueries
             .Take(100)
             .Select(f => new OpenFreightResponse(
                 f.Id, f.CargoDescription, f.CargoWeightKg, f.RequiredVehicleType, f.ScheduledPickupAt, f.ProposalDeadline,
-                f.PickupCount, f.DeliveryCount,
+                f.PickupCount, f.DeliveryCount, f.RouteDistanceMeters, f.RouteDurationSeconds,
                 f.Stops.OrderBy(s => s.Sequence)
                     .Select(s =>
                     {
                         var address = FindAddress(s.AddressId);
-                        return new OpenStopResponse(s.Sequence, s.Type, address.District, address.City, address.State, StopItemsFake.Of(s));
+                        return new OpenStopResponse(
+                            s.Sequence, s.Type, address.District, address.City, address.State,
+                            address.Latitude is null ? null : Math.Round(address.Latitude.Value, 2),
+                            address.Longitude is null ? null : Math.Round(address.Longitude.Value, 2),
+                            StopItemsFake.Of(s));
                     })
                     .ToList()))
             .ToList();
@@ -111,6 +115,7 @@ internal sealed class FakeFreightQueries : IFreightQueries
     private FreightResponse ToResponse(FreightRequest freight) => new(
         freight.Id, freight.Status, freight.CargoDescription, freight.CargoWeightKg, freight.RequiredVehicleType,
         freight.ScheduledPickupAt, freight.ProposalDeadline, freight.PickupCount, freight.DeliveryCount,
+        freight.RouteDistanceMeters, freight.RouteDurationSeconds,
         freight.Stops.OrderBy(s => s.Sequence)
             .Select(s => new FreightStopResponse(
                 s.Id, s.Sequence, s.Type, AddressService.ToResponse(FindAddress(s.AddressId)), s.Note,

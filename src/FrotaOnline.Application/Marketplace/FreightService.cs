@@ -6,6 +6,7 @@ using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Common;
+using FrotaOnline.Application.Routing;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Domain.Entities;
@@ -20,6 +21,7 @@ public sealed class FreightService : IFreightService
     private readonly IAddressRepository _addresses;
     private readonly IFreightQueries _queries;
     private readonly ITermAcceptanceChecker _terms;
+    private readonly IRoutePlanner _routes;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
     private readonly IValidator<CreateFreightRequest> _validator;
@@ -30,6 +32,7 @@ public sealed class FreightService : IFreightService
         IAddressRepository addresses,
         IFreightQueries queries,
         ITermAcceptanceChecker terms,
+        IRoutePlanner routes,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
         IValidator<CreateFreightRequest> validator)
@@ -39,6 +42,7 @@ public sealed class FreightService : IFreightService
         _addresses = addresses;
         _queries = queries;
         _terms = terms;
+        _routes = routes;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _validator = validator;
@@ -84,6 +88,17 @@ public sealed class FreightService : IFreightService
         var freight = FreightRequest.Create(
             customerId, drafts, request.CargoDescription, request.CargoWeightKg,
             request.RequiredVehicleType, request.ScheduledPickupAt?.ToUniversalTime(), now);
+
+        // Distance and time for the drivers' list. Best effort: a slow or missing routing engine never blocks the request.
+        var routed = freight.Stops
+            .OrderBy(s => s.Sequence)
+            .Select(s => new RoutedStop(found[s.AddressId], s.Type))
+            .ToList();
+        var map = await _routes.PlanAsync(routed, cancellationToken);
+        if (map is { DistanceMeters: { } meters, DurationSeconds: { } seconds })
+        {
+            freight.SetRoute(meters, seconds);
+        }
 
         await _freights.AddAsync(freight, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

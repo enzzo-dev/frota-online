@@ -1,5 +1,6 @@
 using FrotaOnline.Application.Abstractions.Addresses;
 using FrotaOnline.Application.Abstractions.Marketplace;
+using FrotaOnline.Application.Abstractions.Routing;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -143,5 +144,22 @@ internal sealed class FakeFeeLedgerRepository : IFeeLedgerRepository
     {
         Items.Add(entry);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Straight-line stand-in for the routing engine. Set <see cref="Available"/> to false to simulate an outage.</summary>
+internal sealed class FakeRoutingProvider : IRoutingProvider
+{
+    public bool Available { get; set; } = true;
+
+    public int Calls { get; private set; }
+
+    public List<GeoPoint> LastPoints { get; private set; } = new();
+
+    public Task<RoutePath?> GetRouteAsync(IReadOnlyList<GeoPoint> points, CancellationToken cancellationToken)
+    {
+        Calls++;
+        LastPoints = points.ToList();
+        return Task.FromResult<RoutePath?>(Available ? new RoutePath(12_500, 1_800, points) : null);
     }
 }

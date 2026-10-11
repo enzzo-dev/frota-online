@@ -6,6 +6,7 @@ using FrotaOnline.Application.Drivers;
 using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Privacy;
+using FrotaOnline.Application.Routing;
 using FrotaOnline.Application.Terms;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +30,8 @@ public static class DependencyInjection
         services.AddScoped<IProposalSelectionService, ProposalSelectionService>();
         services.AddScoped<IFreightExpirationService, FreightExpirationService>();
         services.AddScoped<IPrivacyService, PrivacyService>();
+        services.AddScoped<IRoutePlanner, RoutePlanner>();
+        services.AddScoped<IRouteService, RouteService>();
         services.AddScoped<IDeliveryProgressService, DeliveryProgressService>();
         services.AddScoped<IDeliveryPaymentService, DeliveryPaymentService>();
         services.AddScoped<IFeeService, FeeService>();

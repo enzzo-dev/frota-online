@@ -40,6 +40,8 @@ internal sealed class FreightQueries : IFreightQueries
                 f.RequiredVehicleType,
                 f.ScheduledPickupAt,
                 f.ProposalDeadline,
+                f.RouteDistanceMeters,
+                f.RouteDurationSeconds,
             })
             .ToListAsync(cancellationToken);
 
@@ -51,12 +53,13 @@ internal sealed class FreightQueries : IFreightQueries
         var freightIds = headers.Select(h => h.Id).ToList();
 
         // Before approval the driver only sees the area, never the street: the street is not even selected.
+        // The coordinates are read only to be rounded to about 1 km below; the exact ones never leave this method.
         var stops = await (
                 from s in _db.FreightStops.AsNoTracking()
                 where freightIds.Contains(s.FreightRequestId)
                 join a in _db.Addresses.AsNoTracking() on s.AddressId equals a.Id
                 orderby s.FreightRequestId, s.Sequence
-                select new { s.FreightRequestId, StopId = s.Id, s.Sequence, s.Type, a.District, a.City, a.State })
+                select new { s.FreightRequestId, StopId = s.Id, s.Sequence, s.Type, a.District, a.City, a.State, a.Latitude, a.Longitude })
             .ToListAsync(cancellationToken);
 
         var items = await LoadItemsAsync(freightIds, cancellationToken);
@@ -66,12 +69,15 @@ internal sealed class FreightQueries : IFreightQueries
             .Select(h =>
             {
                 var rows = stopsByFreight[h.Id]
-                    .Select(s => new OpenStopResponse(s.Sequence, s.Type, s.District, s.City, s.State, ItemsOf(items, s.StopId)))
+                    .Select(s => new OpenStopResponse(
+                        s.Sequence, s.Type, s.District, s.City, s.State,
+                        ApproximateCoordinate(s.Latitude), ApproximateCoordinate(s.Longitude), ItemsOf(items, s.StopId)))
                     .ToList();
 
                 return new OpenFreightResponse(
                     h.Id, h.CargoDescription, h.CargoWeightKg, h.RequiredVehicleType, h.ScheduledPickupAt, h.ProposalDeadline,
-                    rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery), rows);
+                    rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery),
+                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows);
             })
             .ToList();
     }
@@ -153,6 +159,8 @@ internal sealed class FreightQueries : IFreightQueries
                 f.ScheduledPickupAt,
                 f.ProposalDeadline,
                 f.ApprovedProposalId,
+                f.RouteDistanceMeters,
+                f.RouteDurationSeconds,
                 f.CreatedAt,
                 PendingProposals = _db.Proposals.Count(
                     p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending),
@@ -199,7 +207,7 @@ internal sealed class FreightQueries : IFreightQueries
                 return new FreightResponse(
                     h.Id, h.Status, h.CargoDescription, h.CargoWeightKg, h.RequiredVehicleType, h.ScheduledPickupAt,
                     h.ProposalDeadline, rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery),
-                    rows, h.ApprovedProposalId, h.PendingProposals, h.CreatedAt);
+                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows, h.ApprovedProposalId, h.PendingProposals, h.CreatedAt);
             })
             .ToList();
     }
@@ -207,6 +215,9 @@ internal sealed class FreightQueries : IFreightQueries
     private async Task<Dictionary<Guid, List<FreightItemResponse>>> LoadItemsAsync(
         List<Guid> freightIds, CancellationToken cancellationToken) =>
         await FreightItemReader.LoadAsync(_db, freightIds, cancellationToken);
+
+    /// <summary>Two decimals of a degree is about 1.1 km: enough to place the pin in a neighbourhood, not on a street.</summary>
+    private static double? ApproximateCoordinate(double? value) => value is null ? null : Math.Round(value.Value, 2);
 
     private static IReadOnlyList<FreightItemResponse> ItemsOf(Dictionary<Guid, List<FreightItemResponse>> items, Guid stopId) =>
         items.TryGetValue(stopId, out var list) ? list : Array.Empty<FreightItemResponse>();

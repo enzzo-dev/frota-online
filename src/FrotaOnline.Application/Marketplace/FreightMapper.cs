@@ -17,6 +17,8 @@ internal static class FreightMapper
         freight.ProposalDeadline,
         freight.PickupCount,
         freight.DeliveryCount,
+        freight.RouteDistanceMeters,
+        freight.RouteDurationSeconds,
         freight.Stops
             .OrderBy(s => s.Sequence)
             .Select(s => new FreightStopResponse(

@@ -7,6 +7,7 @@ using FrotaOnline.Application.Abstractions.Terms;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Abstractions.Privacy;
 using FrotaOnline.Application.Abstractions.Queries;
+using FrotaOnline.Application.Abstractions.Routing;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
@@ -16,6 +17,7 @@ using FrotaOnline.Infrastructure.Persistence;
 using FrotaOnline.Infrastructure.Privacy;
 using FrotaOnline.Infrastructure.Queries;
 using FrotaOnline.Infrastructure.Repositories;
+using FrotaOnline.Infrastructure.Routing;
 using FrotaOnline.Infrastructure.Security;
 using FrotaOnline.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +70,13 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+
+        // Road routing. To use another engine, write a class that implements IRoutingProvider and register it here.
+        services.AddOptions<RoutingOptions>()
+            .Bind(configuration.GetSection(RoutingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddHttpClient<IRoutingProvider, OsrmRoutingProvider>();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();

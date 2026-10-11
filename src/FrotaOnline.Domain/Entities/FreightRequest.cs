@@ -30,6 +30,11 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
 
     public Guid? ApprovedProposalId { get; private set; }
 
+    /// <summary>Driving distance of the whole run, calculated when the freight was created. Null when it could not be calculated.</summary>
+    public int? RouteDistanceMeters { get; private set; }
+
+    public int? RouteDurationSeconds { get; private set; }
+
     public bool IsSameDay => ScheduledPickupAt is null;
 
     /// <summary>Pickups and deliveries in the order the customer chose. The last one is the final delivery.</summary>
@@ -94,6 +99,17 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
         }
 
         return freight;
+    }
+
+    public void SetRoute(int distanceMeters, int durationSeconds)
+    {
+        if (distanceMeters < 0 || durationSeconds < 0)
+        {
+            throw new DomainException("The route distance and duration cannot be negative.");
+        }
+
+        RouteDistanceMeters = distanceMeters;
+        RouteDurationSeconds = durationSeconds;
     }
 
     public bool CanReceiveProposals(DateTime utcNow) => Status == FreightStatus.Open && utcNow < ProposalDeadline;

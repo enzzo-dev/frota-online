@@ -22,7 +22,7 @@ public sealed class AddressesController : ApiControllerBase
 
     [HttpPost]
     [EndpointSummary("Save an address")]
-    [EndpointDescription("Use the returned id as pickupAddressId or deliveryAddressId when requesting a freight. State is the two-letter code and zipCode has 8 digits.")]
+    [EndpointDescription("Use the returned id in the stops of a freight and in the route preview. State is the two-letter code and zipCode has 8 digits. latitude (-90 to 90) and longitude (-180 to 180) are optional and must be sent together (only one of them is rejected) with the real position of the address, for example from a public geocoding API the app calls on the typed address. Without them the address still works, but the route on the map cannot be drawn (route.missing_coordinates).")]
     [ProducesResponseType<AddressResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(CreateAddressRequest request, CancellationToken cancellationToken) =>

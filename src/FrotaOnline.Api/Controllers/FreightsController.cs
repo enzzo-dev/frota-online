@@ -1,5 +1,7 @@
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Marketplace.Dtos;
+using FrotaOnline.Application.Routing;
+using FrotaOnline.Application.Routing.Dtos;
 using FrotaOnline.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,12 +15,31 @@ public sealed class FreightsController : ApiControllerBase
 {
     private readonly IFreightService _freights;
     private readonly IProposalSelectionService _selection;
+    private readonly IRouteService _routes;
 
-    public FreightsController(IFreightService freights, IProposalSelectionService selection)
+    public FreightsController(IFreightService freights, IProposalSelectionService selection, IRouteService routes)
     {
         _freights = freights;
         _selection = selection;
+        _routes = routes;
     }
+
+    [HttpPost("route-preview")]
+    [EndpointSummary("See the route on the map before requesting the freight")]
+    [EndpointDescription("Send the saved address ids in the order of the run. Returns the pins, the driving distance in meters, the duration in seconds and the line to draw. If the routing engine is down, distance and duration come back null and the path empty: draw the pins and a straight line. Addresses without a map position are refused (route.missing_coordinates); send latitude and longitude when saving the address.")]
+    [ProducesResponseType<RouteMapResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PreviewRoute(RoutePreviewRequest request, CancellationToken cancellationToken) =>
+        Handle(await _routes.PreviewAsync(CurrentUserId, request, cancellationToken), Ok);
+
+    [HttpGet("{freightId:guid}/route")]
+    [EndpointSummary("Route of a freight on the map")]
+    [EndpointDescription("Same shape as the preview, with the stop type on each pin.")]
+    [ProducesResponseType<RouteMapResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRoute(Guid freightId, CancellationToken cancellationToken) =>
+        Handle(await _routes.ForFreightAsync(CurrentUserId, freightId, cancellationToken), Ok);
 
     [HttpPost]
     [EndpointSummary("Request a freight")]

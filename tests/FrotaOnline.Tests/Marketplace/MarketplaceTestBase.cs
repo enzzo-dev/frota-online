@@ -2,6 +2,8 @@ using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Deliveries.Validators;
 using FrotaOnline.Application.Marketplace;
+using FrotaOnline.Application.Routing;
+using FrotaOnline.Application.Routing.Validators;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Application.Marketplace.Validators;
 using FrotaOnline.Application.Addresses.Validators;
@@ -28,6 +30,7 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeMediaFileRepository Media = new();
     private protected readonly FakePaymentRepository Payments = new();
     private protected readonly FakeFeeLedgerRepository Fees = new();
+    private protected readonly FakeRoutingProvider Routing = new();
 
     private protected FakeFreightQueries FreightQueries => new(Freights, Proposals, Addresses, Drivers, Users, Vehicles);
     private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses, Drivers, Users, Vehicles, Payments);
@@ -35,7 +38,10 @@ public abstract class MarketplaceTestBase
     protected readonly Guid CustomerId = Guid.NewGuid();
 
     protected FreightService FreightService => new(
-        Freights, Proposals, Addresses, FreightQueries, Terms, UnitOfWork, Clock, new CreateFreightRequestValidator());
+        Freights, Proposals, Addresses, FreightQueries, Terms, new RoutePlanner(Routing), UnitOfWork, Clock, new CreateFreightRequestValidator());
+
+    protected RouteService RouteService => new(
+        Addresses, Freights, Deliveries, Drivers, new RoutePlanner(Routing), new RoutePreviewRequestValidator());
 
     protected DriverMarketplaceService DriverMarketplace => new(
         Drivers, Vehicles, Freights, Proposals, FreightQueries, Agenda, UnitOfWork, Clock, new SubmitProposalRequestValidator());
@@ -68,9 +74,10 @@ public abstract class MarketplaceTestBase
         return (pickup, delivery);
     }
 
-    protected Address AddAddress(Guid ownerId, string city, string district = "Centro", string zip = "01001000")
+    protected Address AddAddress(
+        Guid ownerId, string city, string district = "Centro", string zip = "01001000", double? latitude = null, double? longitude = null)
     {
-        var address = Address.Create(ownerId, city, "Rua " + city, "1", null, district, city, "SP", zip, null, null);
+        var address = Address.Create(ownerId, city, "Rua " + city, "1", null, district, city, "SP", zip, latitude, longitude);
         Addresses.Items.Add(address);
         return address;
     }

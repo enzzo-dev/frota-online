@@ -28,5 +28,9 @@ public sealed class CreateAddressRequestValidator : AbstractValidator<CreateAddr
             .WithMessage("ZIP code must have 8 digits.");
         RuleFor(x => x.Latitude).InclusiveBetween(-90, 90).When(x => x.Latitude.HasValue);
         RuleFor(x => x.Longitude).InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue);
+        RuleFor(x => x)
+            .Must(x => x.Latitude.HasValue == x.Longitude.HasValue)
+            .WithName("Latitude")
+            .WithMessage("Send latitude and longitude together.");
     }
 }

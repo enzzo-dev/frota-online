@@ -41,6 +41,8 @@ public sealed record FreightResponse(
     DateTime ProposalDeadline,
     int PickupCount,
     int DeliveryCount,
+    int? RouteDistanceMeters,
+    int? RouteDurationSeconds,
     IReadOnlyList<FreightStopResponse> Stops,
     Guid? ApprovedProposalId,
     int PendingProposals,
@@ -69,13 +71,18 @@ public sealed record ApprovedDeliveryResponse(
     DateTime AgendaStartsAt,
     DateTime AgendaEndsAt);
 
-/// <summary>A stop as a driver sees it before winning the freight: the area and the cargo, no street.</summary>
+/// <summary>
+/// A stop as a driver sees it before winning the freight: the area and the cargo, no street.
+/// ApproxLatitude/ApproxLongitude are rounded to two decimals (about 1 km) so the pin shows the area, not the door.
+/// </summary>
 public sealed record OpenStopResponse(
     int Sequence,
     StopType Type,
     string District,
     string City,
     string State,
+    double? ApproxLatitude,
+    double? ApproxLongitude,
     IReadOnlyList<FreightItemResponse> Items);
 
 /// <summary>Freight as a driver sees it before winning it: no street addresses yet.</summary>
@@ -88,6 +95,8 @@ public sealed record OpenFreightResponse(
     DateTime ProposalDeadline,
     int PickupCount,
     int DeliveryCount,
+    int? RouteDistanceMeters,
+    int? RouteDurationSeconds,
     IReadOnlyList<OpenStopResponse> Stops);
 
 /// <summary>Full gives every stop of the run at once; Next gives only the stop the driver must do now.</summary>

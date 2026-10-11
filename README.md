@@ -376,7 +376,7 @@ O e-mail anonimizado libera o e-mail original para um novo cadastro. Os access t
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
-| GET / POST | `/addresses` | Lista e cadastra endereços (de coleta e de entrega). UF válida e CEP com 8 dígitos. |
+| GET / POST | `/addresses` | Lista e cadastra endereços (de coleta e de entrega). UF válida e CEP com 8 dígitos. `latitude` (-90 a 90) e `longitude` (-180 a 180) são opcionais, mas vão sempre juntas (só uma das duas dá 400): o app consulta uma API pública de geocodificação com o endereço digitado e envia o ponto. A API não geocodifica sozinha, e sem o ponto o endereço funciona, mas a rota no mapa não pode ser desenhada (`route.missing_coordinates`). |
 | POST | `/freights` | Cria o pedido com uma lista `stops` na ordem da corrida. Cada parada é `Pickup` ou `Delivery`, com endereço, observação e `items` opcionais (`description`, `quantity`). Pode haver várias coletas e várias entregas; a primeira parada precisa ser coleta e a última entrega, que é o endereço final. Os endereços são diferentes e do próprio cliente (pessoa ou empresa), até 20 paradas e 50 itens por parada. Informe também a carga, o peso total (até 60 t), o tipo de veículo e, opcional, `scheduledPickupAt` em UTC (com `Z`). Exige os termos aceitos. Sem data o frete é do dia e a janela de propostas é de 5 minutos; agendado, 24 horas. |
 | GET | `/freights?status=` | Pedidos do cliente, com a quantidade de propostas pendentes. |
 | GET | `/freights/{id}` | Detalhe do pedido, com todas as paradas, endereços e itens. |
@@ -401,6 +401,22 @@ Os pedidos agora têm paradas (`FreightStop`) e itens (`FreightItem`) e perderam
 dotnet ef migrations add FreightStops -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api -o Persistence/Migrations
 dotnet ef database update -p src/FrotaOnline.Infrastructure -s src/FrotaOnline.Api
 ```
+
+### Rota no mapa
+
+O cliente vê a rota assim que escolhe os endereços, e o motorista vê distância e tempo ao decidir se propõe.
+
+| Quem | Rota | O que devolve |
+| --- | --- | --- |
+| Cliente | `POST /api/v1/freights/route-preview` com `addressIds` na ordem da corrida | Pinos, distância (m), duração (s) e a linha para desenhar. Ainda não existe frete. |
+| Cliente | `GET /api/v1/freights/{id}/route` | O mesmo, com o tipo de cada parada. |
+| Motorista, antes de ganhar | `GET /api/v1/driver/freights/open` | `routeDistanceMeters`, `routeDurationSeconds` e, por parada, `approxLatitude`/`approxLongitude` arredondadas a 2 casas (cerca de 1 km). A rua e o traçado exato continuam ocultos. |
+| Motorista, depois de ganhar | `GET /api/v1/driver/deliveries/{id}/map` | Pinos exatos, distância, duração e a linha. |
+
+- Os endereços precisam de `latitude` e `longitude` (o app pega do seletor de mapa ao salvar o endereço). Sem elas, a resposta é `route.missing_coordinates` com o nome dos endereços que faltam.
+- O cálculo passa por `IRoutingProvider`. O padrão é o OSRM (gratuito e open source), configurado em `Routing:BaseUrl` e `Routing:TimeoutSeconds`. O servidor público `router.project-osrm.org` serve só para testes; em produção hospede o seu (imagem `osrm/osrm-backend` com o mapa do Brasil). Para trocar por Google ou Mapbox, escreva uma classe que implemente `IRoutingProvider` e troque a linha de registro em `Infrastructure/DependencyInjection.cs`.
+- Se o motor de rotas estiver fora do ar ou lento, nada falha: criar o frete continua funcionando e o mapa vem com `distanceMeters`, `durationSeconds` nulos e `path` vazio. Desenhe os pinos e uma linha reta.
+- A distância e o tempo do frete são calculados na criação e gravados em `FreightRequests` (`RouteDistanceMeters`, `RouteDurationSeconds`), para a lista do motorista não chamar o motor 100 vezes. Gere uma migration para essas colunas.
 
 ### Regras do marketplace
 
@@ -481,6 +497,7 @@ As falhas retornam problem details (RFC 7807). Leia o código de status e depois
 | 400 | `delivery.invalid_proof` | O comprovante precisa ser um `DeliveryProof` do próprio motorista. |
 | 409 | `payment.not_delivered`, `payment.already_confirmed` | Pagamento só após a entrega, uma vez. |
 | 409 | `fee.exceeds_balance` | O acerto passa do saldo em aberto. |
+| 400 | `route.missing_coordinates` | Algum endereço da rota ainda não tem latitude e longitude. A mensagem lista quais. |
 | 409 | `request.duplicate` | Duas requisições iguais chegaram juntas e o banco barrou a segunda (índice único), por exemplo a confirmação de pagamento. Recarregue e confira o estado. |
 
 ## Consultas e desempenho

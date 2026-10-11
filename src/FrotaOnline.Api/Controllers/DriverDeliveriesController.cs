@@ -2,6 +2,8 @@ using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Marketplace.Dtos;
+using FrotaOnline.Application.Routing;
+using FrotaOnline.Application.Routing.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,13 +17,16 @@ public sealed class DriverDeliveriesController : ApiControllerBase
     private readonly IDriverDeliveryService _deliveries;
     private readonly IDeliveryProgressService _progress;
     private readonly IDeliveryPaymentService _payments;
+    private readonly IRouteService _routes;
 
     public DriverDeliveriesController(
-        IDriverDeliveryService deliveries, IDeliveryProgressService progress, IDeliveryPaymentService payments)
+        IDriverDeliveryService deliveries, IDeliveryProgressService progress, IDeliveryPaymentService payments,
+        IRouteService routes)
     {
         _deliveries = deliveries;
         _progress = progress;
         _payments = payments;
+        _routes = routes;
     }
 
     [HttpGet]
@@ -40,6 +45,14 @@ public sealed class DriverDeliveriesController : ApiControllerBase
     public async Task<IActionResult> GetRoute(
         Guid deliveryId, [FromQuery] RouteView view = RouteView.Full, CancellationToken cancellationToken = default) =>
         Handle(await _deliveries.GetRouteAsync(CurrentUserId, deliveryId, view, cancellationToken), Ok);
+
+    [HttpGet("{deliveryId:guid}/map")]
+    [EndpointSummary("The exact route of a delivery on the map")]
+    [EndpointDescription("Only for a delivery the driver won. Pins with the exact positions, plus distance, duration and the line to draw. Before winning, the driver sees the approximate pins and the distance in GET /driver/freights/open.")]
+    [ProducesResponseType<RouteMapResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMap(Guid deliveryId, CancellationToken cancellationToken) =>
+        Handle(await _routes.ForDriverDeliveryAsync(CurrentUserId, deliveryId, cancellationToken), Ok);
 
     [HttpPost("{deliveryId:guid}/start")]
     [EndpointSummary("Leave for the first pickup")]
