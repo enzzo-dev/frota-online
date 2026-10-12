@@ -32,6 +32,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     f.ScheduledPickupAt,
                     TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id),
                     CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id && s.CompletedAt != null),
+                    Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
                     d.CreatedAt,
                 })
             .ToListAsync(cancellationToken);
@@ -39,7 +40,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
         return rows
             .Select(r => new DriverDeliverySummary(
                 r.DeliveryId, r.FreightRequestId, r.Status, r.AgreedPrice, r.ScheduledPickupAt,
-                r.TotalStops, r.CompletedStops, r.CreatedAt))
+                r.TotalStops, r.CompletedStops, r.Payment, r.CreatedAt))
             .ToList();
     }
 

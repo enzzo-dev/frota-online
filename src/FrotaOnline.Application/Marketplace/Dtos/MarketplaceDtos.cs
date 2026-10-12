@@ -143,4 +143,5 @@ public sealed record DriverDeliverySummary(
     DateTime? ScheduledPickupAt,
     int TotalStops,
     int CompletedStops,
+    PaymentStatus? Payment,
     DateTime CreatedAt);

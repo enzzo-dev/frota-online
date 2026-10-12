@@ -214,7 +214,7 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
                 var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
                 return new DriverDeliverySummary(
                     d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, freight.ScheduledPickupAt,
-                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), d.CreatedAt);
+                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt);
             })
             .ToList();
 
