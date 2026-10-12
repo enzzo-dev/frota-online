@@ -70,13 +70,15 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         }
 
         var vehicles = await _vehicles.ListActiveByDriverAsync(profile.Id, cancellationToken);
-        var types = vehicles.Select(v => v.Type).Distinct().ToList();
-        if (types.Count == 0)
+        var capacityByType = vehicles
+            .GroupBy(v => v.Type)
+            .ToDictionary(g => g.Key, g => g.Max(v => v.CapacityKg));
+        if (capacityByType.Count == 0)
         {
             return Result.Success<IReadOnlyList<OpenFreightResponse>>(Array.Empty<OpenFreightResponse>());
         }
 
-        var response = await _queries.ListOpenAsync(_clock.UtcNow, types, cancellationToken);
+        var response = await _queries.ListOpenAsync(_clock.UtcNow, profile.Id, capacityByType, cancellationToken);
 
         return Result.Success<IReadOnlyList<OpenFreightResponse>>(response);
     }

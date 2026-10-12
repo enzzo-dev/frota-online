@@ -132,6 +132,33 @@ public class DriverMarketplaceServiceTests : MarketplaceTestBase
     }
 
     [Fact]
+    public async Task ListOpen_HidesFreightsHeavierThanTheDriversVehicle()
+    {
+        await CreateFreightAsync(weight: 300);
+        await CreateFreightAsync(weight: 900);
+        var (userId, _, _) = AddApprovedDriver(capacity: 600);
+
+        var result = await DriverMarketplace.ListOpenFreightsAsync(userId, CancellationToken.None);
+
+        var item = Assert.Single(result.Value);
+        Assert.Equal(300m, item.CargoWeightKg);
+    }
+
+    [Fact]
+    public async Task ListOpen_HidesFreightsTheDriverAlreadyProposedOn()
+    {
+        var proposed = await CreateFreightAsync();
+        var other = await CreateFreightAsync();
+        var (userId, _, vehicle) = AddApprovedDriver();
+        await DriverMarketplace.SubmitProposalAsync(userId, proposed, Proposal(vehicle, 100m), CancellationToken.None);
+
+        var result = await DriverMarketplace.ListOpenFreightsAsync(userId, CancellationToken.None);
+
+        var item = Assert.Single(result.Value);
+        Assert.Equal(other, item.Id);
+    }
+
+    [Fact]
     public async Task ListOpen_ShowsStopCountsAndItemsPerStop_ButNoStreets()
     {
         var a = AddAddress(CustomerId, "Sao Paulo");

@@ -95,7 +95,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
         }
 
         var stops = await ordered.ToListAsync(cancellationToken);
-        var items = await FreightItemReader.LoadAsync(_db, new[] { header.FreightId }, cancellationToken);
+        var items = await FreightItemReader.LoadAsync(_db, stops.Select(s => s.StopId).ToList(), cancellationToken);
 
         var response = stops
             .Select(s => new RouteStopResponse(
@@ -192,7 +192,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                 })
             .ToListAsync(cancellationToken);
 
-        var items = await FreightItemReader.LoadAsync(_db, new[] { header.FreightRequestId }, cancellationToken);
+        var items = await FreightItemReader.LoadAsync(_db, stops.Select(s => s.StopId).ToList(), cancellationToken);
 
         var events = await _db.DeliveryEvents.AsNoTracking()
             .Where(e => e.DeliveryId == deliveryId)

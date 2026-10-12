@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Addresses.Dtos;
 using FrotaOnline.Application.Marketplace.Dtos;
@@ -22,13 +23,18 @@ internal sealed class FreightQueries : IFreightQueries
     public FreightQueries(AppDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<OpenFreightResponse>> ListOpenAsync(
-        DateTime utcNow, IReadOnlyCollection<VehicleType> vehicleTypes, CancellationToken cancellationToken)
+        DateTime utcNow,
+        Guid driverProfileId,
+        IReadOnlyDictionary<VehicleType, decimal> maxCapacityByType,
+        CancellationToken cancellationToken)
     {
         var headers = await _db.FreightRequests
             .AsNoTracking()
-            .Where(f => f.Status == FreightStatus.Open
-                        && f.ProposalDeadline > utcNow
-                        && vehicleTypes.Contains(f.RequiredVehicleType))
+            .Where(f => f.Status == FreightStatus.Open && f.ProposalDeadline > utcNow)
+            .Where(CanBeCarried(maxCapacityByType))
+            .Where(f => !_db.Proposals.Any(p => p.FreightRequestId == f.Id
+                                                && p.DriverProfileId == driverProfileId
+                                                && p.Status == ProposalStatus.Pending))
             .OrderByDescending(f => f.CreatedAt)
             .ThenBy(f => f.Id)
             .Take(OpenListLimit)
@@ -62,7 +68,7 @@ internal sealed class FreightQueries : IFreightQueries
                 select new { s.FreightRequestId, StopId = s.Id, s.Sequence, s.Type, a.District, a.City, a.State, a.Latitude, a.Longitude })
             .ToListAsync(cancellationToken);
 
-        var items = await LoadItemsAsync(freightIds, cancellationToken);
+        var items = await FreightItemReader.LoadAsync(_db, stops.Select(s => s.StopId).ToList(), cancellationToken);
         var stopsByFreight = stops.ToLookup(s => s.FreightRequestId);
 
         return headers
@@ -193,7 +199,7 @@ internal sealed class FreightQueries : IFreightQueries
                 })
             .ToListAsync(cancellationToken);
 
-        var items = await LoadItemsAsync(freightIds, cancellationToken);
+        var items = await FreightItemReader.LoadAsync(_db, stops.Select(s => s.StopId).ToList(), cancellationToken);
         var stopsByFreight = stops.ToLookup(s => s.FreightRequestId);
 
         return headers
@@ -212,9 +218,21 @@ internal sealed class FreightQueries : IFreightQueries
             .ToList();
     }
 
-    private async Task<Dictionary<Guid, List<FreightItemResponse>>> LoadItemsAsync(
-        List<Guid> freightIds, CancellationToken cancellationToken) =>
-        await FreightItemReader.LoadAsync(_db, freightIds, cancellationToken);
+    /// <summary>
+    /// (type = A AND weight &lt;= capacityA) OR (type = B AND weight &lt;= capacityB) ..., one branch per vehicle type the
+    /// driver has, so a freight is listed only when some vehicle of its type can carry it.
+    /// </summary>
+    private static Expression<Func<FreightRequest, bool>> CanBeCarried(IReadOnlyDictionary<VehicleType, decimal> maxCapacityByType)
+    {
+        var freight = Expression.Parameter(typeof(FreightRequest), "f");
+        var body = maxCapacityByType
+            .Select(entry => (Expression)Expression.AndAlso(
+                Expression.Equal(Expression.Property(freight, nameof(FreightRequest.RequiredVehicleType)), Expression.Constant(entry.Key)),
+                Expression.LessThanOrEqual(Expression.Property(freight, nameof(FreightRequest.CargoWeightKg)), Expression.Constant(entry.Value))))
+            .Aggregate((left, right) => Expression.OrElse(left, right));
+
+        return Expression.Lambda<Func<FreightRequest, bool>>(body, freight);
+    }
 
     /// <summary>Two decimals of a degree is about 1.1 km: enough to place the pin in a neighbourhood, not on a street.</summary>
     private static double? ApproximateCoordinate(double? value) => value is null ? null : Math.Round(value.Value, 2);

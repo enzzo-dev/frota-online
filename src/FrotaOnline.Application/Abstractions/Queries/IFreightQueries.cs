@@ -9,9 +9,15 @@ namespace FrotaOnline.Application.Abstractions.Queries;
 /// </summary>
 public interface IFreightQueries
 {
-    /// <summary>Open freights still inside their proposal window for the given vehicle types, newest first (max 100).</summary>
+    /// <summary>
+    /// Open freights still inside their proposal window that one of the driver's vehicles can carry (same type and enough
+    /// capacity, given as the largest capacity per type) and that the driver has no pending proposal on, newest first (max 100).
+    /// </summary>
     Task<IReadOnlyList<OpenFreightResponse>> ListOpenAsync(
-        DateTime utcNow, IReadOnlyCollection<VehicleType> vehicleTypes, CancellationToken cancellationToken);
+        DateTime utcNow,
+        Guid driverProfileId,
+        IReadOnlyDictionary<VehicleType, decimal> maxCapacityByType,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyList<FreightResponse>> ListByCustomerAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken);

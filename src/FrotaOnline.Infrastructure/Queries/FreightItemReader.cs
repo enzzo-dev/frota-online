@@ -6,16 +6,20 @@ namespace FrotaOnline.Infrastructure.Queries;
 
 internal static class FreightItemReader
 {
-    /// <summary>Items of every stop of the given freights, grouped by stop id, read in one SQL statement.</summary>
+    /// <summary>Items of the given stops, grouped by stop id, read in one SQL statement over FreightItems alone.</summary>
     public static async Task<Dictionary<Guid, List<FreightItemResponse>>> LoadAsync(
-        AppDbContext db, IReadOnlyCollection<Guid> freightIds, CancellationToken cancellationToken)
+        AppDbContext db, IReadOnlyCollection<Guid> stopIds, CancellationToken cancellationToken)
     {
-        var rows = await (
-                from i in db.FreightItems.AsNoTracking()
-                join s in db.FreightStops.AsNoTracking() on i.FreightStopId equals s.Id
-                where freightIds.Contains(s.FreightRequestId)
-                orderby i.CreatedAt, i.Id
-                select new { i.FreightStopId, i.Description, i.Quantity })
+        if (stopIds.Count == 0)
+        {
+            return new Dictionary<Guid, List<FreightItemResponse>>();
+        }
+
+        var rows = await db.FreightItems
+            .AsNoTracking()
+            .Where(i => stopIds.Contains(i.FreightStopId))
+            .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
+            .Select(i => new { i.FreightStopId, i.Description, i.Quantity })
             .ToListAsync(cancellationToken);
 
         return rows

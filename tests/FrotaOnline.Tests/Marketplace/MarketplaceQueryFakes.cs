@@ -40,10 +40,14 @@ internal sealed class FakeFreightQueries : IFreightQueries
     }
 
     public Task<IReadOnlyList<OpenFreightResponse>> ListOpenAsync(
-        DateTime utcNow, IReadOnlyCollection<VehicleType> vehicleTypes, CancellationToken cancellationToken)
+        DateTime utcNow, Guid driverProfileId, IReadOnlyDictionary<VehicleType, decimal> maxCapacityByType,
+        CancellationToken cancellationToken)
     {
         var rows = _freights.Items
-            .Where(f => f.Status == FreightStatus.Open && f.ProposalDeadline > utcNow && vehicleTypes.Contains(f.RequiredVehicleType))
+            .Where(f => f.Status == FreightStatus.Open && f.ProposalDeadline > utcNow
+                        && maxCapacityByType.TryGetValue(f.RequiredVehicleType, out var capacity) && f.CargoWeightKg <= capacity
+                        && !_proposals.Items.Any(p => p.FreightRequestId == f.Id && p.DriverProfileId == driverProfileId
+                                                      && p.Status == ProposalStatus.Pending))
             .OrderByDescending(f => f.CreatedAt)
             .Take(100)
             .Select(f => new OpenFreightResponse(

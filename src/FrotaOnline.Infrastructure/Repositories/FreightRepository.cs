@@ -12,9 +12,10 @@ internal sealed class FreightRepository : IFreightRepository
 
     public FreightRepository(AppDbContext db) => _db = db;
 
-    // Stops and their items always travel with the freight.
+    // Stops travel with the freight. Items do not: services never read them from the aggregate (the read side
+    // queries them straight into DTOs), so loading them would cost a third statement on every call.
     private IQueryable<FreightRequest> WithStops() =>
-        _db.FreightRequests.Include(f => f.Stops).ThenInclude(s => s.Items).AsSplitQuery();
+        _db.FreightRequests.Include(f => f.Stops);
 
     public Task<FreightRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         WithStops().FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
