@@ -37,6 +37,14 @@ public sealed class DriverDeliveriesController : ApiControllerBase
     public async Task<IActionResult> List(CancellationToken cancellationToken) =>
         Handle(await _deliveries.ListAsync(CurrentUserId, cancellationToken), Ok);
 
+    [HttpGet("{deliveryId:guid}")]
+    [EndpointSummary("One delivery the driver won")]
+    [EndpointDescription("Current status, stop counters and the payment status (null until the customer starts paying). Use it to refresh a single delivery instead of loading the whole list.")]
+    [ProducesResponseType<DriverDeliverySummary>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Get(Guid deliveryId, CancellationToken cancellationToken) =>
+        Handle(await _deliveries.GetAsync(CurrentUserId, deliveryId, cancellationToken), Ok);
+
     [HttpGet("{deliveryId:guid}/route")]
     [EndpointSummary("The route of a delivery, with full addresses")]
     [EndpointDescription("view=Full returns every pickup and delivery of the run at once. view=Next returns only the stop to do now, so the app can show one stop after the other. Each stop lists its items.")]

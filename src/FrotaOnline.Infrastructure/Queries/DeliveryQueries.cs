@@ -15,12 +15,20 @@ internal sealed class DeliveryQueries : IDeliveryQueries
     public DeliveryQueries(AppDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<DriverDeliverySummary>> ListByDriverAsync(
-        Guid driverProfileId, CancellationToken cancellationToken)
+        Guid driverProfileId, CancellationToken cancellationToken) =>
+        await DriverSummaries(driverProfileId, deliveryId: null, cancellationToken);
+
+    public async Task<DriverDeliverySummary?> GetSummaryByDriverAsync(
+        Guid driverProfileId, Guid deliveryId, CancellationToken cancellationToken) =>
+        (await DriverSummaries(driverProfileId, deliveryId, cancellationToken)).FirstOrDefault();
+
+    private async Task<List<DriverDeliverySummary>> DriverSummaries(
+        Guid driverProfileId, Guid? deliveryId, CancellationToken cancellationToken)
     {
         // Stop counters are correlated COUNT subqueries: no freight or stop is loaded.
         var rows = await (
                 from d in _db.Deliveries.AsNoTracking()
-                where d.DriverProfileId == driverProfileId
+                where d.DriverProfileId == driverProfileId && (deliveryId == null || d.Id == deliveryId)
                 join f in _db.FreightRequests.AsNoTracking() on d.FreightRequestId equals f.Id
                 orderby d.CreatedAt descending, d.Id
                 select new

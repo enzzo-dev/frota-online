@@ -8,6 +8,9 @@ public interface IDeliveryQueries
     /// <summary>Deliveries won by the driver, newest first, with stop counters computed by the database.</summary>
     Task<IReadOnlyList<DriverDeliverySummary>> ListByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken);
 
+    /// <summary>One delivery won by the driver, in the same shape as the list. Null when it does not exist or belongs to another driver.</summary>
+    Task<DriverDeliverySummary?> GetSummaryByDriverAsync(Guid driverProfileId, Guid deliveryId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Route of a delivery owned by the driver. <see cref="RouteView.Next"/> returns only the first stop not completed yet.
     /// Null when the delivery does not exist or belongs to another driver.

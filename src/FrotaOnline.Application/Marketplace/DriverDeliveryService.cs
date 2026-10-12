@@ -30,6 +30,21 @@ public sealed class DriverDeliveryService : IDriverDeliveryService
         return Result.Success(rows);
     }
 
+    public async Task<Result<DriverDeliverySummary>> GetAsync(
+        Guid userId, Guid deliveryId, CancellationToken cancellationToken)
+    {
+        var profile = await _drivers.GetByUserIdAsync(userId, cancellationToken);
+        if (profile is null)
+        {
+            return Result.Failure<DriverDeliverySummary>(DriverErrors.ProfileNotFound);
+        }
+
+        var delivery = await _queries.GetSummaryByDriverAsync(profile.Id, deliveryId, cancellationToken);
+        return delivery is null
+            ? Result.Failure<DriverDeliverySummary>(MarketplaceErrors.DeliveryNotFound)
+            : Result.Success(delivery);
+    }
+
     public async Task<Result<DeliveryRouteResponse>> GetRouteAsync(
         Guid userId, Guid deliveryId, RouteView view, CancellationToken cancellationToken)
     {

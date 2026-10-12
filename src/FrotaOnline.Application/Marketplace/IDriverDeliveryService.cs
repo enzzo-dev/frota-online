@@ -8,6 +8,9 @@ public interface IDriverDeliveryService
 {
     Task<Result<IReadOnlyList<DriverDeliverySummary>>> ListAsync(Guid userId, CancellationToken cancellationToken);
 
+    /// <summary>One delivery with its current status, stop counters and payment status.</summary>
+    Task<Result<DriverDeliverySummary>> GetAsync(Guid userId, Guid deliveryId, CancellationToken cancellationToken);
+
     /// <summary>Full returns every stop at once; Next returns only the first stop not completed yet.</summary>
     Task<Result<DeliveryRouteResponse>> GetRouteAsync(
         Guid userId, Guid deliveryId, RouteView view, CancellationToken cancellationToken);

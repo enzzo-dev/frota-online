@@ -221,6 +221,10 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
         return Task.FromResult<IReadOnlyList<DriverDeliverySummary>>(rows);
     }
 
+    public async Task<DriverDeliverySummary?> GetSummaryByDriverAsync(
+        Guid driverProfileId, Guid deliveryId, CancellationToken cancellationToken) =>
+        (await ListByDriverAsync(driverProfileId, cancellationToken)).FirstOrDefault(d => d.DeliveryId == deliveryId);
+
     public Task<DeliveryRouteResponse?> GetRouteAsync(
         Guid driverProfileId, Guid deliveryId, RouteView view, CancellationToken cancellationToken)
     {
