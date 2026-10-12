@@ -47,12 +47,12 @@ if (app.Environment.IsDevelopment())
     // First admin (Seed:Admin) and terms v1.0. Skipped with a warning until the migrations are applied.
     await DevelopmentDataSeeder.SeedAsync(app.Services);
 
-    // Default page: / and /docs both open the guide at /docs/index.html.
+    // Default page: / and /docs both open the journeys at /docs/journeys.html (the full single-page guide stays at /docs/index.pt.html).
     // Swagger UI: /swagger  |  Raw OpenAPI document: /openapi/v1.json
     app.MapOpenApi();
     app.UseStaticFiles();
-    app.MapGet("/", () => Results.Redirect("/docs/index.html")).ExcludeFromDescription();
-    app.MapGet("/docs", () => Results.Redirect("/docs/index.html")).ExcludeFromDescription();
+    app.MapGet("/", () => Results.Redirect("/docs/journeys.html")).ExcludeFromDescription();
+    app.MapGet("/docs", () => Results.Redirect("/docs/journeys.html")).ExcludeFromDescription();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Frota Online API v1");

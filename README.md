@@ -200,8 +200,9 @@ Disponíveis só em Development. Os três leem o mesmo contrato, então endpoint
 
 | URL | O que é |
 | --- | --- |
-| `/` e `/docs` | Redirecionam para `/docs/index.html`, o guia. Os arquivos ficam em `src/FrotaOnline.Api/wwwroot/docs`. |
-| `/docs/index.pt.html` | O mesmo guia em português. Há um link de troca de idioma na barra lateral das duas versões. As descrições dos endpoints vêm do OpenAPI e ficam em inglês. |
+| `/` e `/docs` | Redirecionam para `/docs/journeys.html`, a documentação por jornada. Os arquivos ficam em `src/FrotaOnline.Api/wwwroot/docs`. |
+| `/docs/journeys.html` | Nove jornadas (conta, cadastro do motorista, análise, cliente pede frete, propostas, entrega, pagamentos, notificações e LGPD), cada uma em subfluxos. Todo passo tem um "Let's try": edite os parâmetros da rota, a query e o JSON e envie a requisição. Os ids devolvidos preenchem os passos seguintes e há sessões de teste de Cliente, Motorista e Admin. O conteúdo está em `journeys.data.js`: para documentar um endpoint novo, acrescente um passo ali. |
+| `/docs/index.html` e `/docs/index.pt.html` | O guia completo em uma página só (inglês e português). Há um link de troca de idioma na barra lateral das duas versões. As descrições dos endpoints vêm do OpenAPI e ficam em inglês. |
 | `/swagger` | Swagger UI padrão. |
 | `/openapi/v1.json` | O documento OpenAPI bruto, gerado a partir dos controllers. |
 

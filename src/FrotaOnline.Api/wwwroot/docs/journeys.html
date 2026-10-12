@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frota Online API: jornadas</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23D7141A'/%3E%3Crect x='14' y='3' width='4' height='7' fill='white'/%3E%3Crect x='14' y='12' width='4' height='7' fill='white'/%3E%3Crect x='14' y='21' width='4' height='7' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="journeys.css">
+</head>
+<body>
+  <a class="skip" href="#content">Ir para o conteúdo</a>
+
+  <aside class="rail" aria-label="Navegação da documentação">
+    <a class="brand" href="#/" aria-label="Frota Online API, voltar ao início">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#D7141A"/>
+        <rect x="14" y="3" width="4" height="7" fill="#fff"/>
+        <rect x="14" y="12" width="4" height="7" fill="#fff"/>
+        <rect x="14" y="21" width="4" height="7" fill="#fff"/>
+      </svg>
+      <span class="brand-name">Frota Online</span>
+    </a>
+
+    <nav class="rail-nav" id="journey-nav" aria-label="Jornadas"></nav>
+
+    <div class="rail-block">
+      <div class="status" id="api-status" role="status"><span class="dot"></span><span id="api-status-text">Verificando a API</span></div>
+
+      <div class="sessions" id="sessions" aria-label="Sessões de teste">
+        <p class="session-title">Sessões de teste</p>
+        <div id="session-rows"></div>
+        <p class="session-sub" id="session-msg" role="status"></p>
+      </div>
+
+      <details class="saved" id="saved-box">
+        <summary>Valores salvos</summary>
+        <div id="saved-list"></div>
+        <button type="button" class="link-btn" id="clear-all">Limpar tudo</button>
+      </details>
+    </div>
+
+    <div class="rail-links">
+      <a href="index.pt.html">Guia completo (antigo)</a>
+      <a href="/swagger" target="_blank" rel="noopener">Swagger UI</a>
+      <a href="/openapi/v1.json" target="_blank" rel="noopener">OpenAPI JSON</a>
+    </div>
+  </aside>
+
+  <main id="content" tabindex="-1"></main>
+
+  <script src="journeys.data.js"></script>
+  <script src="journeys.js"></script>
+</body>
+</html>

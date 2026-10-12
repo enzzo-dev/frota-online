@@ -1,0 +1,87 @@
+/* Journey pages. Colours, fonts, rail, buttons and result box come from docs.css. */
+.sessions { background: #131315; border: 1px solid #26262a; border-radius: var(--r-md); padding: 14px; }
+.sessions .session-title { margin: 0 0 8px; }
+.srow { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 8px 0; border-top: 1px solid #26262a; }
+.srow:first-of-type { border-top: 0; }
+.srow-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.srow-name .pip { width: 9px; height: 9px; border-radius: 50%; background: #55555c; flex: none; }
+.srow.live .pip { background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.2); }
+.srow.active .srow-name::after { content: 'em uso'; font-size: 11px; font-weight: 700; background: var(--red); color: #fff; border-radius: 999px; padding: 1px 8px; }
+.srow-mail { grid-column: 1 / -1; font-size: 12px; color: #a4a4ac; word-break: break-all; }
+.srow-actions { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 1 / -1; }
+.chip-btn { font: inherit; font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; border: 1px solid #44444a; background: transparent; color: #e8e8ea; cursor: pointer; }
+.chip-btn:hover { background: #fff; color: #000; border-color: #fff; }
+.chip-btn[disabled] { opacity: .5; cursor: progress; }
+.saved { color: #d6d6da; font-size: 13px; padding: 0 6px; }
+.saved summary { cursor: pointer; font-weight: 700; }
+.saved dl { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+.saved dt { font-family: var(--font-mono); color: #fff; }
+.saved dd { margin: 0; font-family: var(--font-mono); color: #a4a4ac; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-nav a .tag { display: block; font-size: 12px; opacity: .65; font-weight: 500; }
+
+/* Home */
+.j-hero { background: var(--black); color: #fff; border-radius: var(--r-lg); padding: 56px 48px 48px; max-width: 1060px; }
+.j-hero h1 { font-family: var(--font-display); font-size: clamp(30px, 4.4vw, 48px); line-height: 1.1; margin: 0 0 16px; letter-spacing: -0.02em; }
+.j-hero p { margin: 0; max-width: 60ch; font-size: 18px; color: #e2e2e6; }
+.j-steps { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 26px 0 0; padding: 0; list-style: none; counter-reset: s; }
+.j-steps li { counter-increment: s; font-size: 14px; color: #d6d6da; display: flex; gap: 8px; align-items: center; }
+.j-steps li::before { content: counter(s); background: var(--red); color: #fff; border-radius: 50%; width: 24px; height: 24px; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.j-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; max-width: 1060px; margin: 24px 0 0; }
+.j-card { display: flex; flex-direction: column; gap: 8px; text-decoration: none; background: var(--panel); border: 1.5px solid transparent; border-radius: var(--r-md); padding: 22px; transition: border-color .15s, transform .15s; }
+.j-card:hover { border-color: var(--red); transform: translateY(-2px); }
+.j-card .who { align-self: flex-start; font-size: 12px; font-weight: 700; background: var(--black); color: #fff; border-radius: 999px; padding: 2px 12px; }
+.j-card h2 { font-family: var(--font-display); font-size: 20px; margin: 0; line-height: 1.25; }
+.j-card p { margin: 0; color: var(--ink-soft); font-size: 15px; }
+.j-card .count { margin-top: auto; padding-top: 6px; font-size: 13px; font-weight: 700; }
+
+/* Journey page */
+.j-page { max-width: 960px; padding-bottom: 80px; }
+.j-crumb { margin: 8px 0 0; font-size: 14px; }
+.j-crumb a { color: var(--ink-soft); }
+.j-title { font-family: var(--font-display); font-size: clamp(28px, 4vw, 40px); line-height: 1.12; margin: 10px 0 8px; letter-spacing: -0.02em; }
+.j-sub { margin: 0; color: var(--ink-soft); font-size: 18px; max-width: 62ch; }
+.j-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+.j-tabs a { display: inline-block; text-decoration: none; font-weight: 700; font-size: 14px; border: 1.5px solid #cfcfd4; border-radius: 999px; padding: 6px 16px; }
+.j-tabs a:hover { background: var(--black); color: #fff; border-color: var(--black); }
+.j-flow { margin-top: 48px; scroll-margin-top: 24px; }
+.j-flow > h2 { font-family: var(--font-display); font-size: 26px; margin: 0 0 6px; display: flex; gap: 12px; align-items: center; }
+.j-flow > h2 .n { background: var(--red); color: #fff; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; flex: none; }
+.j-intro { margin: 0 0 18px; color: #2b2b30; max-width: 66ch; }
+.j-step { background: var(--panel); border-radius: var(--r-md); padding: 20px 22px; margin-bottom: 14px; scroll-margin-top: 24px; }
+.j-step.done { box-shadow: inset 4px 0 0 var(--red); }
+.j-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.j-head .method { min-width: 66px; padding: 5px 10px; }
+.j-path { font-family: var(--font-mono); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.j-who { margin-left: auto; font-size: 12px; font-weight: 700; background: var(--black); color: #fff; border-radius: 999px; padding: 2px 12px; }
+.j-who.pub { background: #fff; color: #000; border: 1px solid #cfcfd4; }
+.j-step h3 { font-family: var(--font-display); font-size: 18px; margin: 12px 0 4px; }
+.j-step p { margin: 0 0 6px; max-width: 66ch; }
+.j-note { color: var(--ink-soft); font-size: 14px; }
+.j-try { margin-top: 14px; background: #fff; border: 1.5px solid var(--line); border-radius: var(--r-md); }
+.j-try[open] { border-color: var(--red); }
+.j-try > summary { cursor: pointer; list-style: none; padding: 12px 18px; font-family: var(--font-display); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.j-try > summary::-webkit-details-marker { display: none; }
+.j-try > summary::before { content: '▸'; color: var(--red); transition: transform .15s; }
+.j-try[open] > summary::before { transform: rotate(90deg); }
+.j-try-body { padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+.j-try h4 { font-family: var(--font-display); font-size: 14px; margin: 0 0 6px; }
+.j-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.j-fields input { width: 100%; font-family: var(--font-mono); font-size: 13px; }
+.j-hint { font-weight: 500; font-size: 12.5px; color: var(--ink-soft); }
+.j-hint.warn { color: var(--red-deep); }
+.j-hint a { color: inherit; }
+.j-try textarea { min-height: 120px; }
+.j-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.j-auth { font-size: 13px; color: var(--ink-soft); margin: 0; }
+.j-auth.warn { color: var(--red-deep); font-weight: 700; }
+.j-saved { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.j-saved span { font-family: var(--font-mono); font-size: 12px; background: var(--panel); border-radius: 999px; padding: 3px 12px; }
+.j-pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 56px; flex-wrap: wrap; }
+.j-pager a { text-decoration: none; font-weight: 700; border: 1.5px solid #cfcfd4; border-radius: var(--r-md); padding: 14px 20px; }
+.j-pager a:hover { border-color: var(--red); }
+.j-pager small { display: block; font-weight: 500; color: var(--ink-soft); }
+@media (max-width: 900px) {
+  .j-hero { padding: 36px 22px; border-radius: var(--r-md); }
+  .j-who { margin-left: 0; }
+  .sessions { width: 100%; }
+}
