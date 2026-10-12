@@ -15,5 +15,5 @@ public sealed class RoutingOptions
 
     /// <summary>Longer than this and the request goes on without the route line.</summary>
     [Range(1, 30)]
-    public int TimeoutSeconds { get; init; } = 4;
+    public int TimeoutSeconds { get; init; } = 10;
 }

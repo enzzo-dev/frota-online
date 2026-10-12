@@ -266,7 +266,7 @@ Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:Secre
 | --- | --- | --- |
 | `Jwt__Issuer` / `Jwt__Audience` | `FrotaOnline` / `FrotaOnline.Clients` (Staging: `FrotaOnline.Staging` / `FrotaOnline.Staging.Clients`) | Mantenha diferentes por ambiente para um token de um não valer no outro. |
 | `Jwt__AccessTokenMinutes` / `Jwt__RefreshTokenDays` | `15` / `30` | Duração das sessões. |
-| `Routing__TimeoutSeconds` | `4` | Passou disso, o frete segue sem a linha da rota. |
+| `Routing__TimeoutSeconds` | `10` | Passou disso, o frete segue sem a linha da rota. |
 | `Logging__LogLevel__Default` | `Information` (Production: `Warning`) | Nível de log. |
 | `AllowedHosts` | `*` | Restrinja ao domínio da API em produção. |
 | `PORT` / `ASPNETCORE_URLS` | `8080` no contêiner .NET | O Cloud Run injeta `PORT`; não precisa mexer. |

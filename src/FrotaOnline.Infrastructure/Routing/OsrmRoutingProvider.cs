@@ -19,6 +19,11 @@ internal sealed class OsrmRoutingProvider : IRoutingProvider
         _logger = logger;
         _http.BaseAddress = new Uri(options.Value.BaseUrl.TrimEnd('/') + "/");
         _http.Timeout = TimeSpan.FromSeconds(options.Value.TimeoutSeconds);
+        // The public OSRM server rejects requests without an identifiable User-Agent.
+        if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
+        {
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("FrotaOnline/1.0 (+https://github.com/enzzo-dev/frota-online)");
+        }
     }
 
     public async Task<RoutePath?> GetRouteAsync(IReadOnlyList<GeoPoint> points, CancellationToken cancellationToken)
@@ -38,13 +43,21 @@ internal sealed class OsrmRoutingProvider : IRoutingProvider
             using var response = await _http.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("OSRM answered {Status}; the map will be shown without the route line.", (int)response.StatusCode);
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("OSRM answered {Status} for {Url}: {Body}. Distance and duration will be missing.",
+                    (int)response.StatusCode, _http.BaseAddress + url, body.Length > 300 ? body[..300] : body);
                 return null;
             }
 
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            return Parse(json.RootElement);
+            var parsed = Parse(json.RootElement);
+            if (parsed is null)
+            {
+                _logger.LogError("OSRM returned no route for {Url}: {Body}", _http.BaseAddress + url, json.RootElement.ToString());
+            }
+
+            return parsed;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
         {
@@ -53,7 +66,7 @@ internal sealed class OsrmRoutingProvider : IRoutingProvider
                 throw;
             }
 
-            _logger.LogWarning(ex, "OSRM is unavailable; the map will be shown without the route line.");
+            _logger.LogError(ex, "OSRM is unavailable ({Base}); distance and duration will be missing.", _http.BaseAddress);
             return null;
         }
     }
