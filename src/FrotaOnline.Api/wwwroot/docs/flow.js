@@ -108,11 +108,11 @@
 
         { id: 'm1', c: 1, r: 0, m: 'GET', p: '/driver/freights/open', d: 'Open freights that fit your vehicles', who: 'Driver (approved)',
           get: '[{ id, cargoDescription, cargoWeightKg,\n  requiredVehicleType, scheduledPickupAt,\n  proposalDeadline, pickupCount, deliveryCount,\n  stops: [{ sequence, type, district, city,\n    state, items }] }]',
-          note: 'Shows how many pickups and deliveries the run has, and for each stop its area and its items. Only freights inside their proposal window whose vehicle type matches one of your active vehicles (up to 100). Street addresses stay hidden until your proposal is approved.' },
+          note: 'Shows how many pickups and deliveries the run has, and for each stop its area and its items. Only freights inside their proposal window that one of your active vehicles can carry (same type and enough capacity) and that you have no pending proposal on (up to 100). Street addresses stay hidden until your proposal is approved.' },
         { id: 'm2', c: 1, r: 1, m: 'POST', p: '/driver/freights/{freightId}/proposals', d: 'You set the price', who: 'Driver (approved)',
           send: '{ "vehicleId": "3fa85f64-...",\n  "price": 150.00,\n  "message": "Can pick up today" }',
           get: '201 with the proposal',
-          note: 'One pending proposal per freight. The vehicle must be active, of the required type and carry the weight. Same-day freights take proposals for 5 minutes, scheduled ones for 24 hours.' },
+          note: 'One pending proposal per freight. The vehicle must be active, of the required type and carry the weight. Same-day freights take proposals for 5 minutes, scheduled ones for 24 hours. When Subscriptions:RequiredToPropose is on, a driver without an active plan may take one freight only: after that the answer is 403 subscription.required (see the Payments tab).' },
         { id: 'm3', c: 1, r: 2, m: 'GET', p: '/driver/proposals', d: 'Pending, Accepted, Rejected, Expired', who: 'Driver (approved)',
           get: '[{ id, freightRequestId, vehicleId,\n  price, message, status, expiresAt }]',
           note: 'Accepted means the customer picked you and a delivery now exists.' },
@@ -158,10 +158,17 @@
         { id: 'c4', c: 0, r: 3, k: 'decision', t: 'Pick a driver?', d: 'Compare price and vehicle', who: 'Front-end' },
         { id: 'c5', c: 0, r: 4, k: 'go', m: 'POST', p: '/freights/{id}/proposals/{proposalId}/approve', d: '201: delivery created', who: 'Customer',
           get: '201 { deliveryId, freightRequestId,\n  proposalId, driverProfileId,\n  agreedPrice, platformFee,\n  status: "Scheduled",\n  agendaStartsAt, agendaEndsAt }',
-          note: 'Creates the delivery, books the driver (2 hours plus 1 hour per stop, from the first pickup), rejects the other proposals and closes the freight. Approve before the proposal window ends. 409 proposal.driver_busy means the driver got booked in the meantime: pick another.' },
+          note: 'Creates the delivery, books the driver (2 hours plus 1 hour per stop, from the first pickup), rejects the other proposals and closes the freight. Approve before the proposal window ends. 409 proposal.driver_busy means the driver got booked in the meantime: pick another. 409 proposal.driver_unavailable also covers a driver whose free freight (no plan) was taken meanwhile. Next: the Delivery tab.' },
         { id: 'c6', c: 1, r: 3, k: 'soft', m: 'POST', p: '/freights/{id}/cancel', d: 'Give up on an open freight', who: 'Customer',
           get: '204',
           note: 'Only while the freight is Open. Pending proposals are rejected.' },
+        { id: 'c8', c: 1, r: 0, k: 'soft', m: 'POST', p: '/freights/route-preview', d: 'See the route before creating the freight', who: 'Customer',
+          send: '{ "addressIds": ["3fa8...", "7c9e..."] }',
+          get: '{ distanceMeters, durationSeconds,\n  waypoints: [{ sequence, type, label,\n    latitude, longitude }],\n  path: [{ latitude, longitude }] }',
+          note: 'Send the saved address ids in the order of the run. Draw the pins and the line. If the routing engine is down, distance and duration come back null and path empty: draw the pins and a straight line. Addresses without latitude and longitude answer route.missing_coordinates.' },
+        { id: 'c9', c: 1, r: 2, k: 'soft', m: 'GET', p: '/freights/{id}/route', d: 'Route of a freight already created', who: 'Customer',
+          get: 'Same shape as the preview',
+          note: 'The exact route, with the stop types on the pins.' },
         { id: 'c7', c: 1, r: 1, k: 'soft', m: 'GET', p: '/freights', d: 'Status of your freights, any time', who: 'Customer',
           get: '[{ id, status, proposalDeadline,\n  pendingProposals, ... }]',
           note: 'Filter with ?status=Open, Approved, Expired or Cancelled. GET /freights/{id} returns a single one. An Open freight may show as Open for up to 30 seconds after its window ends, until the expiry job runs.' }
@@ -170,9 +177,145 @@
         { a: 'c1', b: 'c2' }, { a: 'c2', b: 'c3' }, { a: 'c3', b: 'c4' },
         { a: 'c4', b: 'c5', label: 'approve' }, { a: 'c4', b: 'c3', label: 'wait' },
         { a: 'c4', b: 'c6', label: 'cancel' },
-        { a: 'c2', b: 'c7', dashed: true, label: 'any time' }
+        { a: 'c2', b: 'c7', dashed: true, label: 'any time' },
+        { a: 'c1', b: 'c8', dashed: true, label: 'preview' }
       ],
       seq: ['c1', 'c2', 'c3', 'c4', 'c5']
+    },
+
+
+    {
+      id: 'delivery',
+      label: 'Delivery',
+      cols: ['Driver runs it', 'Customer follows'],
+      intro: 'Approval creates the delivery as Scheduled. The driver starts it and completes the stops in order. The customer follows the timeline and can cancel until the cargo is picked up.',
+      nodes: [
+        { id: 'e1', c: 0, r: 0, m: 'GET', p: '/driver/deliveries/{id}/map', d: 'Exact route with distance and time', who: 'Driver (approved)',
+          get: '{ distanceMeters, durationSeconds,\n  waypoints: [{ sequence, type, label,\n    latitude, longitude }],\n  path: [{ latitude, longitude }] }',
+          note: 'Draw the pins and the line. If the routing engine is down, distance and duration come back null and path empty. GET /driver/deliveries/{id}/route gives the stop details (addresses, items).' },
+        { id: 'e2', c: 0, r: 1, m: 'POST', p: '/driver/deliveries/{id}/start', d: 'Scheduled becomes ToPickup', who: 'Driver (approved)',
+          get: '200 { deliveryId, status, totalStops,\n  completedStops, nextStopId }',
+          note: 'The customer is notified.' },
+        { id: 'e3', c: 0, r: 2, m: 'POST', p: '/driver/deliveries/{id}/stops/{stopId}/complete', d: 'Always the next stop in order', who: 'Driver (approved)',
+          send: '{ "note": "Left at the gate",\n  "latitude": -22.9056,\n  "longitude": -47.0608,\n  "proofMediaFileId": null }',
+          get: '200 { deliveryId, status, totalStops,\n  completedStops, nextStopId }',
+          note: 'Everything in the body is optional; send latitude and longitude together. The proof is a DeliveryProof file registered before. The first pickup moves the delivery to PickedUp, the next stops to InTransit and the last one to Delivered. A stop out of order answers 409.' },
+        { id: 'e4', c: 0, r: 3, k: 'decision', t: 'nextStopId empty?', d: 'Read it from the response', who: 'Front-end',
+          note: 'While nextStopId has a value, call GET /driver/deliveries/{id}/route?view=Next for the next address and complete it.' },
+        { id: 'e5', c: 0, r: 4, k: 'go', t: 'Delivered', d: 'The platform fee is accrued', who: 'Driver (approved)',
+          note: 'The fee goes to the driver balance (GET /driver/fees). The customer can now pay: see the Payments tab.' },
+        { id: 'e6', c: 0, r: 5, k: 'soft', m: 'POST', p: '/driver/deliveries/{id}/incident', d: 'Warn the customer about a problem', who: 'Driver (approved)',
+          send: '{ "note": "Flat tyre, 40 minutes late" }',
+          note: 'The note is required.' },
+        { id: 'e7', c: 0, r: 6, k: 'soft', m: 'POST', p: '/driver/deliveries/{id}/cancel', d: 'Give the delivery up', who: 'Driver (approved)',
+          send: '{ "reason": "Vehicle broke down" }',
+          note: 'The customer is notified. A cancelled delivery gives back the free freight of a driver without a plan.' },
+        { id: 'f1', c: 1, r: 0, m: 'GET', p: '/deliveries', d: 'Your deliveries', who: 'Customer',
+          get: '[{ deliveryId, status, agreedPrice,\n  driverName, vehicleType, vehicleModel,\n  vehiclePlate, totalStops, completedStops,\n  payment }]',
+          note: 'payment is null until a payment exists, then Pending, Paid or Failed.' },
+        { id: 'f2', c: 1, r: 1, m: 'GET', p: '/deliveries/{id}', d: 'Detail and timeline', who: 'Customer',
+          get: '{ ..., stops: [...],\n  timeline: [{ status, occurredAt, note,\n    latitude, longitude, hasProof }] }',
+          note: 'Poll while the delivery is running, or react to the push notifications.' },
+        { id: 'f3', c: 1, r: 2, k: 'soft', m: 'POST', p: '/deliveries/{id}/cancel', d: 'Only before the cargo is picked up', who: 'Customer',
+          send: '{ "reason": "I no longer need it" }',
+          note: 'Allowed while the delivery is Scheduled or ToPickup. The driver is notified.' }
+      ],
+      edges: [
+        { a: 'e1', b: 'e2' }, { a: 'e2', b: 'e3' }, { a: 'e3', b: 'e4' },
+        { a: 'e4', b: 'e3', label: 'no' }, { a: 'e4', b: 'e5', label: 'yes' },
+        { a: 'e3', b: 'e6', dashed: true, label: 'problem' }, { a: 'e3', b: 'e7', dashed: true, label: 'give up' },
+        { a: 'f1', b: 'f2' }, { a: 'f2', b: 'f3', dashed: true, label: 'before pickup' }
+      ],
+      seq: ['e1', 'e2', 'e3', 'e4', 'e3', 'e4', 'e5']
+    },
+
+    {
+      id: 'payments',
+      label: 'Payments',
+      cols: ['Customer pays', 'Driver gets paid'],
+      intro: 'The money goes to the driver account and the platform keeps only its fee. A payment stays Pending until the provider confirms it by webhook.',
+      nodes: [
+        { id: 'y1', c: 0, r: 0, k: 'decision', t: 'Pick a method', d: 'After the delivery', who: 'Front-end',
+          note: 'Pix and card go through Asaas. Apple Pay goes through Mercado Pago. Only one payment can be in progress per delivery (409 payments.in_progress).' },
+        { id: 'y2', c: 0, r: 1, m: 'POST', p: '/deliveries/{id}/pix', d: 'Pix with split', who: 'Customer',
+          send: '{ "taxId": "52998224725" }',
+          get: '200 { paymentId, amount, driverReceives,\n  platformFee, status, pixPayload,\n  pixQrCode, expiresAt }',
+          note: 'Show the copy-and-paste code and the QR code. The driver must have set the payout account first (walletId).' },
+        { id: 'y3', c: 0, r: 2, m: 'POST', p: '/deliveries/{id}/card', d: 'Credit card, new or saved', who: 'Customer',
+          send: '{ "savedCardId": null,\n  "card": { "holderName": "MARIA SOUZA",\n    "number": "4111 1111 1111 1111",\n    "expiryMonth": "12", "expiryYear": "2030",\n    "ccv": "123" },\n  "holder": { "taxId": "52998224725",\n    "postalCode": "01310-100",\n    "addressNumber": "1000" },\n  "saveCard": false }',
+          get: '200 { paymentId, amount, driverReceives,\n  platformFee, status, brand, last4,\n  cardSaved }',
+          note: 'Send a new card (card + holder) or a saved one (savedCardId), never both. The number is never stored or logged; with saveCard only the token, brand and last 4 digits are kept. A declined card answers 409 payments.card_declined.' },
+        { id: 'y4', c: 0, r: 3, m: 'POST', p: '/deliveries/{id}/wallet', d: 'Apple Pay through Mercado Pago', who: 'Customer',
+          send: '{ "cardToken": "TOKEN_FROM_SDK",\n  "paymentMethodId": "visa" }',
+          get: '200 { paymentId, amount, driverReceives,\n  platformFee, status, providerStatus }',
+          note: 'The app gets the token from the Mercado Pago SDK. The driver must have connected the Mercado Pago account (see the right column).' },
+        { id: 'y5', c: 0, r: 4, k: 'soft', m: 'GET', p: '/customer/cards', d: 'Saved cards', who: 'Customer',
+          get: '[{ id, brand, last4 }]',
+          note: 'Up to 5 per person. DELETE /customer/cards/{cardId} removes one.' },
+        { id: 'y6', c: 0, r: 5, k: 'go', t: 'Webhook confirms', d: 'The payment becomes Paid', who: 'Provider',
+          note: 'Poll GET /deliveries/{id} (payment field) or wait for the notification.' },
+        { id: 'z1', c: 1, r: 0, m: 'PUT', p: '/driver/payout-account', d: 'Asaas walletId, to receive Pix and card', who: 'Driver (approved)',
+          send: '{ "walletId": "3fa85f64-5717-4562-b3fc-2c963f66afa6" }',
+          get: '{ configured, walletId }',
+          note: 'GET on the same route says whether it is set.' },
+        { id: 'z2', c: 1, r: 1, m: 'POST', p: '/driver/wallet-account/authorization', d: 'Connect Mercado Pago once', who: 'Driver (approved)',
+          get: '{ authorizationUrl }',
+          note: 'Open the URL in the browser. GET /driver/wallet-account says connected. DELETE disconnects.' },
+        { id: 'z3', c: 1, r: 2, m: 'POST', p: '/driver/subscription', d: 'Subscribe to a plan', who: 'Driver (approved)',
+          send: '{ "plan": "Basic" }',
+          get: '201 { id, plan, status, monthlyPrice,\n  maxVehicles, hasAccess, paymentUrl }',
+          note: 'Basic covers 1 to 3 vehicles, Full has no limit. Open paymentUrl so the driver pays on the Asaas page. GET lists plans and the current one; DELETE cancels. Without an active plan a driver may take one freight (when Subscriptions:RequiredToPropose is on).' },
+        { id: 'z4', c: 1, r: 3, k: 'soft', m: 'POST', p: '/driver/deliveries/{id}/payment', d: 'Paid outside the platform', who: 'Driver (approved)',
+          send: '{ "method": "Cash",\n  "reference": "Receipt 123" }',
+          note: 'method is Pix, Cash, Card or Other.' },
+        { id: 'z5', c: 1, r: 4, m: 'GET', p: '/driver/fees', d: 'Platform fee balance', who: 'Driver (approved)',
+          get: '{ balance, totalAccrued, totalSettled,\n  entries: [...] }',
+          note: 'Each delivered freight accrues a fee. The 200 latest entries come back.' },
+        { id: 'z6', c: 1, r: 5, m: 'POST', p: '/driver/fees/pix', d: 'Pay the balance with Pix', who: 'Driver (approved)',
+          get: '200 { id, amount, status, pixPayload,\n  pixQrCode, expiresAt }',
+          note: 'The webhook settles the balance when the Pix is paid.' }
+      ],
+      edges: [
+        { a: 'y1', b: 'y2', label: 'Pix' }, { a: 'y1', b: 'y3', label: 'card' }, { a: 'y1', b: 'y4', label: 'Apple Pay' },
+        { a: 'y2', b: 'y6' }, { a: 'y3', b: 'y6' }, { a: 'y4', b: 'y6' },
+        { a: 'y3', b: 'y5', dashed: true, label: 'saved' },
+        { a: 'z1', b: 'z2', dashed: true, label: 'wallet' },
+        { a: 'z5', b: 'z6' }
+      ],
+      seq: ['y1', 'y2', 'y6']
+    },
+
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      cols: ['Inbox', 'Settings'],
+      intro: 'Push goes through Firebase. The inbox keeps everything, even with push off. Each item has targetType and targetId to open the right screen.',
+      nodes: [
+        { id: 'n1', c: 0, r: 0, m: 'PUT', p: '/devices', d: 'Register the device token', who: 'Signed in',
+          send: '{ "token": "fcm-token",\n  "platform": "Android" }',
+          note: 'Call it when the app opens and whenever the Firebase token changes. platform is Android, Ios or Web.' },
+        { id: 'n2', c: 0, r: 1, m: 'GET', p: '/notifications/unread-count', d: 'The badge number', who: 'Signed in',
+          get: '{ unread }' },
+        { id: 'n3', c: 0, r: 2, m: 'GET', p: '/notifications', d: 'The inbox, newest first', who: 'Signed in',
+          get: '{ items: [{ id, type, title, body,\n    targetType, targetId, isRead,\n    createdAt, readAt }],\n  unreadCount, page, pageSize, hasMore }',
+          note: '?page=1&pageSize=20 (1 to 100) and ?unreadOnly=true. hasMore tells whether to load another page.' },
+        { id: 'n4', c: 0, r: 3, m: 'POST', p: '/notifications/{id}/read', d: 'Mark one as read', who: 'Signed in',
+          note: 'Call it when the user opens the item.' },
+        { id: 'n5', c: 0, r: 4, k: 'soft', m: 'POST', p: '/notifications/read-all', d: 'Mark everything as read', who: 'Signed in',
+          note: 'Answers how many changed.' },
+        { id: 'n6', c: 1, r: 0, m: 'GET', p: '/notifications/preferences', d: 'Both switches default to on', who: 'Signed in',
+          get: '{ newFreightAlerts, pushEnabled }' },
+        { id: 'n7', c: 1, r: 1, m: 'PUT', p: '/notifications/preferences', d: 'Send only what changes', who: 'Signed in',
+          send: '{ "newFreightAlerts": false }',
+          note: 'newFreightAlerts controls the alerts of compatible freights; pushEnabled silences every push. A missing field keeps its value.' },
+        { id: 'n8', c: 1, r: 2, k: 'soft', m: 'DELETE', p: '/devices', d: 'On sign-out', who: 'Signed in',
+          note: '?token=... removes one device. Without it, every device of the user is removed.' }
+      ],
+      edges: [
+        { a: 'n1', b: 'n2' }, { a: 'n2', b: 'n3' }, { a: 'n3', b: 'n4' }, { a: 'n4', b: 'n5', dashed: true },
+        { a: 'n6', b: 'n7' }, { a: 'n7', b: 'n8', dashed: true }
+      ],
+      seq: ['n1', 'n2', 'n3', 'n4']
     },
 
     {
@@ -206,6 +349,24 @@
       seq: ['a1', 'a2', 'a3', 'a4', 'a5']
     },
 
+
+    {
+      id: 'privacy',
+      label: 'Privacy',
+      intro: 'Any signed-in user can ask for a copy of their data and for the deletion of the account (LGPD).',
+      nodes: [
+        { id: 'v1', c: 0, r: 0, m: 'GET', p: '/me/data', d: 'Everything the platform holds about the person', who: 'Signed in',
+          get: '{ generatedAt, account, driver, vehicles,\n  addresses, files, consents, freights,\n  proposals, deliveries }',
+          note: 'One JSON with the account, the driver profile, vehicles, addresses, files, consents, freights, proposals and deliveries.' },
+        { id: 'v2', c: 0, r: 1, k: 'soft', m: 'POST', p: '/me/deletion', d: 'Erase the account', who: 'Signed in',
+          send: '{ "password": "Str0ng#Pass",\n  "confirm": true }',
+          get: '200 { deletedAt, retainedData: [...] }',
+          note: 'The password proves it is the owner and confirm must be true. Some records are kept by law and the response lists which. Open subscriptions are cancelled and the stored files are deleted.' }
+      ],
+      edges: [{ a: 'v1', b: 'v2', dashed: true, label: 'if the user insists' }],
+      seq: ['v1', 'v2']
+    },
+
     {
       id: 'token',
       label: 'Token renewal',
@@ -237,7 +398,7 @@
 
   const WHO_PT = {
     'Anyone': 'Qualquer pessoa', 'Signed in': 'Logado', 'Driver': 'Motorista', 'Customer': 'Cliente',
-    'Admin': 'Admin', 'Front-end': 'Front-end', 'Driver (approved)': 'Motorista (aprovado)'
+    'Admin': 'Admin', 'Front-end': 'Front-end', 'Driver (approved)': 'Motorista (aprovado)', 'Provider': 'Provedor'
   };
 
   const PT_FLOWS = {
@@ -276,9 +437,9 @@
         d9: { t: 'Status?', d: 'Approved ou Rejected', note: 'Rejected vem com rejectionReason. Mostre o motivo, deixe o motorista editar e enviar de novo.' },
         d10: { t: 'Approved: pode propor', d: 'Abre o quadro de fretes' },
         m1: { d: 'Fretes abertos que cabem nos seus veículos',
-          note: 'Mostra quantas coletas e entregas a corrida tem e, de cada parada, a região e os itens. Só fretes dentro da janela de propostas cujo tipo de veículo bate com um dos seus veículos ativos (até 100). O endereço completo fica oculto até a sua proposta ser aprovada.' },
+          note: 'Mostra quantas coletas e entregas a corrida tem e, de cada parada, a região e os itens. Só fretes dentro da janela de propostas que um dos seus veículos ativos comporta (mesmo tipo e capacidade suficiente) e em que você não tem proposta pendente (até 100). O endereço completo fica oculto até a sua proposta ser aprovada.' },
         m2: { d: 'Você define o preço', get: '201 com a proposta',
-          note: 'Uma proposta pendente por frete. O veículo precisa estar ativo, ser do tipo pedido e comportar o peso. Frete do dia aceita propostas por 5 minutos; agendado, por 24 horas.' },
+          note: 'Uma proposta pendente por frete. O veículo precisa estar ativo, ser do tipo pedido e comportar o peso. Frete do dia aceita propostas por 5 minutos; agendado, por 24 horas. Com Subscriptions:RequiredToPropose ligado, o motorista sem plano ativo pode pegar um único frete: depois disso a resposta é 403 subscription.required (veja a aba Pagamentos).' },
         m3: { d: 'Pending, Accepted, Rejected, Expired', note: 'Accepted significa que o cliente escolheu você e já existe uma entrega.' },
         m4: { d: 'Retire uma proposta pendente', note: 'Só enquanto a proposta estiver Pending.' },
         m5: { d: 'Entregas que você ganhou', note: 'Uma proposta que vira Accepted cria uma entrega aqui.' },
@@ -290,7 +451,7 @@
       label: 'Cliente',
       cols: ['Pedir um frete', 'À parte'],
       intro: 'O cliente publica o frete, vê as propostas chegarem ordenadas por preço e aprova uma. A aprovação cria a entrega.',
-      edges: { 'c4>c5': 'aprovar', 'c4>c3': 'aguardar', 'c4>c6': 'cancelar', 'c2>c7': 'a qualquer hora' },
+      edges: { 'c4>c5': 'aprovar', 'c4>c3': 'aguardar', 'c4>c6': 'cancelar', 'c2>c7': 'a qualquer hora', 'c1>c8': 'prévia' },
       nodes: {
         c1: { d: 'Todos os endereços de coleta e entrega, salvos uma vez', get: '201 com o endereço e seu id',
           note: 'Cadastre um endereço para cada coleta e cada entrega. O estado precisa ser uma UF válida e o CEP tem 8 dígitos. Os ids vão na próxima chamada. GET /addresses lista os salvos. O cliente pode ser pessoa ou empresa.' },
@@ -301,10 +462,82 @@
         c3: { d: 'Ordenadas por preço, menor primeiro', note: 'Empate vai para a proposta mais antiga. Consulte enquanto o frete estiver Open.' },
         c4: { t: 'Escolher um motorista?', d: 'Compare preço e veículo' },
         c5: { d: '201: entrega criada',
-          note: 'Cria a entrega, reserva a agenda do motorista (2 horas mais 1 hora por parada, a partir da primeira coleta), rejeita as outras propostas e fecha o frete. Aprove antes do fim da janela de propostas. 409 proposal.driver_busy significa que o motorista foi reservado nesse meio tempo: escolha outro.' },
+          note: 'Cria a entrega, reserva a agenda do motorista (2 horas mais 1 hora por parada, a partir da primeira coleta), rejeita as outras propostas e fecha o frete. Aprove antes do fim da janela de propostas. 409 proposal.driver_busy significa que o motorista foi reservado nesse meio tempo: escolha outro. 409 proposal.driver_unavailable também vale para o motorista cujo frete grátis (sem plano) foi usado nesse meio tempo. Próximo: a aba Entrega.' },
         c6: { d: 'Desista de um frete aberto', note: 'Só enquanto o frete estiver Open. As propostas pendentes são rejeitadas.' },
+        c8: { d: 'Veja a rota antes de criar o frete',
+          get: '{ distanceMeters, durationSeconds,\n  waypoints: [{ sequence, type, label,\n    latitude, longitude }],\n  path: [{ latitude, longitude }] }',
+          note: 'Envie os ids dos endereços salvos na ordem da corrida. Desenhe os pontos e a linha. Se o motor de rotas estiver fora, distância e tempo vêm null e path vazio: desenhe os pontos e uma linha reta. Endereço sem latitude e longitude responde route.missing_coordinates.' },
+        c9: { d: 'Rota de um frete já criado', get: 'Mesmo formato do preview', note: 'A rota exata, com o tipo de parada nos pontos.' },
         c7: { d: 'Situação dos seus fretes, a qualquer hora',
           note: 'Filtre com ?status=Open, Approved, Expired ou Cancelled. GET /freights/{id} devolve um só. Um frete pode continuar Open por até 30 segundos depois do fim da janela, até a rotina de expiração rodar.' }
+      }
+    },
+    delivery: {
+      label: 'Entrega',
+      cols: ['Motorista executa', 'Cliente acompanha'],
+      intro: 'A aprovação cria a entrega como Scheduled. O motorista inicia e conclui as paradas em ordem. O cliente acompanha a linha do tempo e pode cancelar até a coleta.',
+      edges: { 'e4>e3': 'não', 'e4>e5': 'sim', 'e3>e6': 'problema', 'e3>e7': 'desistir', 'f2>f3': 'antes da coleta' },
+      nodes: {
+        e1: { d: 'Rota exata com distância e tempo',
+          note: 'Desenhe os pontos e a linha. Se o motor de rotas estiver fora, distância e tempo vêm null e path vazio. GET /driver/deliveries/{id}/route traz o detalhe das paradas (endereços, itens).' },
+        e2: { d: 'Scheduled vira ToPickup', note: 'O cliente é avisado.' },
+        e3: { d: 'Sempre a próxima parada, em ordem',
+          send: '{ "note": "Deixado na portaria",\n  "latitude": -22.9056,\n  "longitude": -47.0608,\n  "proofMediaFileId": null }',
+          note: 'Tudo no corpo é opcional; envie latitude e longitude juntas. A prova é um arquivo DeliveryProof registrado antes. A primeira coleta leva a entrega a PickedUp, as paradas seguintes a InTransit e a última a Delivered. Parada fora de ordem responde 409.' },
+        e4: { t: 'nextStopId vazio?', d: 'Leia da resposta', note: 'Enquanto nextStopId tiver valor, chame GET /driver/deliveries/{id}/route?view=Next para o próximo endereço e conclua.' },
+        e5: { t: 'Entregue', d: 'A taxa da plataforma é lançada', note: 'A taxa entra no saldo do motorista (GET /driver/fees). O cliente já pode pagar: veja a aba Pagamentos.' },
+        e6: { d: 'Avise o cliente de um problema', send: '{ "note": "Pneu furado, atraso de 40 minutos" }', note: 'A observação é obrigatória.' },
+        e7: { d: 'Desista da entrega', send: '{ "reason": "Veículo quebrou" }', note: 'O cliente é avisado. Entrega cancelada devolve o frete grátis do motorista sem plano.' },
+        f1: { d: 'Suas entregas', note: 'payment é null até existir um pagamento, depois Pending, Paid ou Failed.' },
+        f2: { d: 'Detalhe e linha do tempo', note: 'Consulte enquanto a entrega estiver andando, ou reaja às notificações push.' },
+        f3: { d: 'Só antes da coleta', send: '{ "reason": "Não preciso mais" }', note: 'Vale enquanto a entrega estiver Scheduled ou ToPickup. O motorista é avisado.' }
+      }
+    },
+    payments: {
+      label: 'Pagamentos',
+      cols: ['Cliente paga', 'Motorista recebe'],
+      intro: 'O dinheiro vai para a conta do motorista e a plataforma fica só com a taxa. O pagamento fica Pending até o provedor confirmar por webhook.',
+      edges: { 'y1>y2': 'Pix', 'y1>y3': 'cartão', 'y1>y4': 'Apple Pay', 'y3>y5': 'salvo', 'z1>z2': 'carteira' },
+      nodes: {
+        y1: { t: 'Escolha o método', d: 'Depois da entrega', note: 'Pix e cartão passam pelo Asaas. Apple Pay passa pelo Mercado Pago. Só um pagamento pode estar em andamento por entrega (409 payments.in_progress).' },
+        y2: { d: 'Pix com split', note: 'Mostre o copia e cola e o QR Code. O motorista precisa ter informado a conta de recebimento (walletId) antes.' },
+        y3: { d: 'Cartão de crédito, novo ou salvo',
+          note: 'Envie um cartão novo (card + holder) ou um salvo (savedCardId), nunca os dois. O número nunca é guardado nem registrado em log; com saveCard só ficam o token, a bandeira e os 4 últimos dígitos. Cartão recusado responde 409 payments.card_declined.' },
+        y4: { d: 'Apple Pay pelo Mercado Pago', note: 'O app obtém o token pelo SDK do Mercado Pago. O motorista precisa ter conectado a conta Mercado Pago (veja a coluna da direita).' },
+        y5: { d: 'Cartões salvos', note: 'Até 5 por pessoa. DELETE /customer/cards/{cardId} remove um.' },
+        y6: { t: 'Webhook confirma', d: 'O pagamento vira Paid', note: 'Consulte GET /deliveries/{id} (campo payment) ou espere a notificação.' },
+        z1: { d: 'walletId do Asaas, para receber Pix e cartão', note: 'O GET na mesma rota diz se já está configurado.' },
+        z2: { d: 'Conecte o Mercado Pago uma vez', note: 'Abra a URL no navegador. GET /driver/wallet-account diz se está conectado. DELETE desconecta.' },
+        z3: { d: 'Assine um plano',
+          note: 'O Basic cobre de 1 a 3 veículos e o Full não tem limite. Abra paymentUrl para o motorista pagar na página do Asaas. O GET lista os planos e o atual; o DELETE cancela. Sem plano ativo o motorista pode pegar um frete (com Subscriptions:RequiredToPropose ligado).' },
+        z4: { d: 'Pago fora da plataforma', note: 'method é Pix, Cash, Card ou Other.' },
+        z5: { d: 'Saldo da taxa da plataforma', note: 'Cada frete entregue lança uma taxa. Voltam os 200 lançamentos mais recentes.' },
+        z6: { d: 'Pague o saldo com Pix', note: 'O webhook baixa o saldo quando o Pix é pago.' }
+      }
+    },
+    notifications: {
+      label: 'Notificações',
+      cols: ['Caixa de entrada', 'Ajustes'],
+      intro: 'O push passa pelo Firebase. A caixa de entrada guarda tudo, mesmo com o push desligado. Cada item traz targetType e targetId para abrir a tela certa.',
+      edges: { 'n7>n8': 'ao sair' },
+      nodes: {
+        n1: { d: 'Registre o token do aparelho', note: 'Chame ao abrir o app e sempre que o token do Firebase mudar. platform é Android, Ios ou Web.' },
+        n2: { d: 'O número do selo' },
+        n3: { d: 'A caixa de entrada, mais novas primeiro', note: '?page=1&pageSize=20 (1 a 100) e ?unreadOnly=true. hasMore diz se há outra página.' },
+        n4: { d: 'Marque uma como lida', note: 'Chame ao abrir o item.' },
+        n5: { d: 'Marque tudo como lido', note: 'Responde quantas mudaram.' },
+        n6: { d: 'Os dois botões nascem ligados' },
+        n7: { d: 'Envie só o que mudou', note: 'newFreightAlerts controla os avisos de frete compatível; pushEnabled silencia todos os pushes. Campo omitido mantém o valor.' },
+        n8: { d: 'Ao sair da conta', note: '?token=... remove um aparelho. Sem ele, remove todos os aparelhos do usuário.' }
+      }
+    },
+    privacy: {
+      label: 'Privacidade',
+      intro: 'Qualquer usuário logado pode pedir uma cópia dos seus dados e a exclusão da conta (LGPD).',
+      edges: { 'v1>v2': 'se insistir' },
+      nodes: {
+        v1: { d: 'Tudo o que a plataforma guarda sobre a pessoa', note: 'Um JSON com a conta, o perfil de motorista, veículos, endereços, arquivos, aceites, fretes, propostas e entregas.' },
+        v2: { d: 'Apague a conta', note: 'A senha prova que é o dono e confirm precisa ser true. Alguns registros são mantidos por lei e a resposta lista quais. Assinaturas abertas são canceladas e os arquivos guardados são apagados.' }
       }
     },
     admin: {

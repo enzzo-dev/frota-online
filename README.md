@@ -352,19 +352,43 @@ flowchart TD
     P3 -.-> P4["POST /driver/proposals/id/withdraw<br/>enquanto Pending"]
     P3 -- Accepted --> P5["GET /driver/deliveries<br/>entregas ganhas"]
     P5 --> P6["GET /driver/deliveries/id/route<br/>view Full ou Next"]
-    P6 -.-> P7["POST /driver/fees/pix<br/>paga a taxa dos fretes recebidos por fora"]
+    P6 --> P8["GET /driver/deliveries/id/map<br/>pontos, distância, tempo e linha"]
+    P8 --> P9["POST /driver/deliveries/id/start<br/>Scheduled vira ToPickup"]
+    P9 --> P10["POST /driver/deliveries/id/stops/stopId/complete<br/>sempre a próxima parada"]
+    P10 --> P11{"nextStopId vazio?"}
+    P11 -. não .-> P10
+    P11 -- sim --> P12["Delivered: a taxa da plataforma é lançada"]
+    P10 -. problema .-> P13["POST /driver/deliveries/id/incident<br/>ou /cancel"]
+    P12 --> P7["POST /driver/fees/pix<br/>paga o saldo da taxa"]
+    P12 -.-> P14["POST /driver/deliveries/id/payment<br/>pago fora da plataforma"]
+    P --> PW["POST /driver/wallet-account/authorization<br/>conecta o Mercado Pago, para Apple Pay"]
+    P2 -. sem plano .-> P2L["só um frete grátis: depois, 403 subscription.required<br/>(com RequiredToPropose ligado)"]
 
     F -- Customer --> Y["POST /addresses<br/>um por coleta e por entrega"]
+    Y -.-> Y0["POST /freights/route-preview<br/>rota no mapa antes de criar"]
     Y --> Y1["POST /freights<br/>stops em ordem, itens opcionais"]
     Y1 --> Y2["GET /freights/id/proposals<br/>ranking: menor preço primeiro"]
     Y2 --> Y3["POST /freights/id/proposals/pid/approve<br/>201 cria a entrega"]
     Y2 -. desiste .-> Y4["POST /freights/id/cancel"]
-    Y3 -.-> Y5["Depois da entrega: POST /deliveries/id/pix<br/>taxId do pagador, devolve copia e cola e QR"]
+    Y3 --> Y6["GET /deliveries/id<br/>linha do tempo; POST /deliveries/id/cancel até a coleta"]
+    Y6 --> Y5{"Depois da entrega, qual método?"}
+    Y5 -- Pix --> Y7["POST /deliveries/id/pix<br/>taxId do pagador, devolve copia e cola e QR"]
+    Y5 -- Cartão --> Y8["POST /deliveries/id/card<br/>cartão novo ou salvo (GET /customer/cards)"]
+    Y5 -- Apple Pay --> Y9["POST /deliveries/id/wallet<br/>token do SDK do Mercado Pago"]
+    Y7 --> Y10["Webhook confirma: payment Paid"]
+    Y8 --> Y10
+    Y9 --> Y10
+
+    F -- Qualquer perfil --> Z["PUT /devices<br/>registra o token do push"]
+    Z --> Z1["GET /notifications/unread-count e GET /notifications<br/>caixa de entrada, POST /notifications/id/read"]
+    Z1 -.-> Z2["PUT /notifications/preferences<br/>newFreightAlerts, pushEnabled"]
+    F -.-> Z3["GET /me/data e POST /me/deletion<br/>LGPD: exportar e apagar"]
 
     style P fill:#d7141a,stroke:#8f0d12,color:#ffffff
     style Q fill:#ffffff,stroke:#d7141a,color:#8f0d12
     style X stroke-dasharray: 5 5
     style Y3 fill:#d7141a,stroke:#8f0d12,color:#ffffff
+    style Y10 fill:#d7141a,stroke:#8f0d12,color:#ffffff
 ```
 
 ### Renovação de sessão
