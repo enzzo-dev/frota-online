@@ -61,7 +61,8 @@ public static class SubscriptionErrors
         new("subscription.already_active", "You already have an active subscription. Cancel it before choosing another plan.", ErrorType.Conflict);
 
     public static readonly Error Required =
-        new("subscription.required", "An active subscription is needed to send proposals.", ErrorType.Forbidden);
+        new("subscription.required",
+            "Your free freight was already used. An active subscription is needed to send more proposals.", ErrorType.Forbidden);
 
     public static Error TooManyVehicles(int max) =>
         new("subscription.too_many_vehicles",

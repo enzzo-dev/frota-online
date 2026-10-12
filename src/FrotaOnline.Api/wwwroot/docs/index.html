@@ -306,7 +306,7 @@
             </tbody>
         </table>
       </div>
-      <p class="prose">Basic allows 3 active vehicles: adding a 4th answers <code>409 subscription.vehicle_limit</code>, and choosing Basic with more than 3 answers <code>subscription.too_many_vehicles</code>. When the server has <code>Subscriptions__RequiredToPropose=true</code>, sending a proposal without a paid period answers <code>403 subscription.required</code> (off by default).</p>
+      <p class="prose">Basic allows 3 active vehicles: adding a 4th answers <code>409 subscription.vehicle_limit</code>, and choosing Basic with more than 3 answers <code>subscription.too_many_vehicles</code>. When the server has <code>Subscriptions__RequiredToPropose=true</code>, a driver without a paid period may take <strong>one freight</strong>; after that, sending a proposal answers <code>403 subscription.required</code>. The rule applies when the proposal is sent and again when the customer approves it, so only the first approved proposal gets the free freight (the customer sees <code>409 proposal.driver_unavailable</code> on the others and picks another). A cancelled delivery gives the free freight back. Off by default.</p>
 
       <h3 class="mini">Paying a freight by Pix, split between driver and platform</h3>
 <div class="table-wrap">

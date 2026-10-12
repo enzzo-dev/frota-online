@@ -65,10 +65,10 @@ public abstract class MarketplaceTestBase
     protected DriverMarketplaceService DriverMarketplace => new(
         Drivers, Vehicles, Freights, Proposals, FreightQueries, Agenda, SubscriptionPolicy, Publisher, UnitOfWork, Clock, new SubmitProposalRequestValidator());
 
-    private protected SubscriptionPolicy SubscriptionPolicy => new(Subscriptions, SubscriptionRules, Clock);
+    private protected SubscriptionPolicy SubscriptionPolicy => new(Subscriptions, SubscriptionRules, Deliveries, Clock);
 
     protected ProposalSelectionService Selection => new(
-        Freights, Proposals, Drivers, Vehicles, FreightQueries, Deliveries, Agenda, Publisher, UnitOfWork, Clock);
+        Freights, Proposals, Drivers, Vehicles, FreightQueries, Deliveries, Agenda, SubscriptionPolicy, Publisher, UnitOfWork, Clock);
 
     protected DriverDeliveryService DriverDelivery => new(Drivers, DeliveryQueries);
 

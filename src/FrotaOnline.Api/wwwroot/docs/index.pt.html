@@ -306,7 +306,7 @@
             </tbody>
         </table>
       </div>
-      <p class="prose">O Básico permite 3 veículos ativos: cadastrar o 4º responde <code>409 subscription.vehicle_limit</code>, e escolher o Básico com mais de 3 responde <code>subscription.too_many_vehicles</code>. Com <code>Subscriptions__RequiredToPropose=true</code> no servidor, enviar proposta sem período pago responde <code>403 subscription.required</code> (desligado por padrão).</p>
+      <p class="prose">O Básico permite 3 veículos ativos: cadastrar o 4º responde <code>409 subscription.vehicle_limit</code>, e escolher o Básico com mais de 3 responde <code>subscription.too_many_vehicles</code>. Com <code>Subscriptions__RequiredToPropose=true</code> no servidor, o motorista sem período pago pode pegar <strong>um único frete</strong>; depois disso, enviar proposta responde <code>403 subscription.required</code>. A regra vale ao enviar a proposta e de novo quando o cliente a aprova, então só a primeira proposta aprovada leva o frete grátis (nas outras o cliente vê <code>409 proposal.driver_unavailable</code> e escolhe outra). Entrega cancelada devolve o frete grátis. Desligado por padrão.</p>
 
       <h3 class="mini">Pagar o frete por Pix, com split entre motorista e plataforma</h3>
 <div class="table-wrap">

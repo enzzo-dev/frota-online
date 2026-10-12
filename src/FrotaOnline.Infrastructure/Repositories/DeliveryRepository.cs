@@ -1,5 +1,6 @@
 using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Domain.Entities;
+using FrotaOnline.Domain.Enums;
 using FrotaOnline.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,10 @@ internal sealed class DeliveryRepository : IDeliveryRepository
 
     public Task<Delivery?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         _db.Deliveries.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
+    public Task<int> CountTakenByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
+        _db.Deliveries.CountAsync(
+            d => d.DriverProfileId == driverProfileId && d.Status != DeliveryStatus.Cancelled, cancellationToken);
 
     public async Task AddAsync(Delivery delivery, CancellationToken cancellationToken) =>
         await _db.Deliveries.AddAsync(delivery, cancellationToken);

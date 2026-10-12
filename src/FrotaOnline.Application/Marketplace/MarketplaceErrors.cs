@@ -32,7 +32,7 @@ public static class MarketplaceErrors
         new("proposal.driver_not_approved", "Only approved drivers can use the marketplace.", ErrorType.Forbidden);
 
     public static readonly Error DriverUnavailable =
-        new("proposal.driver_unavailable", "The driver is no longer approved to operate.", ErrorType.Conflict);
+        new("proposal.driver_unavailable", "The driver can no longer take this freight. Choose another proposal.", ErrorType.Conflict);
 
     public static readonly Error VehicleUnavailable =
         new("proposal.vehicle_unavailable", "The vehicle of this proposal is no longer active.", ErrorType.Conflict);

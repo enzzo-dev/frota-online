@@ -6,6 +6,7 @@ using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Application.Notifications;
+using FrotaOnline.Application.Payments;
 using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -21,6 +22,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
     private readonly IFreightQueries _queries;
     private readonly IDeliveryRepository _deliveries;
     private readonly IDriverAgendaRepository _agenda;
+    private readonly ISubscriptionPolicy _subscriptions;
     private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
@@ -33,6 +35,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         IFreightQueries queries,
         IDeliveryRepository deliveries,
         IDriverAgendaRepository agenda,
+        ISubscriptionPolicy subscriptions,
         INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock)
@@ -44,6 +47,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         _queries = queries;
         _deliveries = deliveries;
         _agenda = agenda;
+        _subscriptions = subscriptions;
         _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -91,6 +95,12 @@ public sealed class ProposalSelectionService : IProposalSelectionService
 
         var driver = await _drivers.GetByIdAsync(proposal.DriverProfileId, cancellationToken);
         if (driver is null || !driver.CanOperate)
+        {
+            return Result.Failure<ApprovedDeliveryResponse>(MarketplaceErrors.DriverUnavailable);
+        }
+
+        // Without a plan the driver has one free freight: if it was taken meanwhile, the customer picks another proposal.
+        if ((await _subscriptions.EnsureCanBeApprovedAsync(driver.Id, cancellationToken)).IsFailure)
         {
             return Result.Failure<ApprovedDeliveryResponse>(MarketplaceErrors.DriverUnavailable);
         }

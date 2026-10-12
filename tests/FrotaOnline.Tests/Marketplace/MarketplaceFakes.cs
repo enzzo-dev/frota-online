@@ -86,6 +86,9 @@ internal sealed class FakeDeliveryRepository : IDeliveryRepository
     public Task<Delivery?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(d => d.Id == id));
 
+    public Task<int> CountTakenByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Count(d => d.DriverProfileId == driverProfileId && d.Status != DeliveryStatus.Cancelled));
+
     public Task AddAsync(Delivery delivery, CancellationToken cancellationToken)
     {
         Items.Add(delivery);

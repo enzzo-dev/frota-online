@@ -1,3 +1,4 @@
+using FrotaOnline.Application.Marketplace;
 using FrotaOnline.Application.Payments.Dtos;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -222,6 +223,7 @@ public class SubscriptionTests : PaymentTestBase
 
         var open = await DriverMarketplace.SubmitProposalAsync(userId, freightId, Proposal(vehicle), CancellationToken.None);
         SubscriptionRules.RequiredToPropose = true;
+        UseTheFreeFreight(profile.Id, vehicle.Id);
         var otherFreight = await CreateFreightAsync();
         var blocked = await DriverMarketplace.SubmitProposalAsync(userId, otherFreight, Proposal(vehicle), CancellationToken.None);
 
@@ -248,5 +250,76 @@ public class SubscriptionTests : PaymentTestBase
         Assert.True(bad.IsFailure);
         Assert.True(good.Value.Configured);
         Assert.Equal(profile.PayoutWalletId, read.Value.WalletId);
+    }
+
+    // ---- one free freight without a plan ----
+
+    private void UseTheFreeFreight(Guid driverProfileId, Guid vehicleId) =>
+        Deliveries.Items.Add(Delivery.Create(Guid.NewGuid(), Guid.NewGuid(), CustomerId, driverProfileId, vehicleId, 100m));
+
+    [Fact]
+    public async Task WithoutAPlan_TheDriverMayTakeOneFreight_ButNotASecond()
+    {
+        SubscriptionRules.RequiredToPropose = true;
+        var first = await CreateFreightAsync();
+        var second = await CreateFreightAsync();
+        var (userId, profile, vehicle) = AddApprovedDriver();
+
+        var firstProposal = await DriverMarketplace.SubmitProposalAsync(userId, first, Proposal(vehicle), CancellationToken.None);
+        UseTheFreeFreight(profile.Id, vehicle.Id);
+        var secondProposal = await DriverMarketplace.SubmitProposalAsync(userId, second, Proposal(vehicle), CancellationToken.None);
+
+        Assert.True(firstProposal.IsSuccess);
+        Assert.Equal("subscription.required", secondProposal.Error!.Code);
+    }
+
+    [Fact]
+    public async Task WithoutAPlan_ACancelledDeliveryGivesTheFreeFreightBack()
+    {
+        SubscriptionRules.RequiredToPropose = true;
+        var (userId, profile, vehicle) = AddApprovedDriver();
+        UseTheFreeFreight(profile.Id, vehicle.Id);
+        Deliveries.Items[0].Advance(DeliveryStatus.Cancelled, Clock.UtcNow);
+        var freight = await CreateFreightAsync();
+
+        var result = await DriverMarketplace.SubmitProposalAsync(userId, freight, Proposal(vehicle), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task WithAPaidPlan_TheDriverTakesAsManyFreightsAsTheyWant()
+    {
+        SubscriptionRules.RequiredToPropose = true;
+        var (userId, profile, vehicle) = AddApprovedDriver();
+        UseTheFreeFreight(profile.Id, vehicle.Id);
+        UseTheFreeFreight(profile.Id, vehicle.Id);
+        var paid = Subscription.Create(profile.Id, SubscriptionPlan.Basic, "+5511999999999");
+        paid.RegisterPayment(Clock.UtcNow);
+        Subscriptions.Items.Add(paid);
+        var freight = await CreateFreightAsync();
+
+        var result = await DriverMarketplace.SubmitProposalAsync(userId, freight, Proposal(vehicle), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Approval_OnlyTheFirstProposalGetsTheFreeFreight()
+    {
+        SubscriptionRules.RequiredToPropose = true;
+        var freightA = await CreateFreightAsync();
+        var freightB = await CreateFreightAsync();
+        var (userId, _, vehicle) = AddApprovedDriver();
+        var proposalA = await DriverMarketplace.SubmitProposalAsync(userId, freightA, Proposal(vehicle), CancellationToken.None);
+        var proposalB = await DriverMarketplace.SubmitProposalAsync(userId, freightB, Proposal(vehicle), CancellationToken.None);
+        Assert.True(proposalA.IsSuccess && proposalB.IsSuccess);
+
+        var approvedA = await Selection.ApproveAsync(CustomerId, freightA, proposalA.Value.Id, CancellationToken.None);
+        var approvedB = await Selection.ApproveAsync(CustomerId, freightB, proposalB.Value.Id, CancellationToken.None);
+
+        Assert.True(approvedA.IsSuccess);
+        Assert.Equal(MarketplaceErrors.DriverUnavailable.Code, approvedB.Error!.Code);
+        Assert.Single(Deliveries.Items);
     }
 }
