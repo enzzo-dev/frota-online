@@ -26,6 +26,20 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
+// CORS for browser-based front-ends (the Ionic web view, ionic serve, the web app). Native HTTP stacks ignore it.
+// Origins come from Cors:AllowedOrigins (Cors__AllowedOrigins__0, __1, ...); with none configured no origin is allowed.
+// Authentication is a Bearer header, never a cookie, so credentials stay off and a wildcard would still be a bad idea.
+const string AppCorsPolicy = "App";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options => options.AddPolicy(AppCorsPolicy, policy =>
+{
+    if (allowedOrigins.Length > 0)
+    {
+        // Any header and method: Dev Tunnels adds X-Tunnel-Skip-AntiPhishing-Page, and the preflight must allow it.
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().SetPreflightMaxAge(TimeSpan.FromHours(1));
+    }
+}));
+
 builder.Services.AddExceptionHandler<UniqueViolationExceptionHandler>();
 builder.Services.AddProblemDetails();
 // Make the generated OpenAPI schemas describe enums as strings, matching the MVC JSON options above.
@@ -66,6 +80,7 @@ else
     app.UseHttpsRedirection();
 }
 
+app.UseCors(AppCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 

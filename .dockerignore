@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.gitignore
+.github/
+tests/
+scripts/
+docker-compose.yml
+setup.ps1
+README.md
+Dockerfile
+.dockerignore
+**/appsettings.Development.json
