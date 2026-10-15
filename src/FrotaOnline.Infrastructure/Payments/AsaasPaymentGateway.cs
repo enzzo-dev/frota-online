@@ -122,7 +122,7 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
         if (string.IsNullOrWhiteSpace(payload))
         {
             _logger.LogError("Asaas returned no Pix payload for charge {ChargeId}.", id);
-            throw new PaymentGatewayException("The provider returned no Pix code.");
+            throw new PaymentGatewayException("O provedor não retornou o código Pix.");
         }
 
         var image = root.TryGetProperty("encodedImage", out var e) ? e.GetString() : null;
@@ -187,7 +187,7 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
         var id = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
         if (string.IsNullOrWhiteSpace(id))
         {
-            throw new PaymentGatewayException("The provider answer has no id.");
+            throw new PaymentGatewayException("A resposta do provedor não tem identificador.");
         }
 
         var status = root.TryGetProperty("status", out var statusElement) ? statusElement.GetString() ?? string.Empty : string.Empty;
@@ -225,7 +225,7 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Asaas {Method} {Path} failed before an answer.", method, path);
-            throw new PaymentGatewayException("The payment provider could not be reached.", ex);
+            throw new PaymentGatewayException("Não foi possível acessar o provedor de pagamento.", ex);
         }
 
         if (response.IsSuccessStatusCode || (allowNotFound && response.StatusCode == System.Net.HttpStatusCode.NotFound))
@@ -239,10 +239,10 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
         response.Dispose();
         if (declined)
         {
-            throw new PaymentDeclinedException("The provider did not accept the card.");
+            throw new PaymentDeclinedException("O provedor não aceitou o cartão.");
         }
 
-        throw new PaymentGatewayException($"The payment provider refused the request ({(int)response.StatusCode}).");
+        throw new PaymentGatewayException($"O provedor de pagamento recusou a requisição ({(int)response.StatusCode}).");
     }
 
     private static async Task<JsonDocument> ParseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -260,7 +260,7 @@ internal sealed class AsaasPaymentGateway : IPaymentGateway
             return id.GetString()!;
         }
 
-        throw new PaymentGatewayException("The provider answer has no id.");
+        throw new PaymentGatewayException("A resposta do provedor não tem identificador.");
     }
 
     private static DateTime ParseExpiry(JsonElement root)

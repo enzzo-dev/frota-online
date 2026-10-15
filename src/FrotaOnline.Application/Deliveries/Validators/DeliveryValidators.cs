@@ -12,7 +12,7 @@ public sealed class CompleteStopRequestValidator : AbstractValidator<CompleteSto
         RuleFor(x => x.Longitude).InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue);
         RuleFor(x => x)
             .Must(x => x.Latitude.HasValue == x.Longitude.HasValue)
-            .WithMessage("Send latitude and longitude together.");
+            .WithMessage("Envie latitude e longitude juntas.");
         RuleFor(x => x.ProofMediaFileId).NotEqual(Guid.Empty).When(x => x.ProofMediaFileId.HasValue);
     }
 }
@@ -41,7 +41,7 @@ public sealed class SettleFeeRequestValidator : AbstractValidator<SettleFeeReque
     public SettleFeeRequestValidator()
     {
         RuleFor(x => x.Amount).GreaterThan(0).LessThanOrEqualTo(1_000_000)
-            .PrecisionScale(10, 2, false).WithMessage("Amount can have at most two decimal places.");
+            .PrecisionScale(10, 2, false).WithMessage("O valor pode ter no máximo duas casas decimais.");
         RuleFor(x => x.Description).NotEmpty().MaximumLength(200);
     }
 }

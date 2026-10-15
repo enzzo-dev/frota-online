@@ -109,7 +109,7 @@ public sealed class Payment : BaseEntity, IAggregateRoot
     {
         if (Status == PaymentStatus.Paid)
         {
-            throw new DomainException("A paid payment cannot be charged again.");
+            throw new DomainException("Um pagamento já pago não pode ser cobrado novamente.");
         }
     }
 
@@ -120,7 +120,7 @@ public sealed class Payment : BaseEntity, IAggregateRoot
     {
         if (Status != PaymentStatus.Pending)
         {
-            throw new DomainException($"A payment in status {Status} cannot be marked as paid.");
+            throw new DomainException($"Um pagamento com status {Status} não pode ser marcado como pago.");
         }
 
         Status = PaymentStatus.Paid;
@@ -132,7 +132,7 @@ public sealed class Payment : BaseEntity, IAggregateRoot
     {
         if (Status != PaymentStatus.Pending)
         {
-            throw new DomainException($"A payment in status {Status} cannot be marked as failed.");
+            throw new DomainException($"Um pagamento com status {Status} não pode ser marcado como falho.");
         }
 
         Status = PaymentStatus.Failed;

@@ -191,7 +191,7 @@ public class PrivacyServiceTests
         Assert.False(user.IsActive);
         Assert.DoesNotContain("maria", user.Email);
         Assert.EndsWith("@anonymized.invalid", user.Email);
-        Assert.Equal("Removed user", user.FullName);
+        Assert.Equal("Usuário removido", user.FullName);
         Assert.False(_hasher.Verify(Password, user.PasswordHash));
         Assert.Throws<DomainException>(() => user.Anonymize(_clock.UtcNow));
     }

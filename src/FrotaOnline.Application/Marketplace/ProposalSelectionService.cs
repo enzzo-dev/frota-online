@@ -121,7 +121,7 @@ public sealed class ProposalSelectionService : IProposalSelectionService
         var delivery = Delivery.Create(freight.Id, proposal.Id, freight.CustomerId, driver.Id, vehicle.Id, proposal.Price);
         await _deliveries.AddAsync(delivery, cancellationToken);
         await _deliveries.AddEventAsync(
-            DeliveryEvent.Create(delivery.Id, DeliveryStatus.Scheduled, now, "Proposal approved by the customer.", null, null, null),
+            DeliveryEvent.Create(delivery.Id, DeliveryStatus.Scheduled, now, "Proposta aprovada pelo cliente.", null, null, null),
             cancellationToken);
         await _agenda.AddAsync(DriverAgendaSlot.Create(driver.Id, delivery.Id, startsAt, endsAt), cancellationToken);
 

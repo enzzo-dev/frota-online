@@ -50,33 +50,33 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
     {
         if (scheduledPickupAt is not null && scheduledPickupAt <= utcNow)
         {
-            throw new DomainException("The scheduled pickup must be in the future.");
+            throw new DomainException("A coleta agendada deve ser no futuro.");
         }
 
         if (stops is null || stops.Count < 2)
         {
-            throw new DomainException("A freight needs at least one pickup and one delivery.");
+            throw new DomainException("O frete precisa de ao menos uma coleta e uma entrega.");
         }
 
         if (stops.Count > FreightLimits.MaxStops)
         {
-            throw new DomainException($"A freight can have at most {FreightLimits.MaxStops} stops.");
+            throw new DomainException($"O frete pode ter no máximo {FreightLimits.MaxStops} paradas.");
         }
 
         if (stops[0].Type != StopType.Pickup)
         {
-            throw new DomainException("The first stop must be a pickup.");
+            throw new DomainException("A primeira parada deve ser uma coleta.");
         }
 
         if (stops[^1].Type != StopType.Delivery)
         {
-            throw new DomainException("The last stop must be a delivery: it is the final delivery address.");
+            throw new DomainException("A última parada deve ser uma entrega: é o endereço final de entrega.");
         }
 
         var addressIds = stops.Select(s => s.AddressId).ToList();
         if (addressIds.Distinct().Count() != addressIds.Count)
         {
-            throw new DomainException("Every stop must use a different address.");
+            throw new DomainException("Cada parada deve usar um endereço diferente.");
         }
 
         var deadline = scheduledPickupAt is null
@@ -105,7 +105,7 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
     {
         if (distanceMeters < 0 || durationSeconds < 0)
         {
-            throw new DomainException("The route distance and duration cannot be negative.");
+            throw new DomainException("A distância e a duração da rota não podem ser negativas.");
         }
 
         RouteDistanceMeters = distanceMeters;
@@ -118,7 +118,7 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
     {
         if (Status != FreightStatus.Open)
         {
-            throw new DomainException($"A freight in status {Status} cannot be approved.");
+            throw new DomainException($"Um frete com status {Status} não pode ser aprovado.");
         }
 
         Status = FreightStatus.Approved;
@@ -130,7 +130,7 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
     {
         if (Status != FreightStatus.Open)
         {
-            throw new DomainException($"A freight in status {Status} cannot be cancelled.");
+            throw new DomainException($"Um frete com status {Status} não pode ser cancelado.");
         }
 
         Status = FreightStatus.Cancelled;

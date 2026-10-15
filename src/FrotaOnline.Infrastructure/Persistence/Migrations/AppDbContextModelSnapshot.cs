@@ -168,7 +168,7 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
+                    b.HasIndex("CustomerId", "CreatedAt");
 
                     b.HasIndex("FreightRequestId")
                         .IsUnique();

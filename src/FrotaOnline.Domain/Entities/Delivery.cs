@@ -61,7 +61,7 @@ public sealed class Delivery : BaseEntity, IAggregateRoot
     {
         if (!CanTransitionTo(next))
         {
-            throw new DomainException($"A delivery cannot go from {Status} to {next}.");
+            throw new DomainException($"Uma entrega não pode passar de {Status} para {next}.");
         }
 
         Status = next;

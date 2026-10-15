@@ -173,7 +173,7 @@ public sealed class WalletPaymentService : IWalletPaymentService
         {
             if (!_secrets.TryUnprotect(account.RefreshTokenProtected, out var refresh))
             {
-                throw new PaymentGatewayException("The stored refresh token cannot be read.");
+                throw new PaymentGatewayException("Não foi possível ler o token de renovação salvo.");
             }
 
             var renewed = await _wallets.RefreshAsync(refresh, cancellationToken);
@@ -185,7 +185,7 @@ public sealed class WalletPaymentService : IWalletPaymentService
 
         if (!_secrets.TryUnprotect(account.AccessTokenProtected, out var access))
         {
-            throw new PaymentGatewayException("The stored access token cannot be read.");
+            throw new PaymentGatewayException("Não foi possível ler o token de acesso salvo.");
         }
 
         return access;

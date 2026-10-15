@@ -58,6 +58,25 @@ public sealed record CustomerDeliveryDetail(
     IReadOnlyList<FreightStopResponse> Stops,
     IReadOnlyList<DeliveryEventResponse> Timeline);
 
+/// <summary>
+/// The few fields a screen polls to know whether anything changed. <see cref="Version"/> changes whenever the status, the
+/// completed stops, the payment or the timeline change, so the client fetches the full detail only when it differs.
+/// </summary>
+public sealed record DeliveryStatusResponse(
+    Guid DeliveryId,
+    DeliveryStatus Status,
+    int TotalStops,
+    int CompletedStops,
+    PaymentStatus? Payment,
+    DateTime? LastEventAt,
+    string Version)
+{
+    public static DeliveryStatusResponse Create(
+        Guid deliveryId, DeliveryStatus status, int totalStops, int completedStops, PaymentStatus? payment, DateTime? lastEventAt) =>
+        new(deliveryId, status, totalStops, completedStops, payment, lastEventAt,
+            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}");
+}
+
 /// <summary>An admin records that the driver paid part or all of the fees owed to the platform.</summary>
 public sealed record SettleFeeRequest(decimal Amount, string Description);
 

@@ -20,6 +20,6 @@ public sealed class PublishTermRequestValidator : AbstractValidator<PublishTermR
         RuleFor(x => x.Title).NotEmpty().MaximumLength(150);
         RuleFor(x => x.ContentUrl).NotEmpty().MaximumLength(1024)
             .Must(url => Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
-            .WithMessage("Content URL must be an absolute https URL.");
+            .WithMessage("A URL do conteúdo deve ser uma URL https absoluta.");
     }
 }

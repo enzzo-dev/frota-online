@@ -15,7 +15,7 @@ public sealed class UpdatePayoutAccountRequestValidator : AbstractValidator<Upda
         RuleFor(x => x.WalletId)
             .NotEmpty()
             .Must(value => Guid.TryParse(value, out _))
-            .WithMessage("The payout account id must be the wallet id of your payment account (a UUID).");
+            .WithMessage("O id da conta de recebimento deve ser o id da carteira da sua conta de pagamento (um UUID).");
 }
 
 public sealed class CreatePixRequestValidator : AbstractValidator<CreatePixRequest>
@@ -24,7 +24,7 @@ public sealed class CreatePixRequestValidator : AbstractValidator<CreatePixReque
         RuleFor(x => x.TaxId)
             .NotEmpty()
             .Must(BrazilianDocuments.IsValidTaxId)
-            .WithMessage("Enter a valid CPF or CNPJ.");
+            .WithMessage("Informe um CPF ou CNPJ válido.");
 }
 
 public sealed class PayWithCardRequestValidator : AbstractValidator<PayWithCardRequest>
@@ -34,31 +34,31 @@ public sealed class PayWithCardRequestValidator : AbstractValidator<PayWithCardR
         RuleFor(x => x)
             .Must(x => x.SavedCardId.HasValue ^ x.Card is not null)
             .WithName("card")
-            .WithMessage("Send either a saved card or the data of a new card.");
+            .WithMessage("Envie um cartão salvo ou os dados de um novo cartão.");
 
         When(x => x.Card is not null, () =>
         {
             RuleFor(x => x.Card!.HolderName).NotEmpty().MaximumLength(100);
             RuleFor(x => x.Card!.Number)
                 .Must(value => CardNumbers.IsValid(value))
-                .WithMessage("Enter a valid card number.");
+                .WithMessage("Informe um número de cartão válido.");
             RuleFor(x => x.Card!.ExpiryMonth)
                 .Must(value => int.TryParse(value, out var month) && month is >= 1 and <= 12)
-                .WithMessage("Enter the expiry month (01 to 12).");
+                .WithMessage("Informe o mês de validade (01 a 12).");
             RuleFor(x => x.Card!.ExpiryYear)
                 .Must(value => value is { Length: 4 } && int.TryParse(value, out var year) && year >= 2000)
-                .WithMessage("Enter the expiry year with four digits.");
+                .WithMessage("Informe o ano de validade com quatro dígitos.");
             RuleFor(x => x.Card!.Ccv)
                 .Must(value => value is { Length: 3 or 4 } && value.All(char.IsAsciiDigit))
-                .WithMessage("Enter the security code (3 or 4 digits).");
+                .WithMessage("Informe o código de segurança (3 ou 4 dígitos).");
 
-            RuleFor(x => x.Holder).NotNull().WithMessage("The card holder data is required for a new card.");
+            RuleFor(x => x.Holder).NotNull().WithMessage("Os dados do titular são obrigatórios para um novo cartão.");
             When(x => x.Holder is not null, () =>
             {
-                RuleFor(x => x.Holder!.TaxId).Must(BrazilianDocuments.IsValidTaxId).WithMessage("Enter a valid CPF or CNPJ.");
+                RuleFor(x => x.Holder!.TaxId).Must(BrazilianDocuments.IsValidTaxId).WithMessage("Informe um CPF ou CNPJ válido.");
                 RuleFor(x => x.Holder!.PostalCode)
                     .Must(value => value is not null && value.Count(char.IsAsciiDigit) == 8 && value.All(c => char.IsAsciiDigit(c) || c == '-'))
-                    .WithMessage("Enter the postal code (CEP) with 8 digits.");
+                    .WithMessage("Informe o CEP com 8 dígitos.");
                 RuleFor(x => x.Holder!.AddressNumber).NotEmpty().MaximumLength(20);
             });
         });

@@ -22,15 +22,15 @@ public sealed class CreateAddressRequestValidator : AbstractValidator<CreateAddr
         RuleFor(x => x.City).NotEmpty().MaximumLength(100);
         RuleFor(x => x.State).NotEmpty()
             .Must(state => States.Contains((state ?? string.Empty).Trim().ToUpperInvariant()))
-            .WithMessage("State must be a valid two-letter Brazilian state code.");
+            .WithMessage("O estado deve ser uma sigla de UF válida com duas letras.");
         RuleFor(x => x.ZipCode).NotEmpty()
             .Must(zip => BrazilianDocuments.OnlyDigits(zip).Length == 8)
-            .WithMessage("ZIP code must have 8 digits.");
+            .WithMessage("O CEP deve ter 8 dígitos.");
         RuleFor(x => x.Latitude).InclusiveBetween(-90, 90).When(x => x.Latitude.HasValue);
         RuleFor(x => x.Longitude).InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue);
         RuleFor(x => x)
             .Must(x => x.Latitude.HasValue == x.Longitude.HasValue)
             .WithName("Latitude")
-            .WithMessage("Send latitude and longitude together.");
+            .WithMessage("Envie latitude e longitude juntas.");
     }
 }

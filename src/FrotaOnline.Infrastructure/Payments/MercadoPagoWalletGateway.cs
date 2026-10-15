@@ -80,7 +80,7 @@ internal sealed class MercadoPagoWalletGateway : IWalletPaymentGateway
         if (charge.Status is "rejected" or "cancelled")
         {
             _logger.LogInformation("Mercado Pago payment {PaymentId} was {Status}.", charge.Id, charge.Status);
-            throw new PaymentDeclinedException("The provider rejected the payment.");
+            throw new PaymentDeclinedException("O provedor rejeitou o pagamento.");
         }
 
         return charge;
@@ -113,7 +113,7 @@ internal sealed class MercadoPagoWalletGateway : IWalletPaymentGateway
         if (string.IsNullOrWhiteSpace(access) || string.IsNullOrWhiteSpace(refresh) || string.IsNullOrWhiteSpace(userId))
         {
             _logger.LogError("Mercado Pago returned an incomplete OAuth answer.");
-            throw new PaymentGatewayException("The provider answer is incomplete.");
+            throw new PaymentGatewayException("A resposta do provedor está incompleta.");
         }
 
         return new SellerAuthorization(userId, access, refresh, DateTime.UtcNow.AddSeconds(seconds));
@@ -130,7 +130,7 @@ internal sealed class MercadoPagoWalletGateway : IWalletPaymentGateway
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Mercado Pago {Method} {Path} failed before an answer.", message.Method, message.RequestUri);
-            throw new PaymentGatewayException("The payment provider could not be reached.", ex);
+            throw new PaymentGatewayException("Não foi possível acessar o provedor de pagamento.", ex);
         }
 
         if (response.IsSuccessStatusCode)
@@ -145,10 +145,10 @@ internal sealed class MercadoPagoWalletGateway : IWalletPaymentGateway
         response.Dispose();
         if (declined)
         {
-            throw new PaymentDeclinedException("The provider did not accept the payment.");
+            throw new PaymentDeclinedException("O provedor não aceitou o pagamento.");
         }
 
-        throw new PaymentGatewayException($"The payment provider refused the request ({(int)response.StatusCode}).");
+        throw new PaymentGatewayException($"O provedor de pagamento recusou a requisição ({(int)response.StatusCode}).");
     }
 
     private static async Task<WalletCharge> ReadChargeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -163,7 +163,7 @@ internal sealed class MercadoPagoWalletGateway : IWalletPaymentGateway
             : null;
         if (string.IsNullOrWhiteSpace(id))
         {
-            throw new PaymentGatewayException("The provider answer has no id.");
+            throw new PaymentGatewayException("A resposta do provedor não tem identificador.");
         }
 
         var status = root.TryGetProperty("status", out var s) ? s.GetString() ?? string.Empty : string.Empty;

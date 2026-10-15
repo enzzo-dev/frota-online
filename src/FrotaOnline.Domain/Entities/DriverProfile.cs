@@ -48,7 +48,7 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
     {
         if (!IsEditable)
         {
-            throw new DomainException($"A driver in status {Status} cannot change their details.");
+            throw new DomainException($"Um motorista com status {Status} não pode alterar seus dados.");
         }
 
         TaxId = Guard.NotNullOrWhiteSpace(taxId, nameof(taxId)).ToUpperInvariant();
@@ -66,7 +66,7 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
     {
         if (Status is not (DriverStatus.Draft or DriverStatus.Rejected))
         {
-            throw new DomainException($"A driver in status {Status} cannot be submitted for review.");
+            throw new DomainException($"Um motorista com status {Status} não pode ser enviado para análise.");
         }
 
         Status = DriverStatus.PendingReview;
@@ -107,7 +107,7 @@ public sealed class DriverProfile : BaseEntity, IAggregateRoot
     {
         if (Status != DriverStatus.PendingReview)
         {
-            throw new DomainException($"Only drivers pending review can be reviewed (current status: {Status}).");
+            throw new DomainException($"Só motoristas em análise podem ser avaliados (status atual: {Status}).");
         }
     }
 }

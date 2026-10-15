@@ -56,7 +56,7 @@ public sealed class Proposal : BaseEntity, IAggregateRoot
     {
         if (Status != ProposalStatus.Pending)
         {
-            throw new DomainException($"A proposal in status {Status} cannot become {next}.");
+            throw new DomainException($"Uma proposta com status {Status} não pode passar para {next}.");
         }
 
         Status = next;

@@ -5,5 +5,5 @@ namespace FrotaOnline.Application.Notifications;
 public static class NotificationErrors
 {
     public static readonly Error NotFound =
-        new("notification.not_found", "Notification not found.", ErrorType.NotFound);
+        new("notification.not_found", "Notificação não encontrada.", ErrorType.NotFound);
 }

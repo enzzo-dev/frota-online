@@ -51,7 +51,7 @@ public sealed class FreightStop : BaseEntity
         var items = draft.Items ?? Array.Empty<FreightItemDraft>();
         if (items.Count > FreightLimits.MaxItemsPerStop)
         {
-            throw new DomainException($"A stop can have at most {FreightLimits.MaxItemsPerStop} items.");
+            throw new DomainException($"Uma parada pode ter no máximo {FreightLimits.MaxItemsPerStop} itens.");
         }
 
         foreach (var item in items)
@@ -66,7 +66,7 @@ public sealed class FreightStop : BaseEntity
     {
         if (IsCompleted)
         {
-            throw new DomainException("This stop was already completed.");
+            throw new DomainException("Esta parada já foi concluída.");
         }
 
         CompletedAt = utcNow;

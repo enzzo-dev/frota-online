@@ -8,6 +8,6 @@ public sealed class DeleteAccountRequestValidator : AbstractValidator<DeleteAcco
     public DeleteAccountRequestValidator()
     {
         RuleFor(x => x.Password).NotEmpty();
-        RuleFor(x => x.Confirm).Equal(true).WithMessage("Set confirm to true to delete the account.");
+        RuleFor(x => x.Confirm).Equal(true).WithMessage("Envie confirm como true para excluir a conta.");
     }
 }

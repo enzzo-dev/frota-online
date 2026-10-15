@@ -12,13 +12,13 @@ internal sealed class NoFileStorage : IFileStorage
 
     public Task<UploadTicket> CreateUploadAsync(
         string key, string contentType, long maxBytes, TimeSpan lifetime, CancellationToken cancellationToken) =>
-        throw new InvalidOperationException("File storage is not configured.");
+        throw new InvalidOperationException("O armazenamento de arquivos não está configurado.");
 
     public Task<StoredObject?> GetInfoAsync(string key, CancellationToken cancellationToken) =>
         Task.FromResult<StoredObject?>(null);
 
     public Task<string> CreateDownloadUrlAsync(string key, TimeSpan lifetime, CancellationToken cancellationToken) =>
-        throw new InvalidOperationException("File storage is not configured.");
+        throw new InvalidOperationException("O armazenamento de arquivos não está configurado.");
 
     public Task DeleteAsync(IReadOnlyCollection<string> keys, CancellationToken cancellationToken) => Task.CompletedTask;
 }

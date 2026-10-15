@@ -42,7 +42,7 @@ public sealed class Address : BaseEntity
     {
         if (IsDeleted)
         {
-            throw new DomainException("A deleted address cannot be edited.");
+            throw new DomainException("Um endereço excluído não pode ser editado.");
         }
 
         Label = Guard.NotNullOrWhiteSpace(label, nameof(label));

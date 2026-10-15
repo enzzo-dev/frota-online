@@ -9,20 +9,20 @@ public sealed class CreateFreightRequestValidator : AbstractValidator<CreateFrei
 {
     public CreateFreightRequestValidator()
     {
-        RuleFor(x => x.Stops).NotNull().WithMessage("Send the stops of the route.");
+        RuleFor(x => x.Stops).NotNull().WithMessage("Envie as paradas da rota.");
         When(x => x.Stops is not null, () =>
         {
             RuleFor(x => x.Stops)
                 .Must(stops => stops.Count >= 2)
-                .WithMessage("A freight needs at least one pickup and one delivery.")
+                .WithMessage("O frete precisa de ao menos uma coleta e uma entrega.")
                 .Must(stops => stops.Count <= FreightLimits.MaxStops)
-                .WithMessage($"A freight can have at most {FreightLimits.MaxStops} stops.")
+                .WithMessage($"O frete pode ter no máximo {FreightLimits.MaxStops} paradas.")
                 .Must(stops => stops.Count == 0 || stops[0]?.Type == StopType.Pickup)
-                .WithMessage("The first stop must be a pickup.")
+                .WithMessage("A primeira parada deve ser uma coleta.")
                 .Must(stops => stops.Count == 0 || stops[^1]?.Type == StopType.Delivery)
-                .WithMessage("The last stop must be a delivery: it is the final delivery address.")
+                .WithMessage("A última parada deve ser uma entrega: é o endereço final de entrega.")
                 .Must(stops => stops.Where(s => s is not null).Select(s => s.AddressId).Distinct().Count() == stops.Count(s => s is not null))
-                .WithMessage("Every stop must use a different address.");
+                .WithMessage("Cada parada deve usar um endereço diferente.");
             RuleForEach(x => x.Stops).NotNull().SetValidator(new CreateFreightStopRequestValidator());
         });
         RuleFor(x => x.CargoDescription).NotEmpty().MaximumLength(1000);
@@ -40,7 +40,7 @@ public sealed class CreateFreightStopRequestValidator : AbstractValidator<Create
         RuleFor(x => x.Note).MaximumLength(500);
         RuleFor(x => x.Items)
             .Must(items => items is null || items.Count <= FreightLimits.MaxItemsPerStop)
-            .WithMessage($"A stop can have at most {FreightLimits.MaxItemsPerStop} items.");
+            .WithMessage($"Uma parada pode ter no máximo {FreightLimits.MaxItemsPerStop} itens.");
         RuleForEach(x => x.Items).NotNull().SetValidator(new CreateFreightItemRequestValidator());
     }
 }
@@ -60,7 +60,7 @@ public sealed class SubmitProposalRequestValidator : AbstractValidator<SubmitPro
     {
         RuleFor(x => x.VehicleId).NotEmpty();
         RuleFor(x => x.Price).GreaterThan(0).LessThanOrEqualTo(1_000_000)
-            .PrecisionScale(10, 2, false).WithMessage("Price can have at most two decimal places.");
+            .PrecisionScale(10, 2, false).WithMessage("O preço pode ter no máximo duas casas decimais.");
         RuleFor(x => x.Message).MaximumLength(500);
     }
 }

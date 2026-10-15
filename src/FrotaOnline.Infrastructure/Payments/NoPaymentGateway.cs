@@ -23,7 +23,7 @@ internal sealed class NoPaymentGateway : IPaymentGateway
 
     private static Task<string> Fail() => Fail<string>();
 
-    private static Task<T> Fail<T>() => throw new PaymentGatewayException("No payment provider is configured.");
+    private static Task<T> Fail<T>() => throw new PaymentGatewayException("Nenhum provedor de pagamento está configurado.");
 }
 
 /// <summary>Used when <c>Payments:WalletProvider</c> is not set: wallet payments answer "not configured".</summary>
@@ -31,7 +31,7 @@ internal sealed class NoWalletPaymentGateway : IWalletPaymentGateway
 {
     public bool IsConfigured => false;
 
-    public string BuildAuthorizationUrl(string state) => throw new PaymentGatewayException("No wallet provider is configured.");
+    public string BuildAuthorizationUrl(string state) => throw new PaymentGatewayException("Nenhum provedor de carteira digital está configurado.");
 
     public Task<SellerAuthorization> ExchangeCodeAsync(string code, CancellationToken cancellationToken) => Fail<SellerAuthorization>();
 
@@ -42,13 +42,13 @@ internal sealed class NoWalletPaymentGateway : IWalletPaymentGateway
     public Task<WalletCharge> GetPaymentAsync(string paymentId, string sellerAccessToken, CancellationToken cancellationToken) =>
         Fail<WalletCharge>();
 
-    private static Task<T> Fail<T>() => throw new PaymentGatewayException("No wallet provider is configured.");
+    private static Task<T> Fail<T>() => throw new PaymentGatewayException("Nenhum provedor de carteira digital está configurado.");
 }
 
 /// <summary>Without a wallet provider there is nothing to protect: any call is a bug, so it fails loudly.</summary>
 internal sealed class DisabledSecretProtector : ISecretProtector
 {
-    public string Protect(string plainText) => throw new InvalidOperationException("No wallet provider is configured.");
+    public string Protect(string plainText) => throw new InvalidOperationException("Nenhum provedor de carteira digital está configurado.");
 
     public bool TryUnprotect(string protectedText, out string plainText)
     {

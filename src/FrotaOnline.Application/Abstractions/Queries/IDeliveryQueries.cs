@@ -23,4 +23,7 @@ public interface IDeliveryQueries
 
     /// <summary>Null when the delivery does not exist or belongs to another customer.</summary>
     Task<CustomerDeliveryDetail?> GetForCustomerAsync(Guid customerId, Guid deliveryId, CancellationToken cancellationToken);
+
+    /// <summary>Lightweight status for polling, from a single query. Null when the delivery does not exist or belongs to another customer.</summary>
+    Task<DeliveryStatusResponse?> GetStatusForCustomerAsync(Guid customerId, Guid deliveryId, CancellationToken cancellationToken);
 }

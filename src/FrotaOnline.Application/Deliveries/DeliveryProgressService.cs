@@ -69,7 +69,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         if (delivery.Status != DeliveryStatus.Scheduled)
         {
             return Result.Failure<DeliveryProgressResponse>(
-                DeliveryErrors.InvalidStatus($"The delivery is {delivery.Status}; only a scheduled delivery can be started."));
+                DeliveryErrors.InvalidStatus($"A entrega está com status {delivery.Status}; só uma entrega agendada pode ser iniciada."));
         }
 
         var now = _clock.UtcNow;
@@ -101,7 +101,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         if (delivery.Status is not (DeliveryStatus.ToPickup or DeliveryStatus.PickedUp or DeliveryStatus.InTransit))
         {
             return Result.Failure<DeliveryProgressResponse>(DeliveryErrors.InvalidStatus(
-                $"The delivery is {delivery.Status}; start it before completing stops."));
+                $"A entrega está com status {delivery.Status}; inicie-a antes de concluir paradas."));
         }
 
         var ordered = freight.Stops.OrderBy(s => s.Sequence).ToList();
@@ -195,7 +195,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         if (!delivery.CanTransitionTo(DeliveryStatus.Incident))
         {
             return Result.Failure<DeliveryProgressResponse>(DeliveryErrors.InvalidStatus(
-                $"An incident cannot be reported while the delivery is {delivery.Status}."));
+                $"Não é possível registrar uma ocorrência com a entrega em status {delivery.Status}."));
         }
 
         var now = _clock.UtcNow;
@@ -247,7 +247,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         if (delivery.Status is not (DeliveryStatus.Scheduled or DeliveryStatus.ToPickup))
         {
             return Result.Failure<DeliveryProgressResponse>(DeliveryErrors.InvalidStatus(
-                $"The delivery is {delivery.Status}; you can only cancel before the cargo is picked up."));
+                $"A entrega está com status {delivery.Status}; só é possível cancelar antes de a carga ser coletada."));
         }
 
         var freight = await _freights.GetByIdAsync(delivery.FreightRequestId, cancellationToken);
@@ -265,13 +265,13 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         if (!delivery.CanTransitionTo(DeliveryStatus.Cancelled))
         {
             return Result.Failure<DeliveryProgressResponse>(DeliveryErrors.InvalidStatus(
-                $"A delivery in {delivery.Status} cannot be cancelled."));
+                $"Uma entrega com status {delivery.Status} não pode ser cancelada."));
         }
 
         var now = _clock.UtcNow;
         delivery.Advance(DeliveryStatus.Cancelled, now);
         await _deliveries.AddEventAsync(
-            DeliveryEvent.Create(delivery.Id, DeliveryStatus.Cancelled, now, $"Cancelled by the {who}: {reason}", null, null, null),
+            DeliveryEvent.Create(delivery.Id, DeliveryStatus.Cancelled, now, $"Cancelada pelo {(who == "driver" ? "motorista" : "cliente")}: {reason}", null, null, null),
             cancellationToken);
         await ReleaseAgendaAsync(delivery.Id, now, cancellationToken);
 

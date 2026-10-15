@@ -12,15 +12,15 @@ public sealed class UpsertDriverProfileRequestValidator : AbstractValidator<Upse
     public UpsertDriverProfileRequestValidator()
     {
         RuleFor(x => x.TaxId).Cascade(CascadeMode.Stop)
-            .NotEmpty().WithMessage("CPF or CNPJ is required for drivers.")
+            .NotEmpty().WithMessage("CPF ou CNPJ é obrigatório para motoristas.")
             .Must(BrazilianDocuments.IsValidTaxId)
-            .WithMessage("CPF or CNPJ is invalid. Check the number and its verification digits.");
+            .WithMessage("CPF ou CNPJ inválido. Confira o número e os dígitos verificadores.");
         RuleFor(x => x.CnhNumber).NotEmpty()
             .Must(value => BrazilianDocuments.OnlyDigits(value).Length == 11)
-            .WithMessage("CNH must have 11 digits.");
+            .WithMessage("A CNH deve ter 11 dígitos.");
         RuleFor(x => x.CnhCategory).NotEmpty()
             .Must(value => Categories.Contains((value ?? string.Empty).Trim().ToUpperInvariant()))
-            .WithMessage("CNH category must be one of: " + string.Join(", ", Categories) + ".");
+            .WithMessage("A categoria da CNH deve ser uma de: " + string.Join(", ", Categories) + ".");
     }
 }
 
@@ -30,7 +30,7 @@ public sealed class RegisterVehicleRequestValidator : AbstractValidator<Register
     {
         RuleFor(x => x.Type).IsInEnum();
         RuleFor(x => x.Plate).NotEmpty().Must(BrazilianDocuments.IsValidPlate)
-            .WithMessage("Plate must follow the ABC1234 or ABC1D23 format.");
+            .WithMessage("A placa deve seguir o formato ABC1234 ou ABC1D23.");
         RuleFor(x => x.Model).NotEmpty().MaximumLength(80);
         RuleFor(x => x.Year).InclusiveBetween(1980, DateTime.UtcNow.Year + 1);
         RuleFor(x => x.CapacityKg).GreaterThan(0).LessThanOrEqualTo(60_000);
@@ -42,9 +42,9 @@ public sealed class CreateUploadUrlRequestValidator : AbstractValidator<CreateUp
     public CreateUploadUrlRequestValidator()
     {
         RuleFor(x => x.Kind).Must(kind => kind is MediaKind.DriverDocument or MediaKind.VehiclePhoto or MediaKind.DeliveryProof)
-            .WithMessage("Drivers can only upload DriverDocument, VehiclePhoto or DeliveryProof files here.");
+            .WithMessage("Aqui o motorista só pode enviar arquivos do tipo DriverDocument, VehiclePhoto ou DeliveryProof.");
         RuleFor(x => x.ContentType).NotEmpty().Must(type => RegisterMediaRequestValidator.AllowedContentTypes.Contains(type))
-            .WithMessage("Content type must be one of: " + string.Join(", ", RegisterMediaRequestValidator.AllowedContentTypes) + ".");
+            .WithMessage("O tipo do conteúdo deve ser um de: " + string.Join(", ", RegisterMediaRequestValidator.AllowedContentTypes) + ".");
     }
 }
 
@@ -57,10 +57,10 @@ public sealed class RegisterMediaRequestValidator : AbstractValidator<RegisterMe
     public RegisterMediaRequestValidator()
     {
         RuleFor(x => x.Kind).Must(kind => kind is MediaKind.DriverDocument or MediaKind.VehiclePhoto or MediaKind.DeliveryProof)
-            .WithMessage("Drivers can only register DriverDocument, VehiclePhoto or DeliveryProof files here.");
+            .WithMessage("Aqui o motorista só pode registrar arquivos do tipo DriverDocument, VehiclePhoto ou DeliveryProof.");
         RuleFor(x => x.StorageKey).NotEmpty().MaximumLength(512);
         RuleFor(x => x.ContentType).NotEmpty().Must(type => AllowedContentTypes.Contains(type))
-            .WithMessage("Content type must be one of: " + string.Join(", ", AllowedContentTypes) + ".");
+            .WithMessage("O tipo do conteúdo deve ser um de: " + string.Join(", ", AllowedContentTypes) + ".");
         RuleFor(x => x.SizeBytes).GreaterThan(0).LessThanOrEqualTo(MaxSizeBytes);
     }
 }

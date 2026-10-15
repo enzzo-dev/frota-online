@@ -18,9 +18,9 @@ public sealed class PrivacyService : IPrivacyService
     // Told to the person so the erasure is transparent about what stays and why (LGPD art. 6, VI and art. 16).
     private static readonly string[] Retained =
     {
-        "Freights, proposals and deliveries you took part in stay for audit and dispute handling, without your name, contact data or addresses.",
-        "Payment and fee records stay for the period required by tax law, linked only to an anonymous account.",
-        "The fact that you accepted the terms (which version and when) stays as proof, without your IP address.",
+        "Os fretes, propostas e entregas de que você participou permanecem para auditoria e tratamento de disputas, sem seu nome, dados de contato ou endereços.",
+        "Os registros de pagamentos e taxas permanecem pelo prazo exigido pela legislação fiscal, vinculados apenas a uma conta anônima.",
+        "O fato de você ter aceitado os termos (qual versão e quando) permanece como comprovação, sem o seu endereço de IP.",
     };
 
     private readonly IUserRepository _users;

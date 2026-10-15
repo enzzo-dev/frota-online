@@ -53,10 +53,10 @@ public sealed class User : BaseEntity, IAggregateRoot
     {
         if (IsAnonymized)
         {
-            throw new DomainException("This account was already anonymized.");
+            throw new DomainException("Esta conta já foi anonimizada.");
         }
 
-        FullName = "Removed user";
+        FullName = "Usuário removido";
         Email = $"deleted-{Id:N}@anonymized.invalid";
         PhoneNumber = "0";
         PasswordHash = "!"; // not a valid hash, so no password can ever match

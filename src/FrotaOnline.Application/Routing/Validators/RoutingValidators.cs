@@ -8,15 +8,15 @@ public sealed class RoutePreviewRequestValidator : AbstractValidator<RoutePrevie
 {
     public RoutePreviewRequestValidator()
     {
-        RuleFor(x => x.AddressIds).NotNull().WithMessage("Send the addresses of the route.");
+        RuleFor(x => x.AddressIds).NotNull().WithMessage("Envie os endereços da rota.");
         When(x => x.AddressIds is not null, () =>
         {
             RuleFor(x => x.AddressIds)
-                .Must(ids => ids.Count >= 2).WithMessage("A route needs at least two addresses.")
+                .Must(ids => ids.Count >= 2).WithMessage("A rota precisa de pelo menos dois endereços.")
                 .Must(ids => ids.Count <= FreightLimits.MaxStops)
-                .WithMessage($"A route can have at most {FreightLimits.MaxStops} addresses.")
-                .Must(ids => ids.All(id => id != Guid.Empty)).WithMessage("Every address id must be filled.")
-                .Must(ids => ids.Distinct().Count() == ids.Count).WithMessage("Every stop must use a different address.");
+                .WithMessage($"A rota pode ter no máximo {FreightLimits.MaxStops} endereços.")
+                .Must(ids => ids.All(id => id != Guid.Empty)).WithMessage("Todos os ids de endereço devem ser preenchidos.")
+                .Must(ids => ids.Distinct().Count() == ids.Count).WithMessage("Cada parada deve usar um endereço diferente.");
         });
     }
 }

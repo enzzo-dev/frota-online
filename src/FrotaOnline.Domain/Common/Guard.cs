@@ -6,7 +6,7 @@ internal static class Guard
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new DomainException($"{name} is required.");
+            throw new DomainException($"{name} é obrigatório.");
         }
 
         return value.Trim();
@@ -16,7 +16,7 @@ internal static class Guard
     {
         if (value <= 0)
         {
-            throw new DomainException($"{name} must be greater than zero.");
+            throw new DomainException($"{name} deve ser maior que zero.");
         }
 
         return value;
@@ -26,7 +26,7 @@ internal static class Guard
     {
         if (value == Guid.Empty)
         {
-            throw new DomainException($"{name} is required.");
+            throw new DomainException($"{name} é obrigatório.");
         }
 
         return value;

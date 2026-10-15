@@ -47,6 +47,14 @@ public sealed class CustomerDeliveriesController : ApiControllerBase
     public async Task<IActionResult> Get(Guid deliveryId, CancellationToken cancellationToken) =>
         Handle(await _deliveries.GetAsync(CurrentUserId, deliveryId, cancellationToken), Ok);
 
+    [HttpGet("{deliveryId:guid}/status")]
+    [EndpointSummary("Poll a delivery")]
+    [EndpointDescription("Small payload for live tracking: status, stop counters, payment status and a version. Poll this and fetch the full delivery only when the version changes.")]
+    [ProducesResponseType<DeliveryStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetStatus(Guid deliveryId, CancellationToken cancellationToken) =>
+        Handle(await _deliveries.GetStatusAsync(CurrentUserId, deliveryId, cancellationToken), Ok);
+
     [HttpPost("{deliveryId:guid}/cancel")]
     [EndpointSummary("Cancel a delivery")]
     [EndpointDescription("Only before the cargo is picked up (Scheduled or ToPickup).")]

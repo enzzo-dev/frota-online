@@ -24,7 +24,7 @@ public class CreateAddressRequestValidatorTests
         var result = _validator.Validate(Request(latitude, longitude));
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.ErrorMessage == "Send latitude and longitude together.");
+        Assert.Contains(result.Errors, e => e.ErrorMessage == "Envie latitude e longitude juntas.");
     }
 
     [Theory]

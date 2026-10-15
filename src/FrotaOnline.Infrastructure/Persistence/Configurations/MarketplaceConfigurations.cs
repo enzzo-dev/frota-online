@@ -62,6 +62,8 @@ internal sealed class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
     {
         builder.HasIndex(x => x.FreightRequestId).IsUnique();
         builder.HasIndex(x => new { x.DriverProfileId, x.Status });
+        // The customer's list is "my deliveries, newest first": filter and order served by one index.
+        builder.HasIndex(x => new { x.CustomerId, x.CreatedAt });
         builder.HasOne<FreightRequest>().WithMany().HasForeignKey(x => x.FreightRequestId);
         builder.HasOne<Proposal>().WithMany().HasForeignKey(x => x.ProposalId);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CustomerId);

@@ -393,7 +393,7 @@
           <pre class="code">HTTP/1.1 409 Conflict
 {
   "title": "auth.email_in_use",
-  "detail": "This e-mail is already registered.",
+  "detail": "Este e-mail já está cadastrado.",
   "status": 409
 }</pre>
         </div>
@@ -401,7 +401,7 @@
           <h3 class="mini">A request with invalid fields</h3>
           <pre class="code">HTTP/1.1 400 Bad Request
 {
-  "title": "One or more validation errors occurred.",
+  "title": "Um ou mais erros de validação ocorreram.",
   "status": 400,
   "errors": {
     "Password": ["Password must contain a digit."]
@@ -450,7 +450,7 @@
             <tr><td>409</td><td><code>payments.driver_without_wallet_account</code></td><td>The driver has not connected a Mercado Pago account, so wallet payment is unavailable.</td></tr>
             <tr><td>409</td><td><code>payments.card_declined</code></td><td>The card was refused or its data not accepted. Nothing was charged.</td></tr>
             <tr><td>409</td><td><code>payments.in_progress</code></td><td>A card or wallet payment for this freight is still being confirmed.</td></tr>
-            <tr><td>404</td><td><code>payments.card_not_found</code></td><td>Saved card not found.</td></tr>
+            <tr><td>404</td><td><code>payments.card_not_found</code></td><td>Cartão salvo não encontrado.</td></tr>
             <tr><td>409</td><td><code>payments.price_too_low</code></td><td>The agreed price does not cover the platform fee or the provider’s minimum.</td></tr>
             <tr><td>409</td><td><code>fee.nothing_to_charge</code>, <code>fee.below_minimum</code></td><td>No fee is owed, or the balance is under the R$ 5.00 minimum charge.</td></tr>
             <tr><td>409</td><td><code>subscription.already_active</code>, <code>subscription.too_many_vehicles</code>, <code>subscription.vehicle_limit</code></td><td>A plan is already active, or the Basic plan’s 3-vehicle limit would be exceeded.</td></tr>

@@ -26,6 +26,6 @@ public sealed class MediaFile : BaseEntity
         Kind = kind,
         StorageKey = Guard.NotNullOrWhiteSpace(storageKey, nameof(storageKey)),
         ContentType = Guard.NotNullOrWhiteSpace(contentType, nameof(contentType)),
-        SizeBytes = sizeBytes > 0 ? sizeBytes : throw new DomainException("sizeBytes must be greater than zero.")
+        SizeBytes = sizeBytes > 0 ? sizeBytes : throw new DomainException("O tamanho do arquivo deve ser maior que zero.")
     };
 }

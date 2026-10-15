@@ -195,6 +195,20 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
             PaymentOf(d), d.PickedUpAt, d.DeliveredAt, d.CancelledAt, stops, timeline));
     }
 
+    public Task<DeliveryStatusResponse?> GetStatusForCustomerAsync(Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
+    {
+        var d = _deliveries.Items.FirstOrDefault(x => x.Id == deliveryId && x.CustomerId == customerId);
+        if (d is null)
+        {
+            return Task.FromResult<DeliveryStatusResponse?>(null);
+        }
+
+        var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
+        DateTime? lastEvent = _deliveries.Events.Where(e => e.DeliveryId == d.Id).Select(e => (DateTime?)e.OccurredAt).Max();
+        return Task.FromResult<DeliveryStatusResponse?>(DeliveryStatusResponse.Create(
+            d.Id, d.Status, freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), lastEvent));
+    }
+
     private (string DriverName, Vehicle Vehicle) DriverAndVehicle(Delivery d)
     {
         var profile = _drivers.Items.First(p => p.Id == d.DriverProfileId);

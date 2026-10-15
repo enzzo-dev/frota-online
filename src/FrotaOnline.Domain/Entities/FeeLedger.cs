@@ -26,7 +26,7 @@ public sealed class FeeLedger : BaseEntity
         DeliveryId = Guard.NotEmpty(deliveryId, nameof(deliveryId)),
         EntryType = FeeEntryType.FeeAccrued,
         Amount = Guard.Positive(amount, nameof(amount)),
-        Description = "Platform fee accrued (payment made outside the app)"
+        Description = "Taxa da plataforma gerada (pagamento feito fora do aplicativo)"
     };
 
     public static FeeLedger Settle(Guid driverProfileId, Guid? deliveryId, decimal amount, string description) => new()

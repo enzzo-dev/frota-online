@@ -25,8 +25,8 @@ internal sealed class UniqueViolationExceptionHandler : IExceptionHandler
         // 23503: another request started using a row (for example a new freight at an address) while this one deleted it.
         var (title, detail) = postgres.SqlState switch
         {
-            UniqueViolation => ("request.duplicate", "The same action was already done by another request. Reload and check the current state."),
-            ForeignKeyViolation => ("request.conflict", "Something changed while this request ran. Reload and try again."),
+            UniqueViolation => ("request.duplicate", "A mesma ação já foi feita por outra requisição. Atualize e confira o estado atual."),
+            ForeignKeyViolation => ("request.conflict", "Algo mudou enquanto a requisição era processada. Atualize e tente novamente."),
             _ => ((string?)null, (string?)null)
         };
 

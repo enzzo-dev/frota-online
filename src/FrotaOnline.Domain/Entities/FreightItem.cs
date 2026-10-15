@@ -19,7 +19,7 @@ public sealed class FreightItem : BaseEntity
     {
         if (quantity < 1)
         {
-            throw new DomainException("An item quantity must be at least 1.");
+            throw new DomainException("A quantidade do item deve ser de pelo menos 1.");
         }
 
         return new FreightItem

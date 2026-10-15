@@ -14,7 +14,7 @@ builder.Services.AddJwtAuthentication();
 builder.Services.AddInternalJobsAuthentication(builder.Configuration);
 
 builder.Services
-    .AddControllers()
+    .AddControllers(options => PortugueseModelBindingMessages.Apply(options.ModelBindingMessageProvider))
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Behind Cloud Run / a load balancer the app sees plain HTTP: trust X-Forwarded-Proto (so HTTPS redirection does not
@@ -41,7 +41,7 @@ builder.Services.AddCors(options => options.AddPolicy(AppCorsPolicy, policy =>
 }));
 
 builder.Services.AddExceptionHandler<UniqueViolationExceptionHandler>();
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = PortugueseModelBindingMessages.TranslateProblem);
 // Make the generated OpenAPI schemas describe enums as strings, matching the MVC JSON options above.
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

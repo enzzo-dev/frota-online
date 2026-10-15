@@ -168,7 +168,7 @@ public sealed class PaymentWebhookService : IPaymentWebhookService
 
         // The split already sent the platform its fee, so the fee accrued when the delivery was completed is now paid.
         await _ledger.AddAsync(
-            FeeLedger.Settle(delivery.DriverProfileId, delivery.Id, delivery.PlatformFee, "Platform fee kept by the payment split"),
+            FeeLedger.Settle(delivery.DriverProfileId, delivery.Id, delivery.PlatformFee, "Taxa da plataforma retida na divisão do pagamento"),
             cancellationToken);
 
         var driver = await _drivers.GetByIdAsync(delivery.DriverProfileId, cancellationToken);

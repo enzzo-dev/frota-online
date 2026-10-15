@@ -129,19 +129,19 @@ public sealed class DriverMarketplaceService : IDriverMarketplaceService
         var vehicle = await _vehicles.GetByIdAsync(request.VehicleId, cancellationToken);
         if (vehicle is null || vehicle.DriverProfileId != profile.Id || !vehicle.IsActive)
         {
-            return Result.Failure<ProposalResponse>(MarketplaceErrors.VehicleNotEligible("Choose one of your active vehicles."));
+            return Result.Failure<ProposalResponse>(MarketplaceErrors.VehicleNotEligible("Escolha um dos seus veículos ativos."));
         }
 
         if (vehicle.Type != freight.RequiredVehicleType)
         {
             return Result.Failure<ProposalResponse>(MarketplaceErrors.VehicleNotEligible(
-                $"This freight needs a {freight.RequiredVehicleType}."));
+                $"Este frete exige um veículo do tipo {freight.RequiredVehicleType}."));
         }
 
         if (vehicle.CapacityKg < freight.CargoWeightKg)
         {
             return Result.Failure<ProposalResponse>(MarketplaceErrors.VehicleNotEligible(
-                "The vehicle capacity is lower than the cargo weight."));
+                "A capacidade do veículo é menor que o peso da carga."));
         }
 
         if (await _proposals.HasPendingAsync(freight.Id, profile.Id, cancellationToken))

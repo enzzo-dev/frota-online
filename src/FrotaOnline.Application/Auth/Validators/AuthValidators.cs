@@ -11,11 +11,11 @@ public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(150);
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(254);
         RuleFor(x => x.PhoneNumber).NotEmpty().Matches(@"^\+?[0-9]{10,15}$")
-            .WithMessage("Phone number must contain 10 to 15 digits, optionally starting with '+'.");
+            .WithMessage("O telefone deve ter de 10 a 15 dígitos, podendo começar com '+'.");
         RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128)
-            .Matches("[A-Z]").WithMessage("Password must contain an uppercase letter.")
-            .Matches("[a-z]").WithMessage("Password must contain a lowercase letter.")
-            .Matches("[0-9]").WithMessage("Password must contain a digit.");
+            .Matches("[A-Z]").WithMessage("A senha deve conter uma letra maiúscula.")
+            .Matches("[a-z]").WithMessage("A senha deve conter uma letra minúscula.")
+            .Matches("[0-9]").WithMessage("A senha deve conter um número.");
         RuleFor(x => x.Role).Must(role => role is UserRole.Customer or UserRole.Driver)
             .WithMessage("Only Customer and Driver accounts can be self-registered.");
     }

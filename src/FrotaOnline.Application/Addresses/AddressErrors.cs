@@ -5,11 +5,11 @@ namespace FrotaOnline.Application.Addresses;
 public static class AddressErrors
 {
     public static readonly Error InUse =
-        new("address.in_use", "This address was already used in a freight, so it cannot be edited. Save a new address instead.", ErrorType.Conflict);
+        new("address.in_use", "Este endereço já foi usado em um frete e não pode ser editado. Salve um novo endereço.", ErrorType.Conflict);
 
     public static readonly Error InActiveUse =
-        new("address.in_active_use", "This address is in an open freight or a delivery in progress. Cancel it first.", ErrorType.Conflict);
+        new("address.in_active_use", "Este endereço está em um frete aberto ou em uma entrega em andamento. Cancele-o primeiro.", ErrorType.Conflict);
 
     public static readonly Error NotFound =
-        new("address.not_found", "Address not found.", ErrorType.NotFound);
+        new("address.not_found", "Endereço não encontrado.", ErrorType.NotFound);
 }

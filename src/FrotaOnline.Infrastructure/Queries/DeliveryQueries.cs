@@ -152,6 +152,28 @@ internal sealed class DeliveryQueries : IDeliveryQueries
             .ToList();
     }
 
+    public async Task<DeliveryStatusResponse?> GetStatusForCustomerAsync(
+        Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
+    {
+        // One round trip, no joins to users, vehicles or addresses: only counters and the newest event time.
+        var row = await (
+                from d in _db.Deliveries.AsNoTracking()
+                where d.Id == deliveryId && d.CustomerId == customerId
+                select new
+                {
+                    d.Status,
+                    TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == d.FreightRequestId),
+                    CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == d.FreightRequestId && s.CompletedAt != null),
+                    Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
+                    LastEventAt = _db.DeliveryEvents.Where(e => e.DeliveryId == d.Id).Max(e => (DateTime?)e.OccurredAt),
+                })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null
+            ? null
+            : DeliveryStatusResponse.Create(deliveryId, row.Status, row.TotalStops, row.CompletedStops, row.Payment, row.LastEventAt);
+    }
+
     public async Task<CustomerDeliveryDetail?> GetForCustomerAsync(
         Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
     {

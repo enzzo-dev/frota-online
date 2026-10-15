@@ -155,4 +155,29 @@ public class DeliveryPaymentAndFeeTests : MarketplaceTestBase
         Assert.Empty(list.Value);
         Assert.Equal(ErrorType.NotFound, detail.Error!.Type);
     }
+
+    [Fact]
+    public async Task CustomerStatus_MatchesTheDetail_AndChangesVersionWithPayment()
+    {
+        var (userId, _, deliveryId) = await DeliverAsync();
+
+        var before = await CustomerDeliveries.GetStatusAsync(CustomerId, deliveryId, CancellationToken.None);
+        await PaymentService.ConfirmAsync(userId, deliveryId, new ConfirmPaymentRequest(PaymentMethod.Pix, null), CancellationToken.None);
+        var after = await CustomerDeliveries.GetStatusAsync(CustomerId, deliveryId, CancellationToken.None);
+
+        Assert.Equal(DeliveryStatus.Delivered, after.Value.Status);
+        Assert.Equal(2, after.Value.CompletedStops);
+        Assert.Equal(PaymentStatus.Paid, after.Value.Payment);
+        Assert.NotEqual(before.Value.Version, after.Value.Version);
+    }
+
+    [Fact]
+    public async Task CustomerStatus_OfAnotherCustomer_ReturnsNotFound()
+    {
+        var (_, _, deliveryId) = await DeliverAsync();
+
+        var status = await CustomerDeliveries.GetStatusAsync(Guid.NewGuid(), deliveryId, CancellationToken.None);
+
+        Assert.Equal(ErrorType.NotFound, status.Error!.Type);
+    }
 }

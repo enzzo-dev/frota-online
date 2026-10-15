@@ -6,6 +6,6 @@ public static class RoutingErrors
 {
     public static Error MissingCoordinates(IEnumerable<string> labels) =>
         new("route.missing_coordinates",
-            $"These addresses have no map position yet: {string.Join(", ", labels)}. Pick them on the map and save again.",
+            $"Estes endereços ainda não têm posição no mapa: {string.Join(", ", labels)}. Escolha-os no mapa e salve novamente.",
             ErrorType.Validation);
 }

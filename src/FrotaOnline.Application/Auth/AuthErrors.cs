@@ -5,14 +5,14 @@ namespace FrotaOnline.Application.Auth;
 public static class AuthErrors
 {
     public static readonly Error EmailAlreadyInUse =
-        new("auth.email_in_use", "This e-mail is already registered.", ErrorType.Conflict);
+        new("auth.email_in_use", "Este e-mail já está cadastrado.", ErrorType.Conflict);
 
     public static readonly Error InvalidCredentials =
-        new("auth.invalid_credentials", "Invalid e-mail or password.", ErrorType.Unauthorized);
+        new("auth.invalid_credentials", "E-mail ou senha inválidos.", ErrorType.Unauthorized);
 
     public static readonly Error InvalidRefreshToken =
-        new("auth.invalid_refresh_token", "The refresh token is invalid or has expired.", ErrorType.Unauthorized);
+        new("auth.invalid_refresh_token", "O token de renovação é inválido ou expirou.", ErrorType.Unauthorized);
 
     public static readonly Error UserInactive =
-        new("auth.user_inactive", "This account is disabled.", ErrorType.Forbidden);
+        new("auth.user_inactive", "Esta conta está desativada.", ErrorType.Forbidden);
 }

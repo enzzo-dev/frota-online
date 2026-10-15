@@ -23,4 +23,13 @@ public sealed class CustomerDeliveryService : ICustomerDeliveryService
             ? Result.Failure<CustomerDeliveryDetail>(MarketplaceErrors.DeliveryNotFound)
             : Result.Success(detail);
     }
+
+    public async Task<Result<DeliveryStatusResponse>> GetStatusAsync(
+        Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
+    {
+        var status = await _queries.GetStatusForCustomerAsync(customerId, deliveryId, cancellationToken);
+        return status is null
+            ? Result.Failure<DeliveryStatusResponse>(MarketplaceErrors.DeliveryNotFound)
+            : Result.Success(status);
+    }
 }

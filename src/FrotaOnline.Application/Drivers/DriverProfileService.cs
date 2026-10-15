@@ -140,17 +140,17 @@ public sealed class DriverProfileService : IDriverProfileService
         var missing = new Dictionary<string, string[]>();
         if (!checklist.TermsAccepted)
         {
-            missing["terms"] = new[] { "Accept all active terms (GET /api/v1/terms/pending)." };
+            missing["terms"] = new[] { "Aceite todos os termos ativos (GET /api/v1/terms/pending)." };
         }
 
         if (!checklist.HasActiveVehicle)
         {
-            missing["vehicles"] = new[] { "Register at least one vehicle." };
+            missing["vehicles"] = new[] { "Cadastre ao menos um veículo." };
         }
 
         if (!checklist.HasDocument)
         {
-            missing["documents"] = new[] { "Send at least one driver document (CNH, for example)." };
+            missing["documents"] = new[] { "Envie ao menos um documento do motorista (CNH, por exemplo)." };
         }
 
         return missing;

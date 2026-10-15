@@ -5,44 +5,44 @@ namespace FrotaOnline.Application.Marketplace;
 public static class MarketplaceErrors
 {
     public static readonly Error DeliveryNotFound =
-        new("delivery.not_found", "Delivery not found.", ErrorType.NotFound);
+        new("delivery.not_found", "Entrega não encontrada.", ErrorType.NotFound);
 
     public static readonly Error FreightNotFound =
-        new("freight.not_found", "Freight request not found.", ErrorType.NotFound);
+        new("freight.not_found", "Frete não encontrado.", ErrorType.NotFound);
 
     public static readonly Error FreightNotOpen =
-        new("freight.not_open", "This freight is no longer open.", ErrorType.Conflict);
+        new("freight.not_open", "Este frete não está mais aberto.", ErrorType.Conflict);
 
     public static readonly Error WindowClosed =
-        new("freight.window_closed", "The proposal window for this freight has ended.", ErrorType.Conflict);
+        new("freight.window_closed", "O prazo para propostas deste frete terminou.", ErrorType.Conflict);
 
     public static readonly Error TermsNotAccepted =
-        new("freight.terms_not_accepted", "Accept the current terms before requesting a freight.", ErrorType.Forbidden);
+        new("freight.terms_not_accepted", "Aceite os termos atuais antes de solicitar um frete.", ErrorType.Forbidden);
 
     public static readonly Error ProposalNotFound =
-        new("proposal.not_found", "Proposal not found.", ErrorType.NotFound);
+        new("proposal.not_found", "Proposta não encontrada.", ErrorType.NotFound);
 
     public static readonly Error ProposalNotPending =
-        new("proposal.not_pending", "This proposal is no longer pending.", ErrorType.Conflict);
+        new("proposal.not_pending", "Esta proposta não está mais pendente.", ErrorType.Conflict);
 
     public static readonly Error AlreadyProposed =
-        new("proposal.already_submitted", "You already have a pending proposal for this freight.", ErrorType.Conflict);
+        new("proposal.already_submitted", "Você já tem uma proposta pendente para este frete.", ErrorType.Conflict);
 
     public static readonly Error DriverNotApproved =
-        new("proposal.driver_not_approved", "Only approved drivers can use the marketplace.", ErrorType.Forbidden);
+        new("proposal.driver_not_approved", "Só motoristas aprovados podem usar o marketplace.", ErrorType.Forbidden);
 
     public static readonly Error DriverUnavailable =
-        new("proposal.driver_unavailable", "The driver can no longer take this freight. Choose another proposal.", ErrorType.Conflict);
+        new("proposal.driver_unavailable", "O motorista não pode mais assumir este frete. Escolha outra proposta.", ErrorType.Conflict);
 
     public static readonly Error VehicleUnavailable =
-        new("proposal.vehicle_unavailable", "The vehicle of this proposal is no longer active.", ErrorType.Conflict);
+        new("proposal.vehicle_unavailable", "O veículo desta proposta não está mais ativo.", ErrorType.Conflict);
 
     public static readonly Error DriverBusy =
-        new("proposal.driver_busy", "The driver already has a delivery in this period.", ErrorType.Conflict);
+        new("proposal.driver_busy", "O motorista já tem uma entrega neste período.", ErrorType.Conflict);
 
     public static Error VehicleNotEligible(string reason) =>
         new("proposal.vehicle_not_eligible", reason, ErrorType.Validation);
 
     public static Error ScheduledInPast =>
-        ValidationMapper.ToError("ScheduledPickupAt", "The scheduled pickup must be in the future.");
+        ValidationMapper.ToError("ScheduledPickupAt", "A coleta agendada deve ser no futuro.");
 }

@@ -432,6 +432,10 @@ window.FROTA_JOURNEYS = [
             title: 'Detalhe e linha do tempo', desc: 'Paradas, eventos com horário e pagamento.'
           },
           {
+            id: 'e-c-status', role: 'Customer', method: 'GET', path: '/deliveries/{deliveryId}/status',
+            title: 'Acompanhar ao vivo (leve)', desc: 'Para o polling: status, paradas concluídas, pagamento e version. Busque o detalhe completo só quando o version mudar.'
+          },
+          {
             id: 'e-c-cancel', role: 'Customer', method: 'POST', path: '/deliveries/{deliveryId}/cancel',
             title: 'Cancelar como cliente', desc: 'Só antes da coleta (Scheduled ou ToPickup). O motorista é avisado.',
             body: { reason: 'Não preciso mais do frete' }, danger: true

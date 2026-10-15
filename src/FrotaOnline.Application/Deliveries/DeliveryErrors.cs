@@ -8,20 +8,20 @@ public static class DeliveryErrors
         new("delivery.invalid_status", reason, ErrorType.Conflict);
 
     public static readonly Error StopNotFound =
-        new("delivery.stop_not_found", "This stop does not belong to the delivery.", ErrorType.NotFound);
+        new("delivery.stop_not_found", "Esta parada não pertence à entrega.", ErrorType.NotFound);
 
     public static Error StopOutOfOrder(int nextSequence) =>
-        new("delivery.stop_out_of_order", $"Complete the stops in order. The next one is stop {nextSequence}.", ErrorType.Conflict);
+        new("delivery.stop_out_of_order", $"Conclua as paradas em ordem. A próxima é a parada {nextSequence}.", ErrorType.Conflict);
 
     public static readonly Error InvalidProof =
-        new("delivery.invalid_proof", "The proof must be a DeliveryProof file registered by you.", ErrorType.Validation);
+        new("delivery.invalid_proof", "O comprovante deve ser um arquivo DeliveryProof registrado por você.", ErrorType.Validation);
 
     public static readonly Error PaymentNotDelivered =
-        new("payment.not_delivered", "Payment can only be confirmed after the delivery is completed.", ErrorType.Conflict);
+        new("payment.not_delivered", "O pagamento só pode ser confirmado depois que a entrega for concluída.", ErrorType.Conflict);
 
     public static readonly Error PaymentAlreadyConfirmed =
-        new("payment.already_confirmed", "The payment of this delivery was already confirmed.", ErrorType.Conflict);
+        new("payment.already_confirmed", "O pagamento desta entrega já foi confirmado.", ErrorType.Conflict);
 
     public static Error FeeExceedsBalance(decimal balance) =>
-        new("fee.exceeds_balance", $"The amount is higher than the open balance (R$ {balance:0.00}).", ErrorType.Conflict);
+        new("fee.exceeds_balance", $"O valor é maior que o saldo em aberto (R$ {balance:0.00}).", ErrorType.Conflict);
 }

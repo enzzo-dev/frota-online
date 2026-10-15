@@ -24,7 +24,7 @@ public sealed class DriverAgendaSlot : BaseEntity
     {
         if (endsAt <= startsAt)
         {
-            throw new DomainException("The slot must end after it starts.");
+            throw new DomainException("O período deve terminar depois de começar.");
         }
 
         return new DriverAgendaSlot
