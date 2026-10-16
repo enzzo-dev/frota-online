@@ -32,7 +32,7 @@ public class DriverOnboardingTests
         var unitOfWork = new FakeUnitOfWork();
         _profile = new DriverProfileService(
             _drivers, _vehicles, _media, _terms, _consents, unitOfWork, new UpsertDriverProfileRequestValidator());
-        _vehicleService = new VehicleService(_drivers, _vehicles, new FrotaOnline.Application.Payments.SubscriptionPolicy(_subscriptions, new FrotaOnline.Tests.Payments.FakeSubscriptionSettings(), new FrotaOnline.Tests.Auth.FakeClock()), unitOfWork, new RegisterVehicleRequestValidator());
+        _vehicleService = new VehicleService(_drivers, _vehicles, new FrotaOnline.Application.Payments.SubscriptionPolicy(_subscriptions, new FrotaOnline.Tests.Payments.FakeSubscriptionSettings(), new FrotaOnline.Tests.Marketplace.FakeDeliveryRepository(), new FrotaOnline.Tests.Auth.FakeClock()), unitOfWork, new RegisterVehicleRequestValidator());
         _documents = new DriverDocumentService(_drivers, _media, _storage, unitOfWork, new RegisterMediaRequestValidator(), new CreateUploadUrlRequestValidator());
     }
 

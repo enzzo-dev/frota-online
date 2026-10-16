@@ -140,3 +140,9 @@ public interface ISecretProtector
 
     bool TryUnprotect(string protectedText, out string plainText);
 }
+
+/// <summary>Checks that a webhook call really comes from the provider (shared secret in a header).</summary>
+public interface IPaymentWebhookAuthenticator
+{
+    bool IsValid(string? token);
+}

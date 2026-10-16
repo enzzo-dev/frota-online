@@ -76,7 +76,6 @@ public sealed class SubscriptionPolicy : ISubscriptionPolicy
             return Result.Success();
         }
 
-        // No paid period: the driver may still take the free freight. A cancelled delivery gives it back.
         var taken = await _deliveries.CountTakenByDriverAsync(driverProfileId, cancellationToken);
         return taken < FreeFreightsWithoutPlan
             ? Result.Success()

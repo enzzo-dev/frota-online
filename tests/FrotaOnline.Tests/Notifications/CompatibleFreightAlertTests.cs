@@ -105,8 +105,11 @@ public class CompatibleFreightAlertTests : MarketplaceTestBase
         AddApprovedDriver();
         Terms.Accepted = false;
 
-        await CreateFreightAsync();
+        var (pickup, delivery) = AddAddresses(CustomerId);
 
+        var result = await FreightService.CreateAsync(CustomerId, NewFreight(pickup, delivery), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
         Assert.Empty(SentNotifications.Items);
     }
 

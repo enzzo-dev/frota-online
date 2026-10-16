@@ -6,7 +6,7 @@ namespace FrotaOnline.Tests.Routing;
 
 public class RouteServiceTests : MarketplaceTestBase
 {
-    private (Domain.Entities.Address A, Domain.Entities.Address B) TwoMappedAddresses() => (
+    private (FrotaOnline.Domain.Entities.Address A, FrotaOnline.Domain.Entities.Address B) TwoMappedAddresses() => (
         AddAddress(CustomerId, "Sao Paulo", "Centro", "01001000", -23.55052, -46.633308),
         AddAddress(CustomerId, "Campinas", "Cambui", "13010000", -22.905821, -47.060833));
 

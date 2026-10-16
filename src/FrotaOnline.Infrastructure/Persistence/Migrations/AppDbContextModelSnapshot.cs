@@ -17,7 +17,7 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.20")
+                .HasAnnotation("ProductVersion", "9.0.21")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -38,6 +38,9 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("District")
@@ -168,14 +171,14 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId", "CreatedAt");
-
                     b.HasIndex("FreightRequestId")
                         .IsUnique();
 
                     b.HasIndex("ProposalId");
 
                     b.HasIndex("VehicleId");
+
+                    b.HasIndex("CustomerId", "CreatedAt");
 
                     b.HasIndex("DriverProfileId", "Status");
 
@@ -320,6 +323,14 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("PaymentCustomerId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("PayoutWalletId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("RejectionReason")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -351,6 +362,10 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasIndex("CnhNumber")
                         .IsUnique();
 
+                    b.HasIndex("PayoutWalletId")
+                        .IsUnique()
+                        .HasFilter("\"PayoutWalletId\" IS NOT NULL");
+
                     b.HasIndex("Status");
 
                     b.HasIndex("TaxId")
@@ -360,6 +375,60 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("DriverProfiles");
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FeeCharge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DriverProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GatewayPaymentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PixPayload")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("PixQrCode")
+                        .HasMaxLength(16384)
+                        .HasColumnType("character varying(16384)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GatewayPaymentId")
+                        .IsUnique();
+
+                    b.HasIndex("DriverProfileId", "Status");
+
+                    b.ToTable("FeeCharges");
                 });
 
             modelBuilder.Entity("FrotaOnline.Domain.Entities.FeeLedger", b =>
@@ -403,6 +472,36 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("FeeLedgers");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("FreightStopId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FreightStopId");
+
+                    b.ToTable("FreightItems");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -427,12 +526,6 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("DeliveryAddressId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("PickupAddressId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("ProposalDeadline")
                         .HasColumnType("timestamp with time zone");
 
@@ -440,6 +533,12 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<int?>("RouteDistanceMeters")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RouteDurationSeconds")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("ScheduledPickupAt")
                         .HasColumnType("timestamp with time zone");
@@ -456,13 +555,52 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("DeliveryAddressId");
-
-                    b.HasIndex("PickupAddressId");
-
                     b.HasIndex("Status", "ProposalDeadline");
 
                     b.ToTable("FreightRequests");
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightStop", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AddressId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FreightRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AddressId");
+
+                    b.HasIndex("FreightRequestId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("FreightStops");
                 });
 
             modelBuilder.Entity("FrotaOnline.Domain.Entities.MediaFile", b =>
@@ -508,6 +646,95 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("MediaFiles");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PushAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("PushDispatchedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_Notifications_PendingPush")
+                        .HasFilter("\"PushDispatchedAt\" IS NULL");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "ReadAt");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("NewFreightAlerts")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PushEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.Payment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -528,6 +755,14 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<string>("Gateway")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("GatewayPaymentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Method")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -539,6 +774,17 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<bool>("PaidOutsideApp")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("PixExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PixPayload")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("PixQrCode")
+                        .HasMaxLength(16384)
+                        .HasColumnType("character varying(16384)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -549,7 +795,11 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DeliveryId");
+                    b.HasIndex("DeliveryId")
+                        .IsUnique();
+
+                    b.HasIndex("GatewayPaymentId")
+                        .HasFilter("\"GatewayPaymentId\" IS NOT NULL");
 
                     b.ToTable("Payments");
                 });
@@ -603,6 +853,8 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("FreightRequestId", "Price");
 
+                    b.HasIndex("Status", "ExpiresAt");
+
                     b.ToTable("Proposals");
                 });
 
@@ -646,6 +898,48 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.SavedCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GatewayCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Last4")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("SavedCards");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.Subscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -661,12 +955,20 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("EndsAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("GatewaySubscriptionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<int>("MaxVehicles")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("MonthlyPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("PaymentUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
@@ -690,6 +992,9 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GatewaySubscriptionId")
+                        .HasFilter("\"GatewaySubscriptionId\" IS NOT NULL");
 
                     b.HasIndex("DriverProfileId", "Status");
 
@@ -747,6 +1052,9 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AnonymizedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -880,6 +1188,80 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("Vehicles");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.WalletAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessTokenProtected")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DriverProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProviderUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("RefreshTokenProtected")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DriverProfileId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderUserId")
+                        .IsUnique();
+
+                    b.ToTable("WalletAccounts");
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.WebhookEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("WebhookEvents");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.Address", b =>
                 {
                     b.HasOne("FrotaOnline.Domain.Entities.User", null)
@@ -978,6 +1360,15 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FeeCharge", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.DriverProfile", null)
+                        .WithMany()
+                        .HasForeignKey("DriverProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.FeeLedger", b =>
                 {
                     b.HasOne("FrotaOnline.Domain.Entities.Delivery", null)
@@ -992,6 +1383,15 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightItem", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.FreightStop", null)
+                        .WithMany("Items")
+                        .HasForeignKey("FreightStopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightRequest", b =>
                 {
                     b.HasOne("FrotaOnline.Domain.Entities.User", null)
@@ -999,16 +1399,19 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightStop", b =>
+                {
                     b.HasOne("FrotaOnline.Domain.Entities.Address", null)
                         .WithMany()
-                        .HasForeignKey("DeliveryAddressId")
+                        .HasForeignKey("AddressId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("FrotaOnline.Domain.Entities.Address", null)
-                        .WithMany()
-                        .HasForeignKey("PickupAddressId")
+                    b.HasOne("FrotaOnline.Domain.Entities.FreightRequest", null)
+                        .WithMany("Stops")
+                        .HasForeignKey("FreightRequestId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -1018,6 +1421,24 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasOne("FrotaOnline.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -1061,6 +1482,15 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.SavedCard", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.Subscription", b =>
                 {
                     b.HasOne("FrotaOnline.Domain.Entities.DriverProfile", null)
@@ -1092,6 +1522,25 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DriverProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.WalletAccount", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.DriverProfile", null)
+                        .WithMany()
+                        .HasForeignKey("DriverProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightRequest", b =>
+                {
+                    b.Navigation("Stops");
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightStop", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

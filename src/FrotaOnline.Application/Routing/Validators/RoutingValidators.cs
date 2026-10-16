@@ -1,6 +1,6 @@
 using FluentValidation;
 using FrotaOnline.Application.Routing.Dtos;
-using FrotaOnline.Domain.Entities;
+using FrotaOnline.Domain.Common;
 
 namespace FrotaOnline.Application.Routing.Validators;
 
