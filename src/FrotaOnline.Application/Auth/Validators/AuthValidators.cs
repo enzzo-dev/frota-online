@@ -30,6 +30,26 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
     }
 }
 
+public sealed class ForgotPasswordRequestValidator : AbstractValidator<ForgotPasswordRequest>
+{
+    public ForgotPasswordRequestValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(254);
+    }
+}
+
+public sealed class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequest>
+{
+    public ResetPasswordRequestValidator()
+    {
+        RuleFor(x => x.Token).NotEmpty();
+        RuleFor(x => x.NewPassword).NotEmpty().MinimumLength(8).MaximumLength(128)
+            .Matches("[A-Z]").WithMessage("A senha deve conter uma letra maiúscula.")
+            .Matches("[a-z]").WithMessage("A senha deve conter uma letra minúscula.")
+            .Matches("[0-9]").WithMessage("A senha deve conter um número.");
+    }
+}
+
 public sealed class RefreshTokenRequestValidator : AbstractValidator<RefreshTokenRequest>
 {
     public RefreshTokenRequestValidator()

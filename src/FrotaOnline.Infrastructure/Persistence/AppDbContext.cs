@@ -26,6 +26,7 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Proposal> Proposals => Set<Proposal>();
     public DbSet<Delivery> Deliveries => Set<Delivery>();
     public DbSet<DeliveryEvent> DeliveryEvents => Set<DeliveryEvent>();
+    public DbSet<DeliveryLocation> DeliveryLocations => Set<DeliveryLocation>();
     public DbSet<DriverAgendaSlot> DriverAgendaSlots => Set<DriverAgendaSlot>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<FeeLedger> FeeLedgers => Set<FeeLedger>();

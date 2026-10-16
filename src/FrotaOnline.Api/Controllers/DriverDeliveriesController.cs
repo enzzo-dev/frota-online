@@ -18,11 +18,13 @@ public sealed class DriverDeliveriesController : ApiControllerBase
     private readonly IDeliveryProgressService _progress;
     private readonly IDeliveryPaymentService _payments;
     private readonly IRouteService _routes;
+    private readonly IDeliveryLocationService _locations;
 
     public DriverDeliveriesController(
         IDriverDeliveryService deliveries, IDeliveryProgressService progress, IDeliveryPaymentService payments,
-        IRouteService routes)
+        IRouteService routes, IDeliveryLocationService locations)
     {
+        _locations = locations;
         _deliveries = deliveries;
         _progress = progress;
         _payments = payments;
@@ -61,6 +63,17 @@ public sealed class DriverDeliveriesController : ApiControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMap(Guid deliveryId, CancellationToken cancellationToken) =>
         Handle(await _routes.ForDriverDeliveryAsync(CurrentUserId, deliveryId, cancellationToken), Ok);
+
+    [HttpPut("{deliveryId:guid}/location")]
+    [EndpointSummary("Report the driver's current position")]
+    [EndpointDescription("Send it every 10 to 15 seconds while the delivery is ToPickup, PickedUp or InTransit. Only the latest position is kept, and the customer reads it through GET /customer/deliveries/{id}/status.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateLocation(
+        Guid deliveryId, UpdateLocationRequest request, CancellationToken cancellationToken) =>
+        HandleEmpty(await _locations.UpdateAsync(CurrentUserId, deliveryId, request, cancellationToken), NoContent);
 
     [HttpPost("{deliveryId:guid}/start")]
     [EndpointSummary("Leave for the first pickup")]

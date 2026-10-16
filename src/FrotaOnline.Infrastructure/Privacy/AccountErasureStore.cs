@@ -105,6 +105,11 @@ internal sealed class AccountErasureStore : IAccountErasureStore
                     .SetProperty(e => e.Longitude, (double?)null),
                 cancellationToken);
 
+        await _db.DeliveryLocations
+            .Where(l => _db.Deliveries.Any(d => d.Id == l.DeliveryId
+                                                && (d.CustomerId == userId || d.DriverProfileId == driverId)))
+            .ExecuteDeleteAsync(cancellationToken);
+
         await _db.UserConsents
             .Where(c => c.UserId == userId && c.IpAddress != null)
             .ExecuteUpdateAsync(set => set.SetProperty(c => c.IpAddress, (string?)null), cancellationToken);

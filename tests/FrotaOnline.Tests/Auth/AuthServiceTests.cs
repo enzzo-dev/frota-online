@@ -1,4 +1,5 @@
 using FrotaOnline.Application.Abstractions.Auth;
+using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
@@ -18,14 +19,17 @@ public class AuthServiceTests
     private readonly FakeUserRepository _users = new();
     private readonly FakeAuthRepository _tokens = new();
     private readonly FakeClock _clock = new();
+    private readonly FakeEmailSender _emails = new();
     private readonly AuthService _sut;
 
     public AuthServiceTests()
     {
         _sut = new AuthService(
             _users, _tokens, new FakeUnitOfWork(), new FakePasswordHasher(), new FakeTokenService(_clock), _clock,
+            new FakeResetTokenService(), _emails, new PasswordResetOptions { TokenMinutes = 30 },
             new RegisterRequestValidator(), new LoginRequestValidator(),
-            new RefreshTokenRequestValidator(), new LogoutRequestValidator());
+            new RefreshTokenRequestValidator(), new LogoutRequestValidator(),
+            new ForgotPasswordRequestValidator(), new ResetPasswordRequestValidator());
     }
 
     private static RegisterRequest NewRegistration(string email = "driver@example.com", UserRole role = UserRole.Driver) =>
@@ -138,6 +142,100 @@ public class AuthServiceTests
         Assert.Equal(AuthErrors.InvalidRefreshToken, result.Error);
     }
 
+    private async Task<string> RequestResetTokenAsync(string email = "driver@example.com")
+    {
+        await _sut.ForgotPasswordAsync(new ForgotPasswordRequest(email), CancellationToken.None);
+        var body = _emails.Sent.Last().Body;
+        return body[body.IndexOf("reset:", StringComparison.Ordinal)..].Split('\n')[0].Trim();
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ForKnownEmail_SendsTheTokenByEmail()
+    {
+        await _sut.RegisterAsync(NewRegistration(), CancellationToken.None);
+
+        var result = await _sut.ForgotPasswordAsync(new ForgotPasswordRequest("Driver@Example.com"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var mail = Assert.Single(_emails.Sent);
+        Assert.Equal("driver@example.com", mail.To);
+        Assert.Contains("reset:", mail.Body);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ForUnknownEmail_SucceedsWithoutSendingAnything()
+    {
+        var result = await _sut.ForgotPasswordAsync(new ForgotPasswordRequest("nobody@example.com"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(_emails.Sent);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_WithInvalidEmail_IsRejectedByValidation()
+    {
+        var result = await _sut.ForgotPasswordAsync(new ForgotPasswordRequest("not-an-email"), CancellationToken.None);
+
+        Assert.Equal(ErrorType.Validation, result.Error!.Type);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ChangesThePassword_AndRevokesSessions()
+    {
+        await _sut.RegisterAsync(NewRegistration(), CancellationToken.None);
+        var token = await RequestResetTokenAsync();
+
+        var result = await _sut.ResetPasswordAsync(new ResetPasswordRequest(token, "NewPassw0rd"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.All(_tokens.Items, t => Assert.True(t.IsRevoked));
+        Assert.True((await _sut.LoginAsync(new LoginRequest("driver@example.com", "NewPassw0rd"), CancellationToken.None)).IsSuccess);
+        Assert.True((await _sut.LoginAsync(new LoginRequest("driver@example.com", ValidPassword), CancellationToken.None)).IsFailure);
+    }
+
+    [Fact]
+    public async Task ResetPassword_TokenCannotBeUsedTwice()
+    {
+        await _sut.RegisterAsync(NewRegistration(), CancellationToken.None);
+        var token = await RequestResetTokenAsync();
+        await _sut.ResetPasswordAsync(new ResetPasswordRequest(token, "NewPassw0rd"), CancellationToken.None);
+
+        var second = await _sut.ResetPasswordAsync(new ResetPasswordRequest(token, "Another1Pass"), CancellationToken.None);
+
+        Assert.Equal(AuthErrors.InvalidResetToken, second.Error);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithExpiredToken_IsRejected()
+    {
+        await _sut.RegisterAsync(NewRegistration(), CancellationToken.None);
+        var token = await RequestResetTokenAsync();
+        _clock.Advance(TimeSpan.FromMinutes(31));
+
+        var result = await _sut.ResetPasswordAsync(new ResetPasswordRequest(token, "NewPassw0rd"), CancellationToken.None);
+
+        Assert.Equal(AuthErrors.InvalidResetToken, result.Error);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithGarbageToken_IsRejected()
+    {
+        var result = await _sut.ResetPasswordAsync(new ResetPasswordRequest("garbage", "NewPassw0rd"), CancellationToken.None);
+
+        Assert.Equal(AuthErrors.InvalidResetToken, result.Error);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithWeakPassword_IsRejectedByValidation()
+    {
+        await _sut.RegisterAsync(NewRegistration(), CancellationToken.None);
+        var token = await RequestResetTokenAsync();
+
+        var result = await _sut.ResetPasswordAsync(new ResetPasswordRequest(token, "weak"), CancellationToken.None);
+
+        Assert.Equal(ErrorType.Validation, result.Error!.Type);
+    }
+
     [Fact]
     public async Task Logout_RevokesTheToken_AndIsIdempotent()
     {
@@ -226,4 +324,34 @@ internal sealed class FakeTokenService : ITokenService
     }
 
     public string HashRefreshToken(string rawValue) => "hash:" + rawValue;
+}
+
+internal sealed class FakeEmailSender : IEmailSender
+{
+    public List<(string To, string Subject, string Body)> Sent { get; } = new();
+
+    public Task SendAsync(string toAddress, string subject, string body, CancellationToken cancellationToken)
+    {
+        Sent.Add((toAddress, subject, body));
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeResetTokenService : IPasswordResetTokenService
+{
+    public string Create(string email, string passwordHash, DateTime expiresAt) =>
+        $"reset:{email}|{expiresAt.Ticks}|{Fingerprint(passwordHash)}";
+
+    public PasswordResetClaims? Read(string token)
+    {
+        if (!token.StartsWith("reset:", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var parts = token["reset:".Length..].Split('|');
+        return parts.Length == 3 ? new PasswordResetClaims(parts[0], new DateTime(long.Parse(parts[1]), DateTimeKind.Utc), parts[2]) : null;
+    }
+
+    public string Fingerprint(string passwordHash) => "fp:" + passwordHash;
 }

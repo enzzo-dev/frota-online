@@ -10,6 +10,10 @@ public sealed record RefreshTokenRequest(string RefreshToken);
 
 public sealed record LogoutRequest(string RefreshToken);
 
+public sealed record ForgotPasswordRequest(string Email);
+
+public sealed record ResetPasswordRequest(string Token, string NewPassword);
+
 public sealed record UserSummary(Guid Id, string FullName, string Email, UserRole Role);
 
 public sealed record AuthResponse(

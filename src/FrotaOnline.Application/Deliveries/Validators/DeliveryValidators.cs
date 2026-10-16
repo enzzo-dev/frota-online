@@ -17,6 +17,17 @@ public sealed class CompleteStopRequestValidator : AbstractValidator<CompleteSto
     }
 }
 
+public sealed class UpdateLocationRequestValidator : AbstractValidator<UpdateLocationRequest>
+{
+    public UpdateLocationRequestValidator()
+    {
+        RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
+        RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
+        RuleFor(x => x.Heading).InclusiveBetween(0, 360).When(x => x.Heading.HasValue);
+        RuleFor(x => x.SpeedKmh).InclusiveBetween(0, 400).When(x => x.SpeedKmh.HasValue);
+    }
+}
+
 public sealed class ReportIncidentRequestValidator : AbstractValidator<ReportIncidentRequest>
 {
     public ReportIncidentRequestValidator() => RuleFor(x => x.Note).NotEmpty().MaximumLength(500);

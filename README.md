@@ -68,6 +68,7 @@ Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:Secre
 
 | Variável | Valor | Para quê |
 | --- | --- | --- |
+| `Email__Provider` / `Email__ApiKey` / `Email__FromAddress` | `MailerSend` (padrão `Logging`, que só escreve no log) / token da API / remetente | Liga o envio real de e-mail pelo MailerSend, o mesmo do Dirige Aí. O remetente precisa estar em um domínio verificado no MailerSend. Guarde a `ApiKey` no Secret Manager. |
 | `Push__Provider` | `Firebase` (padrão `Logging`, que só escreve no log) | Liga o envio real de push pelo FCM. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | caminho do JSON da conta de serviço | Só fora do GCP ou em máquina local. No Cloud Run/GKE não defina: vale a conta de serviço do serviço, com o papel de administrador da API do Firebase Cloud Messaging. |
 | `Jobs__Audience` | URL do serviço no Cloud Run | Audiência do token OIDC que o Cloud Scheduler envia. |
@@ -95,6 +96,7 @@ Em variável de ambiente, o `:` do JSON vira `__` (dois sublinhados): `Jwt:Secre
 | --- | --- | --- |
 | `Jwt__Issuer` / `Jwt__Audience` | `FrotaOnline` / `FrotaOnline.Clients` (Staging: `FrotaOnline.Staging` / `FrotaOnline.Staging.Clients`) | Mantenha diferentes por ambiente para um token de um não valer no outro. |
 | `Jwt__AccessTokenMinutes` / `Jwt__RefreshTokenDays` | `15` / `30` | Duração das sessões. |
+| `PasswordReset__TokenMinutes` / `PasswordReset__ResetUrl` | `30` / vazio | Validade do token de recuperação de senha e página do front que recebe `?token=...` no e-mail. Sem `ResetUrl`, o e-mail leva só o token. Sem `Email__Provider=MailerSend` o e-mail só é gravado no log. |
 | `Routing__TimeoutSeconds` | `10` | Passou disso, o frete segue sem a linha da rota. |
 | `Logging__LogLevel__Default` | `Information` (Production: `Warning`) | Nível de log. |
 | `AllowedHosts` | `*` | Restrinja ao domínio da API em produção. |
@@ -239,7 +241,8 @@ A API fala com serviços de fora. Cada um é opcional e vem desligado por padrã
 | 3 | OSRM | Distância, tempo e linha da rota | `Routing__BaseUrl` |
 | 4 | Asaas | Assinatura, Pix com split, Pix da taxa e cartão | `Payments__Provider=Asaas` |
 | 5 | Mercado Pago | Apple Pay e carteiras | `Payments__WalletProvider=MercadoPago` |
-| 6 | Primeiro admin e termos de uso | Aprovar motoristas e aceite do usuário | SQL e `POST /api/v1/admin/terms` |
+| 6 | MailerSend | E-mail de recuperação de senha | `Email__Provider=MailerSend`, `Email__ApiKey` (segredo) e `Email__FromAddress` |
+| 7 | Primeiro admin e termos de uso | Aprovar motoristas e aceite do usuário | SQL e `POST /api/v1/admin/terms` |
 
 Para trocar um valor depois: `gcloud run services update SERVICE --project PROJECT --region REGION --update-env-vars CHAVE=valor` (ou `--update-secrets` para segredo). Cada troca cria uma revisão nova do serviço.
 

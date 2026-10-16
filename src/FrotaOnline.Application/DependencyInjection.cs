@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IRoutePlanner, RoutePlanner>();
         services.AddScoped<IRouteService, RouteService>();
         services.AddScoped<IDeliveryProgressService, DeliveryProgressService>();
+        services.AddScoped<IDeliveryLocationService, DeliveryLocationService>();
         services.AddScoped<IDeliveryPaymentService, DeliveryPaymentService>();
         services.AddScoped<IFeeService, FeeService>();
         services.AddScoped<ICustomerDeliveryService, CustomerDeliveryService>();
