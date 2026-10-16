@@ -79,10 +79,8 @@ public sealed record DeliveryStatusResponse(
             $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}.{driverLocation?.RecordedAt.Ticks ?? 0}");
 }
 
-/// <summary>Where the driver is right now. Sent to the customer only while the delivery is under way.</summary>
 public sealed record DriverLocationResponse(double Latitude, double Longitude, double? Heading, double? SpeedKmh, DateTime RecordedAt);
 
-/// <summary>Position reported by the driver's phone.</summary>
 public sealed record UpdateLocationRequest(double Latitude, double Longitude, double? Heading, double? SpeedKmh);
 
 /// <summary>An admin records that the driver paid part or all of the fees owed to the platform.</summary>

@@ -6,10 +6,6 @@ using Microsoft.Extensions.Options;
 
 namespace FrotaOnline.Infrastructure.Security;
 
-/// <summary>
-/// Token format: base64url(json payload) + "." + base64url(HMAC-SHA256 signature). The signing key is derived from
-/// the JWT secret with a purpose label, so a reset token can never be confused with (or forged from) an access token.
-/// </summary>
 public sealed class HmacPasswordResetTokenService : IPasswordResetTokenService
 {
     private const string Purpose = "frota-online:password-reset:v1";

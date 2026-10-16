@@ -87,7 +87,6 @@ internal sealed class DeliveryLocationConfiguration : IEntityTypeConfiguration<D
 {
     public void Configure(EntityTypeBuilder<DeliveryLocation> builder)
     {
-        // One row per delivery, overwritten on every update.
         builder.HasIndex(x => x.DeliveryId).IsUnique();
         builder.HasOne<Delivery>().WithMany().HasForeignKey(x => x.DeliveryId);
     }

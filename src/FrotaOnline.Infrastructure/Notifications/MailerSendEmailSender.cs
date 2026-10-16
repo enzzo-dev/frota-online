@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 
 namespace FrotaOnline.Infrastructure.Notifications;
 
-/// <summary>Sends plain-text e-mail through the MailerSend HTTP API. Failures are logged and never thrown.</summary>
 internal sealed class MailerSendEmailSender : IEmailSender
 {
     public const string Endpoint = "https://api.mailersend.com/v1/email";

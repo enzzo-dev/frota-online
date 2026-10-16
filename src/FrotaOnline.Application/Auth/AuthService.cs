@@ -192,7 +192,6 @@ public sealed class AuthService : IAuthService
 
         var user = await _users.GetByEmailAsync(request.Email, cancellationToken);
 
-        // Unknown and inactive accounts get the same success answer, so the endpoint cannot be used to discover e-mails.
         if (user is not null && user.IsActive)
         {
             var expiresAt = _clock.UtcNow.AddMinutes(_resetOptions.TokenMinutes);
@@ -225,7 +224,6 @@ public sealed class AuthService : IAuthService
 
         var user = await _users.GetByEmailAsync(claims.Email, cancellationToken);
 
-        // The fingerprint ties the token to the password it was issued for, which makes it single-use.
         if (user is null || !user.IsActive || claims.PasswordFingerprint != _resetTokens.Fingerprint(user.PasswordHash))
         {
             return Result.Failure(AuthErrors.InvalidResetToken);

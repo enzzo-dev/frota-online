@@ -2,7 +2,6 @@ using FrotaOnline.Domain.Common;
 
 namespace FrotaOnline.Domain.Entities;
 
-/// <summary>The last known position of the driver during a delivery. One row per delivery, overwritten on every update.</summary>
 public sealed class DeliveryLocation : BaseEntity
 {
     private DeliveryLocation()
@@ -15,7 +14,6 @@ public sealed class DeliveryLocation : BaseEntity
 
     public double Longitude { get; private set; }
 
-    /// <summary>Direction of travel in degrees (0 to 360), when the device reports it.</summary>
     public double? Heading { get; private set; }
 
     public double? SpeedKmh { get; private set; }

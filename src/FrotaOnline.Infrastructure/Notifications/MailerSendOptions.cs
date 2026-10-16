@@ -9,7 +9,6 @@ public sealed class MailerSendOptions
     [Required]
     public string ApiKey { get; set; } = string.Empty;
 
-    /// <summary>Sender address. It must belong to a domain verified in MailerSend.</summary>
     [Required, EmailAddress]
     public string FromAddress { get; set; } = string.Empty;
 

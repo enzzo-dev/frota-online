@@ -158,8 +158,6 @@ public static class DependencyInjection
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IPasswordResetTokenService, HmacPasswordResetTokenService>();
         services.AddSingleton(configuration.GetSection(PasswordResetOptions.SectionName).Get<PasswordResetOptions>() ?? new PasswordResetOptions());
-        // E-mail. Email:Provider = "MailerSend" sends real messages (needs Email:ApiKey and Email:FromAddress);
-        // anything else only logs them. To use another provider, implement IEmailSender and register it here.
         if (string.Equals(configuration["Email:Provider"], "MailerSend", StringComparison.OrdinalIgnoreCase))
         {
             services.AddOptions<MailerSendOptions>()
@@ -183,7 +181,6 @@ public static class DependencyInjection
         {
             services.AddSingleton<IPushSender, LoggingPushSender>();
         }
-
 
         // Background jobs. In production (Cloud Run) they are triggered by Cloud Scheduler through
         // /internal/jobs/*, because a hosted service is not reliable when instances scale to zero or run in parallel.

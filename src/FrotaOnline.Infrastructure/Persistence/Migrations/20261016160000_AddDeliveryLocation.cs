@@ -6,12 +6,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace FrotaOnline.Infrastructure.Persistence.Migrations
 {
-    /// <inheritdoc />
     [DbContext(typeof(AppDbContext))]
     [Migration("20261016160000_AddDeliveryLocation")]
     public partial class AddDeliveryLocation : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -46,7 +44,6 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                 unique: true);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

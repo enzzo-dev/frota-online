@@ -174,7 +174,6 @@ internal sealed class DeliveryQueries : IDeliveryQueries
             return null;
         }
 
-        // The driver's position is private: the customer only gets it while the delivery is under way.
         DriverLocationResponse? location = null;
         if (row.Status is DeliveryStatus.ToPickup or DeliveryStatus.PickedUp or DeliveryStatus.InTransit)
         {
