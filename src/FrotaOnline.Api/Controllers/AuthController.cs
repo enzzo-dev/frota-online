@@ -43,6 +43,24 @@ public sealed class AuthController : ApiControllerBase
     public async Task<IActionResult> Refresh(RefreshTokenRequest request, CancellationToken cancellationToken) =>
         Handle(await _auth.RefreshAsync(request, cancellationToken), Ok);
 
+    [AllowAnonymous]
+    [HttpPost("password/forgot")]
+    [EndpointSummary("Request a password reset e-mail")]
+    [EndpointDescription("Always answers 204 for a well-formed e-mail, whether or not an account exists, so it cannot be used to discover registered e-mails.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken) =>
+        HandleEmpty(await _auth.ForgotPasswordAsync(request, cancellationToken), NoContent);
+
+    [AllowAnonymous]
+    [HttpPost("password/reset")]
+    [EndpointSummary("Set a new password using the token from the reset e-mail")]
+    [EndpointDescription("The token is single-use and expires. On success every active session of the account is revoked.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken) =>
+        HandleEmpty(await _auth.ResetPasswordAsync(request, cancellationToken), NoContent);
+
     [Authorize]
     [HttpPost("logout")]
     [EndpointSummary("Revoke a refresh token")]

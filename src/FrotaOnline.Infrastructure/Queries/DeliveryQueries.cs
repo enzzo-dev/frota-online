@@ -169,9 +169,22 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                 })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return row is null
-            ? null
-            : DeliveryStatusResponse.Create(deliveryId, row.Status, row.TotalStops, row.CompletedStops, row.Payment, row.LastEventAt);
+        if (row is null)
+        {
+            return null;
+        }
+
+        DriverLocationResponse? location = null;
+        if (row.Status is DeliveryStatus.ToPickup or DeliveryStatus.PickedUp or DeliveryStatus.InTransit)
+        {
+            location = await _db.DeliveryLocations.AsNoTracking()
+                .Where(l => l.DeliveryId == deliveryId)
+                .Select(l => new DriverLocationResponse(l.Latitude, l.Longitude, l.Heading, l.SpeedKmh, l.RecordedAt))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        return DeliveryStatusResponse.Create(
+            deliveryId, row.Status, row.TotalStops, row.CompletedStops, row.Payment, row.LastEventAt, location);
     }
 
     public async Task<CustomerDeliveryDetail?> GetForCustomerAsync(

@@ -30,6 +30,7 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeFreightRepository Freights = new();
     private protected readonly FakeProposalRepository Proposals = new();
     private protected readonly FakeDeliveryRepository Deliveries = new();
+    private protected readonly FakeDeliveryLocationRepository Locations = new();
     private protected readonly FakeDriverAgendaRepository Agenda = new();
     private protected readonly FakeTermAcceptanceChecker Terms = new();
     private protected readonly FakeMediaFileRepository Media = new();
@@ -75,6 +76,9 @@ public abstract class MarketplaceTestBase
     protected DeliveryProgressService Progress => new(
         Drivers, Deliveries, Freights, Agenda, Media, Fees, Publisher, UnitOfWork, Clock,
         new CompleteStopRequestValidator(), new ReportIncidentRequestValidator(), new CancelDeliveryRequestValidator());
+
+    protected DeliveryLocationService LocationService => new(
+        Drivers, Deliveries, Locations, UnitOfWork, Clock, new UpdateLocationRequestValidator());
 
     protected DeliveryPaymentService PaymentService => new(
         Drivers, Deliveries, Payments, Publisher, UnitOfWork, Clock, new ConfirmPaymentRequestValidator());

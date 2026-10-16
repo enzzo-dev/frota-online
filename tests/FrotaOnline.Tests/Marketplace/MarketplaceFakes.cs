@@ -201,3 +201,17 @@ internal sealed class FakeAddressUsageQueries : IAddressUsageQueries
         return Task.FromResult(active ? AddressUsage.Active : freights.Count > 0 ? AddressUsage.History : AddressUsage.None);
     }
 }
+
+internal sealed class FakeDeliveryLocationRepository : IDeliveryLocationRepository
+{
+    public List<DeliveryLocation> Items { get; } = new();
+
+    public Task<DeliveryLocation?> GetByDeliveryIdAsync(Guid deliveryId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(l => l.DeliveryId == deliveryId));
+
+    public Task AddAsync(DeliveryLocation location, CancellationToken cancellationToken)
+    {
+        Items.Add(location);
+        return Task.CompletedTask;
+    }
+}

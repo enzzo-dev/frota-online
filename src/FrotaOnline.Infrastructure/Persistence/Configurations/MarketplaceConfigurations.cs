@@ -83,6 +83,15 @@ internal sealed class DeliveryEventConfiguration : IEntityTypeConfiguration<Deli
     }
 }
 
+internal sealed class DeliveryLocationConfiguration : IEntityTypeConfiguration<DeliveryLocation>
+{
+    public void Configure(EntityTypeBuilder<DeliveryLocation> builder)
+    {
+        builder.HasIndex(x => x.DeliveryId).IsUnique();
+        builder.HasOne<Delivery>().WithMany().HasForeignKey(x => x.DeliveryId);
+    }
+}
+
 internal sealed class DriverAgendaSlotConfiguration : IEntityTypeConfiguration<DriverAgendaSlot>
 {
     public void Configure(EntityTypeBuilder<DriverAgendaSlot> builder)

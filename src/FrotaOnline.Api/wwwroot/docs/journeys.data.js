@@ -80,6 +80,25 @@ window.FROTA_JOURNEYS = [
             body: { refreshToken: '{{refreshToken}}' }
           }
         ]
+      },
+      {
+        title: 'Recuperar a senha',
+        intro: 'Para quem esqueceu a senha. O app pede o e-mail, a pessoa recebe um link com o token e define a nova senha. Nenhuma das duas chamadas precisa de login.',
+        steps: [
+          {
+            id: 'pw-forgot', role: null, method: 'POST', path: '/auth/password/forgot',
+            title: 'Pedir a recuperação', desc: 'Responde 204 para qualquer e-mail válido, exista a conta ou não, para não revelar quem está cadastrado. Se a conta existe e está ativa, o e-mail com o token é enviado.',
+            body: { email: '{{lastEmail}}' },
+            note: 'Sem Email__Provider=MailerSend a API só grava o e-mail no log. Em desenvolvimento, copie o token de lá.'
+          },
+          {
+            id: 'pw-reset', role: null, method: 'POST', path: '/auth/password/reset',
+            title: 'Definir a nova senha', desc: 'O token vale 30 minutos e uma única vez. Ao trocar a senha, todas as sessões da conta são encerradas e é preciso entrar de novo.',
+            body: { token: 'cole-o-token-recebido-por-e-mail', newPassword: 'N0va#Senha1' },
+            capture: { lastPassword: 'req.newPassword' },
+            note: 'Token inválido ou expirado volta 400 com o código auth.invalid_reset_token. A senha segue a regra do cadastro: 8 a 128 caracteres com maiúscula, minúscula e dígito.'
+          }
+        ]
       }
     ]
   },
@@ -401,6 +420,12 @@ window.FROTA_JOURNEYS = [
             title: 'Iniciar a entrega', desc: 'Scheduled vira ToPickup e o cliente é avisado.'
           },
           {
+            id: 'e-location', role: 'Driver', method: 'PUT', path: '/driver/deliveries/{deliveryId}/location',
+            title: 'Enviar a posição', desc: 'Envie a cada 10 a 15 segundos enquanto a entrega está em ToPickup, PickedUp ou InTransit. A API guarda só a última posição, e o cliente a lê no status da entrega.',
+            body: { latitude: -22.9056, longitude: -47.0608, heading: 90, speedKmh: 40 },
+            note: 'heading (0 a 360) e speedKmh são opcionais. Fora de uma entrega em andamento a resposta é 409.'
+          },
+          {
             id: 'e-complete', role: 'Driver', method: 'POST', path: '/driver/deliveries/{deliveryId}/stops/{stopId}/complete',
             title: 'Concluir a parada', desc: 'Só a próxima da ordem. Tudo é opcional; latitude e longitude vão juntas. A resposta traz a próxima parada. Repita a rota "Next" para pegar o novo id.',
             body: { note: 'Entregue na portaria', latitude: -22.9056, longitude: -47.0608, proofMediaFileId: null },
@@ -433,7 +458,7 @@ window.FROTA_JOURNEYS = [
           },
           {
             id: 'e-c-status', role: 'Customer', method: 'GET', path: '/deliveries/{deliveryId}/status',
-            title: 'Acompanhar ao vivo (leve)', desc: 'Para o polling: status, paradas concluídas, pagamento e version. Busque o detalhe completo só quando o version mudar.'
+            title: 'Acompanhar ao vivo (leve)', desc: 'Para o polling: status, paradas concluídas, pagamento, a posição do motorista (driverLocation, só com a entrega em andamento) e version. Busque o detalhe completo só quando o version mudar.'
           },
           {
             id: 'e-c-cancel', role: 'Customer', method: 'POST', path: '/deliveries/{deliveryId}/cancel',

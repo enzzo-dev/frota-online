@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
 using FrotaOnline.Application.Abstractions.Auth;
+using FrotaOnline.Application.Abstractions.Notifications;
 using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Abstractions.Time;
 using FrotaOnline.Application.Abstractions.Users;
@@ -18,10 +19,15 @@ public sealed class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IDateTimeProvider _clock;
+    private readonly IPasswordResetTokenService _resetTokens;
+    private readonly IEmailSender _emailSender;
+    private readonly PasswordResetOptions _resetOptions;
     private readonly IValidator<RegisterRequest> _registerValidator;
     private readonly IValidator<LoginRequest> _loginValidator;
     private readonly IValidator<RefreshTokenRequest> _refreshValidator;
     private readonly IValidator<LogoutRequest> _logoutValidator;
+    private readonly IValidator<ForgotPasswordRequest> _forgotValidator;
+    private readonly IValidator<ResetPasswordRequest> _resetValidator;
 
     public AuthService(
         IUserRepository users,
@@ -30,10 +36,15 @@ public sealed class AuthService : IAuthService
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IDateTimeProvider clock,
+        IPasswordResetTokenService resetTokens,
+        IEmailSender emailSender,
+        PasswordResetOptions resetOptions,
         IValidator<RegisterRequest> registerValidator,
         IValidator<LoginRequest> loginValidator,
         IValidator<RefreshTokenRequest> refreshValidator,
-        IValidator<LogoutRequest> logoutValidator)
+        IValidator<LogoutRequest> logoutValidator,
+        IValidator<ForgotPasswordRequest> forgotValidator,
+        IValidator<ResetPasswordRequest> resetValidator)
     {
         _users = users;
         _authRepository = authRepository;
@@ -41,10 +52,15 @@ public sealed class AuthService : IAuthService
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _clock = clock;
+        _resetTokens = resetTokens;
+        _emailSender = emailSender;
+        _resetOptions = resetOptions;
         _registerValidator = registerValidator;
         _loginValidator = loginValidator;
         _refreshValidator = refreshValidator;
         _logoutValidator = logoutValidator;
+        _forgotValidator = forgotValidator;
+        _resetValidator = resetValidator;
     }
 
     public async Task<Result<AuthResponse>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
@@ -164,6 +180,70 @@ public sealed class AuthService : IAuthService
 
         // Logout is idempotent: unknown tokens are not an error.
         return Result.Success();
+    }
+
+    public async Task<Result> ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _forgotValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Result.Failure(ToError(validation));
+        }
+
+        var user = await _users.GetByEmailAsync(request.Email, cancellationToken);
+
+        if (user is not null && user.IsActive)
+        {
+            var expiresAt = _clock.UtcNow.AddMinutes(_resetOptions.TokenMinutes);
+            var token = _resetTokens.Create(user.Email, user.PasswordHash, expiresAt);
+
+            await _emailSender.SendAsync(
+                user.Email,
+                "Recuperação de senha - Frota Online",
+                BuildResetEmail(user.FullName, token),
+                cancellationToken);
+        }
+
+        return Result.Success();
+    }
+
+    public async Task<Result> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await _resetValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return Result.Failure(ToError(validation));
+        }
+
+        var now = _clock.UtcNow;
+        var claims = _resetTokens.Read(request.Token);
+        if (claims is null || claims.ExpiresAt <= now)
+        {
+            return Result.Failure(AuthErrors.InvalidResetToken);
+        }
+
+        var user = await _users.GetByEmailAsync(claims.Email, cancellationToken);
+
+        if (user is null || !user.IsActive || claims.PasswordFingerprint != _resetTokens.Fingerprint(user.PasswordHash))
+        {
+            return Result.Failure(AuthErrors.InvalidResetToken);
+        }
+
+        user.ChangePasswordHash(_passwordHasher.Hash(request.NewPassword));
+        await RevokeAllAsync(user.Id, now, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    private string BuildResetEmail(string fullName, string token)
+    {
+        var access = string.IsNullOrWhiteSpace(_resetOptions.ResetUrl)
+            ? $"Use este código para redefinir sua senha:\n\n{token}"
+            : $"Para redefinir sua senha, acesse:\n\n{_resetOptions.ResetUrl}{(_resetOptions.ResetUrl.Contains('?') ? '&' : '?')}token={Uri.EscapeDataString(token)}";
+
+        return $"Olá, {fullName}!\n\n{access}\n\nO link vale por {_resetOptions.TokenMinutes} minutos e só pode ser usado uma vez. " +
+               "Se você não pediu a recuperação, ignore esta mensagem: sua senha continua a mesma.";
     }
 
     private async Task<AuthResponse> IssueTokensAsync(User user, CancellationToken cancellationToken)

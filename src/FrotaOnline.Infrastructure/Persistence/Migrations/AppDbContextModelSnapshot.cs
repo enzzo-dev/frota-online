@@ -230,6 +230,44 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("DeliveryEvents");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.DeliveryLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeliveryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("Heading")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("SpeedKmh")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeliveryId")
+                        .IsUnique();
+
+                    b.ToTable("DeliveryLocations");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.DeviceToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1325,6 +1363,15 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("MediaFileId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.DeliveryLocation", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.Delivery", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FrotaOnline.Domain.Entities.DeviceToken", b =>

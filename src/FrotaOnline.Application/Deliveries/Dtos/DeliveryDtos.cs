@@ -69,13 +69,19 @@ public sealed record DeliveryStatusResponse(
     int CompletedStops,
     PaymentStatus? Payment,
     DateTime? LastEventAt,
+    DriverLocationResponse? DriverLocation,
     string Version)
 {
     public static DeliveryStatusResponse Create(
-        Guid deliveryId, DeliveryStatus status, int totalStops, int completedStops, PaymentStatus? payment, DateTime? lastEventAt) =>
-        new(deliveryId, status, totalStops, completedStops, payment, lastEventAt,
-            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}");
+        Guid deliveryId, DeliveryStatus status, int totalStops, int completedStops, PaymentStatus? payment, DateTime? lastEventAt,
+        DriverLocationResponse? driverLocation = null) =>
+        new(deliveryId, status, totalStops, completedStops, payment, lastEventAt, driverLocation,
+            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}.{driverLocation?.RecordedAt.Ticks ?? 0}");
 }
+
+public sealed record DriverLocationResponse(double Latitude, double Longitude, double? Heading, double? SpeedKmh, DateTime RecordedAt);
+
+public sealed record UpdateLocationRequest(double Latitude, double Longitude, double? Heading, double? SpeedKmh);
 
 /// <summary>An admin records that the driver paid part or all of the fees owed to the platform.</summary>
 public sealed record SettleFeeRequest(decimal Amount, string Description);
