@@ -76,7 +76,7 @@ public sealed record DeliveryStatusResponse(
         Guid deliveryId, DeliveryStatus status, int totalStops, int completedStops, PaymentStatus? payment, DateTime? lastEventAt,
         DriverLocationResponse? driverLocation = null) =>
         new(deliveryId, status, totalStops, completedStops, payment, lastEventAt, driverLocation,
-            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}.{driverLocation?.RecordedAt.Ticks ?? 0}");
+            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}");
 }
 
 public sealed record DriverLocationResponse(double Latitude, double Longitude, double? Heading, double? SpeedKmh, DateTime RecordedAt);
