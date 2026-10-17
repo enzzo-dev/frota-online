@@ -19,7 +19,7 @@ public interface IFreightQueries
         IReadOnlyDictionary<VehicleType, decimal> maxCapacityByType,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<FreightResponse>> ListByCustomerAsync(
+    Task<IReadOnlyList<FreightSimpleResponse>> ListByCustomerAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken);
 
     /// <summary>Null when the freight does not exist or belongs to another customer.</summary>

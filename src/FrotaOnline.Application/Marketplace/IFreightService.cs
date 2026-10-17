@@ -9,7 +9,7 @@ public interface IFreightService
 {
     Task<Result<FreightResponse>> CreateAsync(Guid customerId, CreateFreightRequest request, CancellationToken cancellationToken);
 
-    Task<Result<IReadOnlyList<FreightResponse>>> ListAsync(Guid customerId, FreightStatus? status, CancellationToken cancellationToken);
+    Task<Result<IReadOnlyList<FreightSimpleResponse>>> ListAsync(Guid customerId, FreightStatus? status, CancellationToken cancellationToken);
 
     Task<Result<FreightResponse>> GetAsync(Guid customerId, Guid freightId, CancellationToken cancellationToken);
 

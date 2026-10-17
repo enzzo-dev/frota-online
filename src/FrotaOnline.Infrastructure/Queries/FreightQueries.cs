@@ -88,16 +88,15 @@ internal sealed class FreightQueries : IFreightQueries
             .ToList();
     }
 
-    public async Task<IReadOnlyList<FreightResponse>> ListByCustomerAsync(
+    public async Task<IReadOnlyList<FreightSimpleResponse>> ListByCustomerAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken)
     {
         var query = _db.FreightRequests.AsNoTracking().Where(f => f.CustomerId == customerId);
-        if (status is not null)
-        {
-            query = query.Where(f => f.Status == status);
-        }
 
-        return await ToResponsesAsync(query.OrderByDescending(f => f.CreatedAt).ThenBy(f => f.Id), cancellationToken);
+        if (status is not null)
+            query = query.Where(f => f.Status == status);
+
+        return await ToSimpleResponsesAsync(query.OrderByDescending(f => f.CreatedAt).ThenBy(f => f.Id), cancellationToken);
     }
 
     public async Task<FreightResponse?> GetForCustomerAsync(
@@ -147,6 +146,51 @@ internal sealed class FreightQueries : IFreightQueries
         return rows
             .Select((r, index) => new RankedProposalResponse(
                 index + 1, r.ProposalId, r.Price, r.Message, r.DriverName, r.VehicleType, r.VehicleModel, r.ExpiresAt, r.CreatedAt))
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<FreightSimpleResponse>> ToSimpleResponsesAsync(
+        IQueryable<FreightRequest> ordered, CancellationToken cancellationToken)
+    {
+        // The pending-proposal counter is a correlated subquery, so there is no second pass over proposals.
+        var headers = await ordered
+            .Select(f => new
+            {
+                f.Id,
+                f.Status,
+                f.CargoDescription,
+                f.CargoWeightKg,
+                f.ProposalDeadline,
+                f.RouteDistanceMeters,
+                f.RouteDurationSeconds,
+                f.CreatedAt,
+                PendingProposals = _db.Proposals.Count(
+                    p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending),
+            })
+            .ToListAsync(cancellationToken);
+
+        if (headers.Count == 0)
+            return Array.Empty<FreightSimpleResponse>();
+
+        var freightIds = headers.Select(h => h.Id).ToList();
+
+        var stops = await (
+                from s in _db.FreightStops.AsNoTracking()
+                where freightIds.Contains(s.FreightRequestId)
+                select new { s.FreightRequestId, s.Type })
+            .ToListAsync(cancellationToken);
+
+        var stopsByFreight = stops.ToLookup(s => s.FreightRequestId);
+
+        return headers
+            .Select(h =>
+            {
+                var rows = stopsByFreight[h.Id];
+                return new FreightSimpleResponse(
+                    h.Id, h.Status, h.CargoDescription, h.CargoWeightKg, h.ProposalDeadline,
+                    rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery),
+                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows.Count(), h.PendingProposals, h.CreatedAt);
+            })
             .ToList();
     }
 

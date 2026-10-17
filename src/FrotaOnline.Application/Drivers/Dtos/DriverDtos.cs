@@ -22,7 +22,10 @@ public sealed record DriverProfileResponse(
 
 public sealed record RegisterVehicleRequest(VehicleType Type, string Plate, string Model, int Year, decimal CapacityKg);
 
+#region Vehicle
 public sealed record VehicleResponse(Guid Id, VehicleType Type, string Plate, string Model, int Year, decimal CapacityKg, bool IsActive);
+
+#endregion
 
 /// <summary>Asks for a signed URL to upload one file. The content type is the one the upload will carry.</summary>
 public sealed record CreateUploadUrlRequest(MediaKind Kind, string ContentType);

@@ -118,7 +118,7 @@ public sealed class FreightService : IFreightService
         return Result.Success(FreightMapper.ToResponse(freight, found, 0));
     }
 
-    public async Task<Result<IReadOnlyList<FreightResponse>>> ListAsync(
+    public async Task<Result<IReadOnlyList<FreightSimpleResponse>>> ListAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken)
     {
         var responses = await _queries.ListByCustomerAsync(customerId, status, cancellationToken);

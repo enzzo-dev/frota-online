@@ -48,6 +48,19 @@ public sealed record FreightResponse(
     int PendingProposals,
     DateTime CreatedAt);
 
+public sealed record FreightSimpleResponse(Guid Id,
+    FreightStatus status,
+    string CargoDescription,
+    decimal CargoWeightKg,
+    DateTime ProposalDeadline,
+    int PickupCount,
+    int DeliveryCount,
+    int? RouteDistanceMeters,
+    int? RouteDurationSeconds,
+    int Stops,
+    int PendingProposals,
+    DateTime CreatedAt);
+
 /// <summary>Proposal as the customer sees it, ordered by price (rank 1 is the cheapest).</summary>
 public sealed record RankedProposalResponse(
     int Rank,

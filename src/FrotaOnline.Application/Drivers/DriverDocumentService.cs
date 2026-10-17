@@ -12,7 +12,7 @@ namespace FrotaOnline.Application.Drivers;
 
 public sealed class DriverDocumentService : IDriverDocumentService
 {
-    private static readonly MediaKind[] DriverKinds = { MediaKind.DriverDocument, MediaKind.VehiclePhoto, MediaKind.DeliveryProof };
+    private static readonly MediaKind[] DriverKinds = { MediaKind.DriverDocument, MediaKind.VehiclePhoto};
     private static readonly TimeSpan UploadLifetime = TimeSpan.FromMinutes(15);
 
     private readonly IDriverRepository _drivers;
@@ -49,19 +49,13 @@ public sealed class DriverDocumentService : IDriverDocumentService
     {
         var validation = await _uploadValidator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
-        {
             return Result.Failure<UploadUrlResponse>(ValidationMapper.ToError(validation));
-        }
 
         if (!_storage.IsConfigured)
-        {
             return Result.Failure<UploadUrlResponse>(DriverErrors.StorageNotConfigured);
-        }
 
         if (await _drivers.GetByUserIdAsync(userId, cancellationToken) is null)
-        {
             return Result.Failure<UploadUrlResponse>(DriverErrors.ProfileNotFound);
-        }
 
         var key = $"drivers/{userId}/{Guid.NewGuid():N}{Extension(request.ContentType)}";
         var ticket = await _storage.CreateUploadAsync(
