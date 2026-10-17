@@ -144,4 +144,6 @@ public sealed record DriverDeliverySummary(
     int TotalStops,
     int CompletedStops,
     PaymentStatus? Payment,
+    bool CustomerSigned,
+    bool DriverSigned,
     DateTime CreatedAt);

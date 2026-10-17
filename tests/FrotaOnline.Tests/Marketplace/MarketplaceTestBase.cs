@@ -47,7 +47,7 @@ public abstract class MarketplaceTestBase
     private protected NotificationPublisher Publisher => new(SentNotifications);
 
     private protected FakeFreightQueries FreightQueries => new(Freights, Proposals, Addresses, Drivers, Users, Vehicles);
-    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses, Drivers, Users, Vehicles, Payments);
+    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses, Drivers, Users, Vehicles, Payments, Signatures);
 
     protected readonly Guid CustomerId = Guid.NewGuid();
 
