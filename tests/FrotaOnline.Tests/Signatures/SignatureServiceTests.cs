@@ -225,4 +225,24 @@ public class SignatureServiceTests : MarketplaceTestBase
 
         Assert.Equal(DeliveryStatus.Delivered, result.Value.Status);
     }
+
+    [Fact]
+    public async Task Status_ExposesWhichSignaturesWereCollected_ToBothSides()
+    {
+        var (driverUserId, _, deliveryId, _) = await ScheduleDeliveryAsync(signed: false);
+        var freightId = Deliveries.Items.Single().FreightRequestId;
+
+        var before = await CustomerDeliveries.GetStatusAsync(CustomerId, deliveryId, CancellationToken.None);
+        var path = await UploadAsync(driverUserId, SignatureType.Customer, freightId);
+        await Service.RegisterAsync(driverUserId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
+        var after = await CustomerDeliveries.GetStatusAsync(CustomerId, deliveryId, CancellationToken.None);
+        var driverView = await DriverDelivery.GetAsync(driverUserId, deliveryId, CancellationToken.None);
+
+        Assert.False(before.Value.CustomerSigned);
+        Assert.True(after.Value.CustomerSigned);
+        Assert.False(after.Value.DriverSigned);
+        Assert.NotEqual(before.Value.Version, after.Value.Version);
+        Assert.True(driverView.Value.CustomerSigned);
+        Assert.False(driverView.Value.DriverSigned);
+    }
 }

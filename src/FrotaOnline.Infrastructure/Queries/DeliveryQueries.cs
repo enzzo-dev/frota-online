@@ -41,6 +41,8 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id),
                     CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id && s.CompletedAt != null),
                     Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
+                    CustomerSigned = _db.Signatures.Any(x => x.FreightRequestId == f.Id && x.Type == SignatureType.Customer),
+                    DriverSigned = _db.Signatures.Any(x => x.FreightRequestId == f.Id && x.Type == SignatureType.Driver),
                     d.CreatedAt,
                 })
             .ToListAsync(cancellationToken);
@@ -48,7 +50,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
         return rows
             .Select(r => new DriverDeliverySummary(
                 r.DeliveryId, r.FreightRequestId, r.Status, r.AgreedPrice, r.ScheduledPickupAt,
-                r.TotalStops, r.CompletedStops, r.Payment, r.CreatedAt))
+                r.TotalStops, r.CompletedStops, r.Payment, r.CustomerSigned, r.DriverSigned, r.CreatedAt))
             .ToList();
     }
 
@@ -166,6 +168,8 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == d.FreightRequestId && s.CompletedAt != null),
                     Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
                     LastEventAt = _db.DeliveryEvents.Where(e => e.DeliveryId == d.Id).Max(e => (DateTime?)e.OccurredAt),
+                    CustomerSigned = _db.Signatures.Any(x => x.FreightRequestId == d.FreightRequestId && x.Type == SignatureType.Customer),
+                    DriverSigned = _db.Signatures.Any(x => x.FreightRequestId == d.FreightRequestId && x.Type == SignatureType.Driver),
                 })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -184,7 +188,8 @@ internal sealed class DeliveryQueries : IDeliveryQueries
         }
 
         return DeliveryStatusResponse.Create(
-            deliveryId, row.Status, row.TotalStops, row.CompletedStops, row.Payment, row.LastEventAt, location);
+            deliveryId, row.Status, row.TotalStops, row.CompletedStops, row.Payment, row.LastEventAt, location,
+            row.CustomerSigned, row.DriverSigned);
     }
 
     public async Task<CustomerDeliveryDetail?> GetForCustomerAsync(

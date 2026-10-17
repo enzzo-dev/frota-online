@@ -488,7 +488,7 @@ window.FROTA_JOURNEYS = [
           },
           {
             id: 'e-c-status', role: 'Customer', method: 'GET', path: '/deliveries/{deliveryId}/status',
-            title: 'Acompanhar ao vivo (leve)', desc: 'Para o polling: status, paradas concluídas, pagamento, a posição do motorista (driverLocation, só com a entrega em andamento) e version. Busque o detalhe completo só quando o version mudar.'
+            title: 'Acompanhar ao vivo (leve)', desc: 'Para o polling: status, paradas concluídas, pagamento, customerSigned e driverSigned (assinaturas já registradas), a posição do motorista (driverLocation, só com a entrega em andamento) e version. Busque o detalhe completo só quando o version mudar.'
           },
           {
             id: 'e-c-cancel', role: 'Customer', method: 'POST', path: '/deliveries/{deliveryId}/cancel',

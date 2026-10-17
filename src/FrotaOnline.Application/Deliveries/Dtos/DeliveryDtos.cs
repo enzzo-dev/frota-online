@@ -70,13 +70,15 @@ public sealed record DeliveryStatusResponse(
     PaymentStatus? Payment,
     DateTime? LastEventAt,
     DriverLocationResponse? DriverLocation,
+    bool CustomerSigned,
+    bool DriverSigned,
     string Version)
 {
     public static DeliveryStatusResponse Create(
         Guid deliveryId, DeliveryStatus status, int totalStops, int completedStops, PaymentStatus? payment, DateTime? lastEventAt,
-        DriverLocationResponse? driverLocation = null) =>
-        new(deliveryId, status, totalStops, completedStops, payment, lastEventAt, driverLocation,
-            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}");
+        DriverLocationResponse? driverLocation = null, bool customerSigned = false, bool driverSigned = false) =>
+        new(deliveryId, status, totalStops, completedStops, payment, lastEventAt, driverLocation, customerSigned, driverSigned,
+            $"{(int)status}.{completedStops}.{(payment is null ? -1 : (int)payment)}.{lastEventAt?.Ticks ?? 0}.{(customerSigned ? 1 : 0)}{(driverSigned ? 1 : 0)}");
 }
 
 public sealed record DriverLocationResponse(double Latitude, double Longitude, double? Heading, double? SpeedKmh, DateTime RecordedAt);

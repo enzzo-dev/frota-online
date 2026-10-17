@@ -139,10 +139,12 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
     private readonly FakeUserRepository _users;
     private readonly FakeVehicleRepository _vehicles;
     private readonly FakePaymentRepository _payments;
+    private readonly FakeSignatureRepository _signatures;
 
     public FakeDeliveryQueries(
         FakeDeliveryRepository deliveries, FakeFreightRepository freights, FakeAddressRepository addresses,
-        FakeDriverRepository drivers, FakeUserRepository users, FakeVehicleRepository vehicles, FakePaymentRepository payments)
+        FakeDriverRepository drivers, FakeUserRepository users, FakeVehicleRepository vehicles, FakePaymentRepository payments,
+        FakeSignatureRepository signatures)
     {
         _deliveries = deliveries;
         _freights = freights;
@@ -151,6 +153,7 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
         _users = users;
         _vehicles = vehicles;
         _payments = payments;
+        _signatures = signatures;
     }
 
     public Task<IReadOnlyList<CustomerDeliverySummary>> ListByCustomerAsync(Guid customerId, CancellationToken cancellationToken)
@@ -164,7 +167,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
                 var (driverName, vehicle) = DriverAndVehicle(d);
                 return new CustomerDeliverySummary(
                     d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, driverName, vehicle.Type, vehicle.Model, vehicle.Plate,
-                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt);
+                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d),
+                    SignedBy(d, SignatureType.Customer), SignedBy(d, SignatureType.Driver), d.CreatedAt);
             })
             .ToList();
 
@@ -206,7 +210,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
         var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
         DateTime? lastEvent = _deliveries.Events.Where(e => e.DeliveryId == d.Id).Select(e => (DateTime?)e.OccurredAt).Max();
         return Task.FromResult<DeliveryStatusResponse?>(DeliveryStatusResponse.Create(
-            d.Id, d.Status, freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), lastEvent));
+            d.Id, d.Status, freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), lastEvent,
+            customerSigned: SignedBy(d, SignatureType.Customer), driverSigned: SignedBy(d, SignatureType.Driver)));
     }
 
     private (string DriverName, Vehicle Vehicle) DriverAndVehicle(Delivery d)
@@ -215,6 +220,9 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
         var user = _users.Items.First(u => u.Id == profile.UserId);
         return (user.FullName, _vehicles.Items.First(v => v.Id == d.VehicleId));
     }
+
+    private bool SignedBy(Delivery d, SignatureType type) =>
+        _signatures.Items.Any(s => s.FreightRequestId == d.FreightRequestId && s.Type == type);
 
     private PaymentStatus? PaymentOf(Delivery d) => _payments.Items.FirstOrDefault(p => p.DeliveryId == d.Id)?.Status;
 
