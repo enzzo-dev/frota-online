@@ -13,6 +13,12 @@ public static class DeliveryErrors
     public static Error StopOutOfOrder(int nextSequence) =>
         new("delivery.stop_out_of_order", $"Conclua as paradas em ordem. A próxima é a parada {nextSequence}.", ErrorType.Conflict);
 
+    public static Error SignaturesMissing(bool customerMissing, bool driverMissing)
+    {
+        var who = customerMissing && driverMissing ? "do cliente e do motorista" : customerMissing ? "do cliente" : "do motorista";
+        return new("delivery.signatures_missing", $"Colete a assinatura {who} antes de concluir a entrega.", ErrorType.Conflict);
+    }
+
     public static readonly Error InvalidProof =
         new("delivery.invalid_proof", "O comprovante deve ser um arquivo DeliveryProof registrado por você.", ErrorType.Validation);
 

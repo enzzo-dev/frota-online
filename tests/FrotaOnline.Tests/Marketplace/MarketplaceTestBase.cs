@@ -34,6 +34,7 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeDriverAgendaRepository Agenda = new();
     private protected readonly FakeTermAcceptanceChecker Terms = new();
     private protected readonly FakeMediaFileRepository Media = new();
+    private protected readonly FakeSignatureRepository Signatures = new();
     private protected readonly FakePaymentRepository Payments = new();
     private protected readonly FakeFeeLedgerRepository Fees = new();
     private protected readonly FakeRoutingProvider Routing = new();
@@ -74,7 +75,7 @@ public abstract class MarketplaceTestBase
     protected DriverDeliveryService DriverDelivery => new(Drivers, DeliveryQueries);
 
     protected DeliveryProgressService Progress => new(
-        Drivers, Deliveries, Freights, Agenda, Media, Fees, Publisher, UnitOfWork, Clock,
+        Drivers, Deliveries, Freights, Agenda, Media, Signatures, Fees, Publisher, UnitOfWork, Clock,
         new CompleteStopRequestValidator(), new ReportIncidentRequestValidator(), new CancelDeliveryRequestValidator());
 
     protected DeliveryLocationService LocationService => new(
@@ -148,7 +149,7 @@ public abstract class MarketplaceTestBase
 
     /// <summary>A freight with the given stops, approved to a new driver. Returns what tests need to drive the run.</summary>
     protected async Task<(Guid UserId, DriverProfile Profile, Guid DeliveryId, IReadOnlyList<Guid> StopIds)> ScheduleDeliveryAsync(
-        int deliveryStops = 1)
+        int deliveryStops = 1, bool signed = true)
     {
         var (pickup, _) = AddAddresses(CustomerId);
         var stops = new List<CreateFreightStopRequest> { Stop(StopType.Pickup, pickup) };
@@ -164,6 +165,14 @@ public abstract class MarketplaceTestBase
         var approved = await Selection.ApproveAsync(CustomerId, freight.Value.Id, proposal.Value.Id, CancellationToken.None);
 
         var stopIds = Freights.Items.Single().Stops.OrderBy(s => s.Sequence).Select(s => s.Id).ToList();
+        if (signed)
+        {
+            foreach (var type in new[] { SignatureType.Customer, SignatureType.Driver })
+            {
+                Signatures.Items.Add(Signature.Create(type, freight.Value.Id, CustomerId, profile.Id, $"signatures/{freight.Value.Id:N}/{type}/seed.png"));
+            }
+        }
+
         return (userId, profile, approved.Value.DeliveryId, stopIds);
     }
 }

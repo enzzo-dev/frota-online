@@ -9,6 +9,7 @@ using FrotaOnline.Application.Notifications;
 using FrotaOnline.Application.Payments;
 using FrotaOnline.Application.Privacy;
 using FrotaOnline.Application.Routing;
+using FrotaOnline.Application.Signatures;
 using FrotaOnline.Application.Terms;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IDeliveryPaymentService, DeliveryPaymentService>();
         services.AddScoped<IFeeService, FeeService>();
         services.AddScoped<ICustomerDeliveryService, CustomerDeliveryService>();
+        services.AddScoped<ISignatureService, SignatureService>();
         services.AddScoped<INotificationPublisher, NotificationPublisher>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();

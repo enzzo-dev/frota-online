@@ -86,6 +86,9 @@ internal sealed class FakeDeliveryRepository : IDeliveryRepository
     public Task<Delivery?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(d => d.Id == id));
 
+    public Task<Delivery?> GetByFreightRequestIdAsync(Guid freightRequestId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(d => d.FreightRequestId == freightRequestId));
+
     public Task<int> CountTakenByDriverAsync(Guid driverProfileId, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Count(d => d.DriverProfileId == driverProfileId && d.Status != DeliveryStatus.Cancelled));
 
@@ -212,6 +215,23 @@ internal sealed class FakeDeliveryLocationRepository : IDeliveryLocationReposito
     public Task AddAsync(DeliveryLocation location, CancellationToken cancellationToken)
     {
         Items.Add(location);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeSignatureRepository : ISignatureRepository
+{
+    public List<Signature> Items { get; } = new();
+
+    public Task<bool> ExistsAsync(Guid freightRequestId, SignatureType type, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Any(s => s.FreightRequestId == freightRequestId && s.Type == type));
+
+    public Task<bool> StoragePathExistsAsync(string storagePath, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Any(s => s.StoragePath == storagePath));
+
+    public Task AddAsync(Signature signature, CancellationToken cancellationToken)
+    {
+        Items.Add(signature);
         return Task.CompletedTask;
     }
 }

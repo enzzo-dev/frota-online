@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IFreightRepository, FreightRepository>();
         services.AddScoped<IProposalRepository, ProposalRepository>();
         services.AddScoped<IDeliveryRepository, DeliveryRepository>();
+        services.AddScoped<ISignatureRepository, SignatureRepository>();
         services.AddScoped<IDeliveryLocationRepository, DeliveryLocationRepository>();
         services.AddScoped<IDriverAgendaRepository, DriverAgendaRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();

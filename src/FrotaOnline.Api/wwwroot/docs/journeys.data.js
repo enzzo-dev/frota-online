@@ -399,7 +399,7 @@ window.FROTA_JOURNEYS = [
           {
             id: 'e-list', role: 'Driver', method: 'GET', path: '/driver/deliveries',
             title: 'Minhas entregas', desc: 'Entregas ganhas, com contadores de paradas.',
-            capture: { deliveryId: '[0].deliveryId' }
+            capture: { deliveryId: '[0].deliveryId', freightId: '[0].freightRequestId' }
           },
           {
             id: 'e-route-full', role: 'Driver', method: 'GET', path: '/driver/deliveries/{deliveryId}/route',
@@ -426,8 +426,23 @@ window.FROTA_JOURNEYS = [
             note: 'heading (0 a 360) e speedKmh são opcionais. Fora de uma entrega em andamento a resposta é 409.'
           },
           {
+            id: 'e-sign-url', role: 'Driver', method: 'POST', path: '/signatures/upload-url',
+            title: 'Assinatura: pedir a URL de envio', desc: 'Obrigatória antes de concluir a última parada: a entrega só vira Delivered com a assinatura do cliente e a do motorista. Imagem image/png ou image/jpeg, até 2 MB.',
+            body: { type: 'Driver', freightId: '{{freightId}}', contentType: 'image/png' },
+            capture: { storagePath: 'storagePath', uploadUrl: 'uploadUrl', uploadMethod: 'method', uploadHeaders: 'headers', fileContentType: 'req.contentType' }
+          },
+          {
+            id: 'e-sign-put', role: null, kind: 'upload', method: 'PUT', path: '(uploadUrl)',
+            title: 'Assinatura: enviar a imagem', desc: 'Escolha a imagem da assinatura. Ela vai direto para a URL assinada.'
+          },
+          {
+            id: 'e-sign-register', role: 'Driver', method: 'POST', path: '/signatures',
+            title: 'Assinatura: registrar', desc: 'Guarda a assinatura com o frete, o cliente e o motorista da entrega. Uma por tipo e por frete.',
+            body: { type: 'Driver', freightId: '{{freightId}}', storagePath: '{{storagePath}}' }
+          },
+          {
             id: 'e-complete', role: 'Driver', method: 'POST', path: '/driver/deliveries/{deliveryId}/stops/{stopId}/complete',
-            title: 'Concluir a parada', desc: 'Só a próxima da ordem. Tudo é opcional; latitude e longitude vão juntas. A resposta traz a próxima parada. Repita a rota "Next" para pegar o novo id.',
+            title: 'Concluir a parada', desc: 'Só a próxima da ordem. Tudo é opcional; latitude e longitude vão juntas. A resposta traz a próxima parada. Repita a rota "Next" para pegar o novo id. A última parada só conclui com as assinaturas do cliente e do motorista (409 delivery.signatures_missing).',
             body: { note: 'Entregue na portaria', latitude: -22.9056, longitude: -47.0608, proofMediaFileId: null },
             capture: { stopId: 'nextStopId' }
           },
@@ -450,11 +465,26 @@ window.FROTA_JOURNEYS = [
           {
             id: 'e-c-list', role: 'Customer', method: 'GET', path: '/deliveries',
             title: 'Minhas entregas', desc: 'Com motorista, veículo, contador de paradas e situação do pagamento.',
-            capture: { deliveryId: '[0].deliveryId' }
+            capture: { deliveryId: '[0].deliveryId', freightId: '[0].freightRequestId' }
           },
           {
             id: 'e-c-get', role: 'Customer', method: 'GET', path: '/deliveries/{deliveryId}',
             title: 'Detalhe e linha do tempo', desc: 'Paradas, eventos com horário e pagamento.'
+          },
+          {
+            id: 'e-c-sign-url', role: 'Customer', method: 'POST', path: '/signatures/upload-url',
+            title: 'Assinatura: pedir a URL de envio', desc: 'Obrigatória antes de concluir a última parada: a entrega só vira Delivered com a assinatura do cliente e a do motorista. Imagem image/png ou image/jpeg, até 2 MB.',
+            body: { type: 'Customer', freightId: '{{freightId}}', contentType: 'image/png' },
+            capture: { storagePath: 'storagePath', uploadUrl: 'uploadUrl', uploadMethod: 'method', uploadHeaders: 'headers', fileContentType: 'req.contentType' }
+          },
+          {
+            id: 'e-c-sign-put', role: null, kind: 'upload', method: 'PUT', path: '(uploadUrl)',
+            title: 'Assinatura: enviar a imagem', desc: 'Escolha a imagem da assinatura. Ela vai direto para a URL assinada.'
+          },
+          {
+            id: 'e-c-sign-register', role: 'Customer', method: 'POST', path: '/signatures',
+            title: 'Assinatura: registrar', desc: 'Guarda a assinatura com o frete, o cliente e o motorista da entrega. Uma por tipo e por frete.',
+            body: { type: 'Customer', freightId: '{{freightId}}', storagePath: '{{storagePath}}' }
           },
           {
             id: 'e-c-status', role: 'Customer', method: 'GET', path: '/deliveries/{deliveryId}/status',

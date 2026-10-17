@@ -20,6 +20,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
     private readonly IFreightRepository _freights;
     private readonly IDriverAgendaRepository _agenda;
     private readonly IMediaFileRepository _media;
+    private readonly ISignatureRepository _signatures;
     private readonly IFeeLedgerRepository _fees;
     private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
@@ -34,6 +35,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         IFreightRepository freights,
         IDriverAgendaRepository agenda,
         IMediaFileRepository media,
+        ISignatureRepository signatures,
         IFeeLedgerRepository fees,
         INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
@@ -47,6 +49,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         _freights = freights;
         _agenda = agenda;
         _media = media;
+        _signatures = signatures;
         _fees = fees;
         _notifications = notifications;
         _unitOfWork = unitOfWork;
@@ -123,6 +126,16 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
             if (proof is null || proof.OwnerUserId != userId || proof.Kind != MediaKind.DeliveryProof)
             {
                 return Result.Failure<DeliveryProgressResponse>(DeliveryErrors.InvalidProof);
+            }
+        }
+
+        if (ordered.All(s => s.IsCompleted || s.Id == stop.Id))
+        {
+            var customerSigned = await _signatures.ExistsAsync(freight.Id, SignatureType.Customer, cancellationToken);
+            var driverSigned = await _signatures.ExistsAsync(freight.Id, SignatureType.Driver, cancellationToken);
+            if (!customerSigned || !driverSigned)
+            {
+                return Result.Failure<DeliveryProgressResponse>(DeliveryErrors.SignaturesMissing(!customerSigned, !driverSigned));
             }
         }
 

@@ -36,6 +36,8 @@ public enum SubscriptionStatus { Pending = 1, Active = 2, Cancelled = 3 }
 
 public enum MediaKind { DriverDocument = 1, VehiclePhoto = 2, CargoPhoto = 3, DeliveryProof = 4 }
 
+public enum SignatureType { Customer = 1, Driver = 2 }
+
 public enum DevicePlatform { Android = 1, Ios = 2, Web = 3 }
 
 public enum TermType { TermsOfUse = 1, PrivacyPolicy = 2 }

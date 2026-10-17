@@ -192,3 +192,16 @@ internal sealed class WalletAccountConfiguration : IEntityTypeConfiguration<Wall
         builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
     }
 }
+
+internal sealed class SignatureConfiguration : IEntityTypeConfiguration<Signature>
+{
+    public void Configure(EntityTypeBuilder<Signature> builder)
+    {
+        builder.HasIndex(x => new { x.FreightRequestId, x.Type }).IsUnique();
+        builder.HasIndex(x => x.StoragePath).IsUnique();
+        builder.Property(x => x.StoragePath).HasMaxLength(512).IsRequired();
+        builder.HasOne<FreightRequest>().WithMany().HasForeignKey(x => x.FreightRequestId);
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.CustomerId);
+        builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
+    }
+}

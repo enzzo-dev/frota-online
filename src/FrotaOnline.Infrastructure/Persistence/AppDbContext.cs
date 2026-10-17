@@ -18,6 +18,7 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
+    public DbSet<Signature> Signatures => Set<Signature>();
     public DbSet<TermDocument> TermDocuments => Set<TermDocument>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
     public DbSet<FreightRequest> FreightRequests => Set<FreightRequest>();
