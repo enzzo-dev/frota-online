@@ -30,7 +30,7 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeFreightRepository Freights = new();
     private protected readonly FakeProposalRepository Proposals = new();
     private protected readonly FakeDeliveryRepository Deliveries = new();
-    private protected readonly FakeDeliveryLocationRepository Locations = new();
+    private protected readonly FakeDeliveryLocationRepository Locations;
     private protected readonly FakeDriverAgendaRepository Agenda = new();
     private protected readonly FakeTermAcceptanceChecker Terms = new();
     private protected readonly FakeMediaFileRepository Media = new();
@@ -43,6 +43,8 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeSubscriptionRepository Subscriptions = new();
     private protected readonly FakeSubscriptionSettings SubscriptionRules = new();
     private protected readonly FakePaymentGateway Gateway = new();
+
+    protected MarketplaceTestBase() => Locations = new(Drivers, Deliveries);
 
     private protected NotificationPublisher Publisher => new(SentNotifications);
 
@@ -62,7 +64,7 @@ public abstract class MarketplaceTestBase
         Addresses, new FakeAddressUsageQueries(Freights, Deliveries), UnitOfWork, Clock, new CreateAddressRequestValidator());
 
     protected RouteService RouteService => new(
-        Addresses, Freights, Deliveries, Drivers, new RoutePlanner(Routing), new RoutePreviewRequestValidator());
+        Addresses, Freights, Deliveries, Drivers, new RoutePlanner(Routing), UnitOfWork, new RoutePreviewRequestValidator());
 
     protected DriverMarketplaceService DriverMarketplace => new(
         Drivers, Vehicles, Freights, Proposals, FreightQueries, Agenda, SubscriptionPolicy, Publisher, UnitOfWork, Clock, new SubmitProposalRequestValidator());
@@ -75,7 +77,7 @@ public abstract class MarketplaceTestBase
     protected DriverDeliveryService DriverDelivery => new(Drivers, DeliveryQueries);
 
     protected DeliveryProgressService Progress => new(
-        Drivers, Deliveries, Freights, Agenda, Media, Signatures, Fees, Publisher, UnitOfWork, Clock,
+        Drivers, Deliveries, Freights, Agenda, Media, Signatures, Fees, Locations, Publisher, UnitOfWork, Clock,
         new CompleteStopRequestValidator(), new ReportIncidentRequestValidator(), new CancelDeliveryRequestValidator());
 
     protected DeliveryLocationService LocationService => new(

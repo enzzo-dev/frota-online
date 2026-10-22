@@ -236,7 +236,7 @@ public class DeliveryProgressServiceTests : MarketplaceTestBase
 
         Assert.Equal(DeliveryStatus.Cancelled, result.Value.Status);
         Assert.False(Agenda.Items.Single().IsActive);
-        Assert.Contains("customer", Deliveries.Events.Last().Note);
+        Assert.Contains("cliente", Deliveries.Events.Last().Note);
     }
 
     [Fact]

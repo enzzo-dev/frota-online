@@ -108,7 +108,7 @@ public sealed class FreightService : IFreightService
         var map = await _routes.PlanAsync(routed, cancellationToken);
         if (map is { DistanceMeters: { } meters, DurationSeconds: { } seconds })
         {
-            freight.SetRoute(meters, seconds);
+            freight.SetRoute(meters, seconds, PolylineCodec.Encode(map.Path));
         }
 
         await _freights.AddAsync(freight, cancellationToken);

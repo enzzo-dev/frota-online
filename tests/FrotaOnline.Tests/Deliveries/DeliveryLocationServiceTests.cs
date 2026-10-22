@@ -31,6 +31,22 @@ public class DeliveryLocationServiceTests : MarketplaceTestBase
         Assert.True(second.IsSuccess);
         var row = Assert.Single(Locations.Items);
         Assert.Equal(-23.56, row.Latitude);
+        Assert.Equal(2, Locations.FastPathHits);
+    }
+
+    [Fact]
+    public async Task Cancelling_TheDelivery_ForgetsTheLastPosition()
+    {
+        var (userId, _, deliveryId, _) = await ScheduleDeliveryAsync();
+        await Progress.StartAsync(userId, deliveryId, CancellationToken.None);
+        await LocationService.UpdateAsync(userId, deliveryId, Here, CancellationToken.None);
+
+        var cancel = await Progress.CancelAsDriverAsync(userId, deliveryId, new CancelDeliveryRequest("Truck broke"), CancellationToken.None);
+        var late = await LocationService.UpdateAsync(userId, deliveryId, Here, CancellationToken.None);
+
+        Assert.True(cancel.IsSuccess);
+        Assert.Empty(Locations.Items);
+        Assert.Equal("delivery.invalid_status", late.Error!.Code);
     }
 
     [Fact]

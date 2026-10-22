@@ -5,6 +5,7 @@ using FrotaOnline.Application.Abstractions.Routing;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
+using FrotaOnline.Tests.Onboarding;
 
 namespace FrotaOnline.Tests.Marketplace;
 
@@ -207,7 +208,44 @@ internal sealed class FakeAddressUsageQueries : IAddressUsageQueries
 
 internal sealed class FakeDeliveryLocationRepository : IDeliveryLocationRepository
 {
+    private readonly FakeDriverRepository _drivers;
+    private readonly FakeDeliveryRepository _deliveries;
+
+    public FakeDeliveryLocationRepository(FakeDriverRepository drivers, FakeDeliveryRepository deliveries)
+    {
+        _drivers = drivers;
+        _deliveries = deliveries;
+    }
+
     public List<DeliveryLocation> Items { get; } = new();
+
+    public int FastPathHits { get; private set; }
+
+    public void Remove(DeliveryLocation location) => Items.Remove(location);
+
+    public Task<bool> TryRecordForDriverAsync(Guid driverUserId, DeliveryLocation location, CancellationToken cancellationToken)
+    {
+        var delivery = _deliveries.Items.FirstOrDefault(d => d.Id == location.DeliveryId);
+        var owner = _drivers.Items.FirstOrDefault(p => p.UserId == driverUserId);
+        if (delivery is null || owner is null || delivery.DriverProfileId != owner.Id
+            || delivery.Status is not (DeliveryStatus.ToPickup or DeliveryStatus.PickedUp or DeliveryStatus.InTransit))
+        {
+            return Task.FromResult(false);
+        }
+
+        var current = Items.FirstOrDefault(l => l.DeliveryId == location.DeliveryId);
+        if (current is null)
+        {
+            Items.Add(location);
+        }
+        else
+        {
+            current.MoveTo(location.Latitude, location.Longitude, location.Heading, location.SpeedKmh, location.RecordedAt);
+        }
+
+        FastPathHits++;
+        return Task.FromResult(true);
+    }
 
     public Task<DeliveryLocation?> GetByDeliveryIdAsync(Guid deliveryId, CancellationToken cancellationToken) =>
         Task.FromResult(Items.FirstOrDefault(l => l.DeliveryId == deliveryId));

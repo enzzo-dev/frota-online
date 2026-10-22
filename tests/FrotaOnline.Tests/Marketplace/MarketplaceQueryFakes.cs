@@ -69,16 +69,19 @@ internal sealed class FakeFreightQueries : IFreightQueries
         return Task.FromResult<IReadOnlyList<OpenFreightResponse>>(rows);
     }
 
-    public Task<IReadOnlyList<FreightResponse>> ListByCustomerAsync(
+    public Task<IReadOnlyList<FreightSimpleResponse>> ListByCustomerAsync(
         Guid customerId, FreightStatus? status, CancellationToken cancellationToken)
     {
         var rows = _freights.Items
             .Where(f => f.CustomerId == customerId && (status is null || f.Status == status))
             .OrderByDescending(f => f.CreatedAt)
-            .Select(ToResponse)
+            .Select(f => new FreightSimpleResponse(
+                f.Id, f.Status, f.CargoDescription, f.CargoWeightKg, f.ProposalDeadline, f.PickupCount, f.DeliveryCount,
+                f.RouteDistanceMeters, f.RouteDurationSeconds, f.Stops.Count,
+                _proposals.Items.Count(p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending), f.CreatedAt))
             .ToList();
 
-        return Task.FromResult<IReadOnlyList<FreightResponse>>(rows);
+        return Task.FromResult<IReadOnlyList<FreightSimpleResponse>>(rows);
     }
 
     public Task<FreightResponse?> GetForCustomerAsync(Guid customerId, Guid freightId, CancellationToken cancellationToken)
@@ -167,8 +170,7 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
                 var (driverName, vehicle) = DriverAndVehicle(d);
                 return new CustomerDeliverySummary(
                     d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, driverName, vehicle.Type, vehicle.Model, vehicle.Plate,
-                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d),
-                    SignedBy(d, SignatureType.Customer), SignedBy(d, SignatureType.Driver), d.CreatedAt);
+                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt);
             })
             .ToList();
 
@@ -236,7 +238,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
                 var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
                 return new DriverDeliverySummary(
                     d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, freight.ScheduledPickupAt,
-                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt);
+                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d),
+                    SignedBy(d, SignatureType.Customer), SignedBy(d, SignatureType.Driver), d.CreatedAt);
             })
             .ToList();
 

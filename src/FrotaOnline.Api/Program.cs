@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json.Serialization;
 using FrotaOnline.Api.Extensions;
 using FrotaOnline.Api.OpenApi;
@@ -5,6 +6,7 @@ using FrotaOnline.Application;
 using FrotaOnline.Infrastructure;
 using FrotaOnline.Infrastructure.Seeding;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +42,15 @@ builder.Services.AddCors(options => options.AddPolicy(AppCorsPolicy, policy =>
     }
 }));
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+
 builder.Services.AddExceptionHandler<UniqueViolationExceptionHandler>();
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = PortugueseModelBindingMessages.TranslateProblem);
 // Make the generated OpenAPI schemas describe enums as strings, matching the MVC JSON options above.
@@ -54,6 +65,7 @@ builder.Services.AddOpenApi(options =>
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseResponseCompression();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

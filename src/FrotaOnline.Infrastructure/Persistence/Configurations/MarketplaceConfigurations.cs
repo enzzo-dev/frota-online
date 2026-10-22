@@ -12,6 +12,7 @@ internal sealed class FreightRequestConfiguration : IEntityTypeConfiguration<Fre
         builder.HasIndex(x => x.CustomerId);
         builder.Property(x => x.CargoDescription).HasMaxLength(1000).IsRequired();
         builder.Property(x => x.CargoWeightKg).HasPrecision(12, 2);
+        builder.Property(x => x.RoutePolyline).HasColumnType("text");
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CustomerId);
         builder.HasMany(x => x.Stops).WithOne().HasForeignKey(s => s.FreightRequestId);
         builder.Navigation(x => x.Stops).UsePropertyAccessMode(PropertyAccessMode.Field);

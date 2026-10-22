@@ -22,6 +22,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
     private readonly IMediaFileRepository _media;
     private readonly ISignatureRepository _signatures;
     private readonly IFeeLedgerRepository _fees;
+    private readonly IDeliveryLocationRepository _locations;
     private readonly INotificationPublisher _notifications;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _clock;
@@ -37,6 +38,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         IMediaFileRepository media,
         ISignatureRepository signatures,
         IFeeLedgerRepository fees,
+        IDeliveryLocationRepository locations,
         INotificationPublisher notifications,
         IUnitOfWork unitOfWork,
         IDateTimeProvider clock,
@@ -51,6 +53,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         _media = media;
         _signatures = signatures;
         _fees = fees;
+        _locations = locations;
         _notifications = notifications;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -174,6 +177,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
 
             await _fees.AddAsync(FeeLedger.Accrue(delivery.DriverProfileId, delivery.Id, delivery.PlatformFee), cancellationToken);
             await ReleaseAgendaAsync(delivery.Id, now, cancellationToken);
+            await StopTrackingAsync(delivery.Id, cancellationToken);
         }
 
         // One notification per action: the most meaningful thing that just happened.
@@ -216,6 +220,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
         await _deliveries.AddEventAsync(
             DeliveryEvent.Create(delivery.Id, DeliveryStatus.Incident, now, request.Note, null, null, null),
             cancellationToken);
+        await StopTrackingAsync(delivery.Id, cancellationToken);
         await _notifications.PublishAsync(
             NotificationMessages.DeliveryIncident(delivery.CustomerId, delivery.Id, request.Note), cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -287,6 +292,7 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
             DeliveryEvent.Create(delivery.Id, DeliveryStatus.Cancelled, now, $"Cancelada pelo {(who == "driver" ? "motorista" : "cliente")}: {reason}", null, null, null),
             cancellationToken);
         await ReleaseAgendaAsync(delivery.Id, now, cancellationToken);
+        await StopTrackingAsync(delivery.Id, cancellationToken);
 
         // The other side is told: the customer when the driver cancels, the driver when the customer does.
         if (who == "driver")
@@ -334,6 +340,15 @@ public sealed class DeliveryProgressService : IDeliveryProgressService
     {
         var slot = await _agenda.GetByDeliveryIdAsync(deliveryId, cancellationToken);
         slot?.Release(now);
+    }
+
+    private async Task StopTrackingAsync(Guid deliveryId, CancellationToken cancellationToken)
+    {
+        var location = await _locations.GetByDeliveryIdAsync(deliveryId, cancellationToken);
+        if (location is not null)
+        {
+            _locations.Remove(location);
+        }
     }
 
     private static DeliveryEvent NewEvent(Delivery delivery, DeliveryStatus status, DateTime now) =>

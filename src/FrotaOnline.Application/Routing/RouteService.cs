@@ -2,6 +2,7 @@ using FluentValidation;
 using FrotaOnline.Application.Abstractions.Addresses;
 using FrotaOnline.Application.Abstractions.Drivers;
 using FrotaOnline.Application.Abstractions.Marketplace;
+using FrotaOnline.Application.Abstractions.Persistence;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Drivers;
@@ -18,6 +19,7 @@ public sealed class RouteService : IRouteService
     private readonly IDeliveryRepository _deliveries;
     private readonly IDriverRepository _drivers;
     private readonly IRoutePlanner _planner;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<RoutePreviewRequest> _validator;
 
     public RouteService(
@@ -26,6 +28,7 @@ public sealed class RouteService : IRouteService
         IDeliveryRepository deliveries,
         IDriverRepository drivers,
         IRoutePlanner planner,
+        IUnitOfWork unitOfWork,
         IValidator<RoutePreviewRequest> validator)
     {
         _addresses = addresses;
@@ -33,6 +36,7 @@ public sealed class RouteService : IRouteService
         _deliveries = deliveries;
         _drivers = drivers;
         _planner = planner;
+        _unitOfWork = unitOfWork;
         _validator = validator;
     }
 
@@ -95,7 +99,20 @@ public sealed class RouteService : IRouteService
             .ToDictionary(a => a.Id);
 
         var stops = ordered.Select(s => new RoutedStop(found[s.AddressId], s.Type)).ToList();
-        return await PlanAsync(stops, cancellationToken);
+        if (freight is { RouteDistanceMeters: { } meters, RouteDurationSeconds: { } seconds, RoutePolyline: { } polyline }
+            && _planner.Restore(stops, meters, seconds, polyline) is { } stored)
+        {
+            return Result.Success(stored);
+        }
+
+        var planned = await PlanAsync(stops, cancellationToken);
+        if (planned.IsSuccess && planned.Value is { DistanceMeters: { } distance, DurationSeconds: { } duration, Path.Count: > 0 })
+        {
+            freight.SetRoute(distance, duration, PolylineCodec.Encode(planned.Value.Path));
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return planned;
     }
 
     private async Task<Result<RouteMapResponse>> PlanAsync(IReadOnlyList<RoutedStop> stops, CancellationToken cancellationToken)
