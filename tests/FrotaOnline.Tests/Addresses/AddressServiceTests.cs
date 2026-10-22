@@ -181,6 +181,6 @@ public class DriverCancelBeforePickupTests : MarketplaceTestBase
             run.UserId, run.DeliveryId, new CancelDeliveryRequest("Flat tire"), CancellationToken.None);
 
         Assert.Equal(FrotaOnline.Domain.Enums.DeliveryStatus.Cancelled, result.Value.Status);
-        Assert.Contains("driver", Deliveries.Events.Last().Note);
+        Assert.Contains("motorista", Deliveries.Events.Last().Note);
     }
 }
