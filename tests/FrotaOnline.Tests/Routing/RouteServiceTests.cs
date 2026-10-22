@@ -107,6 +107,39 @@ public class RouteServiceTests : MarketplaceTestBase
     }
 
     [Fact]
+    public async Task FreightRoute_IsReadFromTheFreight_WithoutCallingTheEngineAgain()
+    {
+        var (a, b) = TwoMappedAddresses();
+        var created = await FreightService.CreateAsync(CustomerId, NewFreight(a, b), CancellationToken.None);
+        var callsAfterCreate = Routing.Calls;
+
+        var map = await RouteService.ForFreightAsync(CustomerId, created.Value.Id, CancellationToken.None);
+
+        Assert.Equal(callsAfterCreate, Routing.Calls);
+        Assert.Equal(12_500, map.Value.DistanceMeters);
+        Assert.Equal(2, map.Value.Path.Count);
+        Assert.Equal(a.Latitude!.Value, map.Value.Path[0].Latitude, 5);
+        Assert.Equal(b.Longitude!.Value, map.Value.Path[1].Longitude, 5);
+    }
+
+    [Fact]
+    public async Task FreightRoute_CreatedWhileTheEngineWasDown_IsCalculatedOnceAndKept()
+    {
+        var (a, b) = TwoMappedAddresses();
+        Routing.Available = false;
+        var created = await FreightService.CreateAsync(CustomerId, NewFreight(a, b), CancellationToken.None);
+        Routing.Available = true;
+
+        await RouteService.ForFreightAsync(CustomerId, created.Value.Id, CancellationToken.None);
+        var calls = Routing.Calls;
+        var again = await RouteService.ForFreightAsync(CustomerId, created.Value.Id, CancellationToken.None);
+
+        Assert.Equal(calls, Routing.Calls);
+        Assert.Equal(12_500, again.Value.DistanceMeters);
+        Assert.NotNull(Freights.Items.Single().RoutePolyline);
+    }
+
+    [Fact]
     public async Task CreatingAFreight_WhenTheEngineIsDown_StillWorks()
     {
         var (a, b) = TwoMappedAddresses();

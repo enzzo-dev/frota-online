@@ -578,6 +578,10 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<int?>("RouteDurationSeconds")
                         .HasColumnType("integer");
 
+                    b.Property<string>("RoutePolyline")
+                        .HasMaxLength(256)
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("ScheduledPickupAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -976,6 +980,52 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("SavedCards");
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.Signature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DriverProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FreightRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("DriverProfileId");
+
+                    b.HasIndex("StoragePath")
+                        .IsUnique();
+
+                    b.HasIndex("FreightRequestId", "Type")
+                        .IsUnique();
+
+                    b.ToTable("Signatures");
                 });
 
             modelBuilder.Entity("FrotaOnline.Domain.Entities.Subscription", b =>
@@ -1534,6 +1584,27 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasOne("FrotaOnline.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.Signature", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FrotaOnline.Domain.Entities.DriverProfile", null)
+                        .WithMany()
+                        .HasForeignKey("DriverProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FrotaOnline.Domain.Entities.FreightRequest", null)
+                        .WithMany()
+                        .HasForeignKey("FreightRequestId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

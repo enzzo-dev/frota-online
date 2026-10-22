@@ -35,6 +35,8 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
 
     public int? RouteDurationSeconds { get; private set; }
 
+    public string? RoutePolyline { get; private set; }
+
     public bool IsSameDay => ScheduledPickupAt is null;
 
     /// <summary>Pickups and deliveries in the order the customer chose. The last one is the final delivery.</summary>
@@ -101,7 +103,7 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
         return freight;
     }
 
-    public void SetRoute(int distanceMeters, int durationSeconds)
+    public void SetRoute(int distanceMeters, int durationSeconds, string? polyline = null)
     {
         if (distanceMeters < 0 || durationSeconds < 0)
         {
@@ -110,6 +112,7 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
 
         RouteDistanceMeters = distanceMeters;
         RouteDurationSeconds = durationSeconds;
+        RoutePolyline = string.IsNullOrEmpty(polyline) ? null : polyline;
     }
 
     public bool CanReceiveProposals(DateTime utcNow) => Status == FreightStatus.Open && utcNow < ProposalDeadline;

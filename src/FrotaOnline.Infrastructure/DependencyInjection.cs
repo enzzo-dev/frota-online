@@ -44,7 +44,7 @@ public static class DependencyInjection
                 "ConnectionStrings__Default environment variable / secret manager (Staging, Production).");
         }
 
-        services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContextPool<AppDbContext>(options => options.UseNpgsql(connectionString));
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IUserRepository, UserRepository>();
@@ -94,7 +94,10 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(RoutingOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
-        services.AddHttpClient<IRoutingProvider, OsrmRoutingProvider>();
+        services.AddHttpClient<OsrmRoutingProvider>();
+        services.AddSingleton<RouteCache>();
+        services.AddScoped<IRoutingProvider>(sp =>
+            new CachedRoutingProvider(sp.GetRequiredService<OsrmRoutingProvider>(), sp.GetRequiredService<RouteCache>()));
 
         // File storage. Storage:Provider = "Gcs" uploads through signed URLs to a private bucket; anything else disables it.
         services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
