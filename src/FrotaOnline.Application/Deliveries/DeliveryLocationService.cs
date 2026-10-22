@@ -46,6 +46,13 @@ public sealed class DeliveryLocationService : IDeliveryLocationService
             return Result.Failure(ValidationMapper.ToError(validation));
         }
 
+        var now = _clock.UtcNow;
+        var reported = DeliveryLocation.Create(deliveryId, request.Latitude, request.Longitude, request.Heading, request.SpeedKmh, now);
+        if (await _locations.TryRecordForDriverAsync(userId, reported, cancellationToken))
+        {
+            return Result.Success();
+        }
+
         var profile = await _drivers.GetByUserIdAsync(userId, cancellationToken);
         if (profile is null)
         {
@@ -64,13 +71,10 @@ public sealed class DeliveryLocationService : IDeliveryLocationService
                 $"A entrega está com status {delivery.Status}; a posição só é aceita enquanto ela está em andamento."));
         }
 
-        var now = _clock.UtcNow;
         var current = await _locations.GetByDeliveryIdAsync(deliveryId, cancellationToken);
         if (current is null)
         {
-            await _locations.AddAsync(
-                DeliveryLocation.Create(deliveryId, request.Latitude, request.Longitude, request.Heading, request.SpeedKmh, now),
-                cancellationToken);
+            await _locations.AddAsync(reported, cancellationToken);
         }
         else
         {

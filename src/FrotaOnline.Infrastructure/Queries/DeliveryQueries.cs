@@ -170,6 +170,10 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     LastEventAt = _db.DeliveryEvents.Where(e => e.DeliveryId == d.Id).Max(e => (DateTime?)e.OccurredAt),
                     CustomerSigned = _db.Signatures.Any(x => x.FreightRequestId == d.FreightRequestId && x.Type == SignatureType.Customer),
                     DriverSigned = _db.Signatures.Any(x => x.FreightRequestId == d.FreightRequestId && x.Type == SignatureType.Driver),
+                    Location = _db.DeliveryLocations
+                        .Where(l => l.DeliveryId == d.Id)
+                        .Select(l => new { l.Latitude, l.Longitude, l.Heading, l.SpeedKmh, l.RecordedAt })
+                        .FirstOrDefault(),
                 })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -178,14 +182,10 @@ internal sealed class DeliveryQueries : IDeliveryQueries
             return null;
         }
 
-        DriverLocationResponse? location = null;
-        if (row.Status is DeliveryStatus.ToPickup or DeliveryStatus.PickedUp or DeliveryStatus.InTransit)
-        {
-            location = await _db.DeliveryLocations.AsNoTracking()
-                .Where(l => l.DeliveryId == deliveryId)
-                .Select(l => new DriverLocationResponse(l.Latitude, l.Longitude, l.Heading, l.SpeedKmh, l.RecordedAt))
-                .FirstOrDefaultAsync(cancellationToken);
-        }
+        var location = row.Location is { } l
+                       && row.Status is DeliveryStatus.ToPickup or DeliveryStatus.PickedUp or DeliveryStatus.InTransit
+            ? new DriverLocationResponse(l.Latitude, l.Longitude, l.Heading, l.SpeedKmh, l.RecordedAt)
+            : null;
 
         return DeliveryStatusResponse.Create(
             deliveryId, row.Status, row.TotalStops, row.CompletedStops, row.Payment, row.LastEventAt, location,
