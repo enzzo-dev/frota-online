@@ -4,7 +4,7 @@ public enum UserRole { Customer = 1, Driver = 2, Admin = 3 }
 
 public enum DriverStatus { Draft = 1, PendingReview = 2, Approved = 3, Rejected = 4, Removed = 5 }
 
-public enum VehicleType { Fiorino = 1, Van = 2, Pickup = 3, Truck34 = 4, Truck = 5, Trailer = 6 }
+public enum VehicleType { Fiorino = 1, Van = 2, Pickup = 3, Truck34 = 4, Truck = 5, Trailer = 6, Motorcycle = 7 }
 
 /// <summary>What happens at a stop: the driver collects cargo or hands it over.</summary>
 public enum StopType { Pickup = 1, Delivery = 2 }
