@@ -145,6 +145,19 @@ public class DriverMarketplaceServiceTests : MarketplaceTestBase
     }
 
     [Fact]
+    public async Task ListOpen_ShowsMotorcycleFreightsOnlyToMotorcycleDrivers()
+    {
+        await CreateFreightAsync(type: VehicleType.Motorcycle, weight: 10);
+        await CreateFreightAsync(type: VehicleType.Fiorino, weight: 10);
+        var (motoUser, _, _) = AddApprovedDriver("MOT1A23", VehicleType.Motorcycle, capacity: 30);
+
+        var result = await DriverMarketplace.ListOpenFreightsAsync(motoUser, CancellationToken.None);
+
+        var item = Assert.Single(result.Value);
+        Assert.Equal(VehicleType.Motorcycle, item.RequiredVehicleType);
+    }
+
+    [Fact]
     public async Task ListOpen_HidesFreightsTheDriverAlreadyProposedOn()
     {
         var proposed = await CreateFreightAsync();

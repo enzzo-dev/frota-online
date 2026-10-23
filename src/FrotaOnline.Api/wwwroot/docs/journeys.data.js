@@ -125,7 +125,7 @@ window.FROTA_JOURNEYS = [
           },
           {
             id: 'd-vehicle-add', role: 'Driver', method: 'POST', path: '/driver/vehicles',
-            title: 'Cadastrar um veículo', desc: 'Tipos: Fiorino, Van, Pickup, Truck34, Truck e Trailer. A placa é única na plataforma.',
+            title: 'Cadastrar um veículo', desc: 'Tipos: Motorcycle, Fiorino, Van, Pickup, Truck34, Truck e Trailer. A placa é única na plataforma.',
             body: { type: 'Fiorino', plate: '{{plate}}', model: 'Fiat Fiorino', year: 2020, capacityKg: 600 },
             capture: { vehicleId: 'id' }
           },
