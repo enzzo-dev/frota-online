@@ -199,8 +199,8 @@ internal sealed class SignatureConfiguration : IEntityTypeConfiguration<Signatur
     public void Configure(EntityTypeBuilder<Signature> builder)
     {
         builder.HasIndex(x => new { x.FreightRequestId, x.Type }).IsUnique();
-        builder.HasIndex(x => x.StoragePath).IsUnique();
-        builder.Property(x => x.StoragePath).HasMaxLength(512).IsRequired();
+        builder.Property(x => x.ImageData).IsRequired();
+        builder.Property(x => x.ContentType).HasMaxLength(32).IsRequired();
         builder.HasOne<FreightRequest>().WithMany().HasForeignKey(x => x.FreightRequestId);
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CustomerId);
         builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);

@@ -988,6 +988,11 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1000,10 +1005,12 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("FreightRequestId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("StoragePath")
+                    b.Property<byte[]>("ImageData")
                         .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -1018,9 +1025,6 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("DriverProfileId");
-
-                    b.HasIndex("StoragePath")
-                        .IsUnique();
 
                     b.HasIndex("FreightRequestId", "Type")
                         .IsUnique();

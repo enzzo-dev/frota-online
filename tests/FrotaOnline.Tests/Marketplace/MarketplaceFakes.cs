@@ -264,8 +264,8 @@ internal sealed class FakeSignatureRepository : ISignatureRepository
     public Task<bool> ExistsAsync(Guid freightRequestId, SignatureType type, CancellationToken cancellationToken) =>
         Task.FromResult(Items.Any(s => s.FreightRequestId == freightRequestId && s.Type == type));
 
-    public Task<bool> StoragePathExistsAsync(string storagePath, CancellationToken cancellationToken) =>
-        Task.FromResult(Items.Any(s => s.StoragePath == storagePath));
+    public Task<Signature?> GetAsync(Guid freightRequestId, SignatureType type, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(s => s.FreightRequestId == freightRequestId && s.Type == type));
 
     public Task AddAsync(Signature signature, CancellationToken cancellationToken)
     {

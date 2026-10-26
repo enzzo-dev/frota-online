@@ -426,19 +426,9 @@ window.FROTA_JOURNEYS = [
             note: 'heading (0 a 360) e speedKmh são opcionais. Fora de uma entrega em andamento a resposta é 409.'
           },
           {
-            id: 'e-sign-url', role: 'Driver', method: 'POST', path: '/signatures/upload-url',
-            title: 'Assinatura: pedir a URL de envio', desc: 'Obrigatória antes de concluir a última parada: a entrega só vira Delivered com a assinatura do cliente e a do motorista. Imagem image/png ou image/jpeg, até 2 MB.',
-            body: { type: 'Driver', freightId: '{{freightId}}', contentType: 'image/png' },
-            capture: { storagePath: 'storagePath', uploadUrl: 'uploadUrl', uploadMethod: 'method', uploadHeaders: 'headers', fileContentType: 'req.contentType' }
-          },
-          {
-            id: 'e-sign-put', role: null, kind: 'upload', method: 'PUT', path: '(uploadUrl)',
-            title: 'Assinatura: enviar a imagem', desc: 'Escolha a imagem da assinatura. Ela vai direto para a URL assinada.'
-          },
-          {
             id: 'e-sign-register', role: 'Driver', method: 'POST', path: '/signatures',
-            title: 'Assinatura: registrar', desc: 'Guarda a assinatura com o frete, o cliente e o motorista da entrega. Uma por tipo e por frete.',
-            body: { type: 'Driver', freightId: '{{freightId}}', storagePath: '{{storagePath}}' }
+            title: 'Assinatura: enviar', desc: 'Obrigatória antes de concluir a última parada: a entrega só vira Delivered com a assinatura do cliente e a do motorista. Envie a imagem em base64 (PNG ou JPEG, até 2 MB). A API a comprime e guarda no banco, com o frete, o cliente e o motorista da entrega. Uma por tipo e por frete.',
+            body: { type: 'Driver', freightId: '{{freightId}}', image: 'data:image/png;base64,...' }
           },
           {
             id: 'e-complete', role: 'Driver', method: 'POST', path: '/driver/deliveries/{deliveryId}/stops/{stopId}/complete',
@@ -472,19 +462,9 @@ window.FROTA_JOURNEYS = [
             title: 'Detalhe e linha do tempo', desc: 'Paradas, eventos com horário e pagamento.'
           },
           {
-            id: 'e-c-sign-url', role: 'Customer', method: 'POST', path: '/signatures/upload-url',
-            title: 'Assinatura: pedir a URL de envio', desc: 'Obrigatória antes de concluir a última parada: a entrega só vira Delivered com a assinatura do cliente e a do motorista. Imagem image/png ou image/jpeg, até 2 MB.',
-            body: { type: 'Customer', freightId: '{{freightId}}', contentType: 'image/png' },
-            capture: { storagePath: 'storagePath', uploadUrl: 'uploadUrl', uploadMethod: 'method', uploadHeaders: 'headers', fileContentType: 'req.contentType' }
-          },
-          {
-            id: 'e-c-sign-put', role: null, kind: 'upload', method: 'PUT', path: '(uploadUrl)',
-            title: 'Assinatura: enviar a imagem', desc: 'Escolha a imagem da assinatura. Ela vai direto para a URL assinada.'
-          },
-          {
             id: 'e-c-sign-register', role: 'Customer', method: 'POST', path: '/signatures',
-            title: 'Assinatura: registrar', desc: 'Guarda a assinatura com o frete, o cliente e o motorista da entrega. Uma por tipo e por frete.',
-            body: { type: 'Customer', freightId: '{{freightId}}', storagePath: '{{storagePath}}' }
+            title: 'Assinatura: enviar', desc: 'Obrigatória antes de concluir a última parada: a entrega só vira Delivered com a assinatura do cliente e a do motorista. Envie a imagem em base64 (PNG ou JPEG, até 2 MB). A API a comprime e guarda no banco, com o frete, o cliente e o motorista da entrega. Uma por tipo e por frete.',
+            body: { type: 'Customer', freightId: '{{freightId}}', image: 'data:image/png;base64,...' }
           },
           {
             id: 'e-c-status', role: 'Customer', method: 'GET', path: '/deliveries/{deliveryId}/status',
