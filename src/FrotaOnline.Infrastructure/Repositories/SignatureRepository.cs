@@ -15,8 +15,9 @@ internal sealed class SignatureRepository : ISignatureRepository
     public Task<bool> ExistsAsync(Guid freightRequestId, SignatureType type, CancellationToken cancellationToken) =>
         _db.Signatures.AnyAsync(s => s.FreightRequestId == freightRequestId && s.Type == type, cancellationToken);
 
-    public Task<bool> StoragePathExistsAsync(string storagePath, CancellationToken cancellationToken) =>
-        _db.Signatures.AnyAsync(s => s.StoragePath == storagePath, cancellationToken);
+    public Task<Signature?> GetAsync(Guid freightRequestId, SignatureType type, CancellationToken cancellationToken) =>
+        _db.Signatures.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.FreightRequestId == freightRequestId && s.Type == type, cancellationToken);
 
     public async Task AddAsync(Signature signature, CancellationToken cancellationToken) =>
         await _db.Signatures.AddAsync(signature, cancellationToken);

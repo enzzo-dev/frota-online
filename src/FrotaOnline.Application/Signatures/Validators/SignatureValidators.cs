@@ -5,20 +5,9 @@ namespace FrotaOnline.Application.Signatures.Validators;
 
 public static class SignatureLimits
 {
-    public const long MaxSizeBytes = 2 * 1024 * 1024;
+    public const int MaxSizeBytes = 2 * 1024 * 1024;
 
-    public static readonly string[] AllowedContentTypes = { "image/png", "image/jpeg" };
-}
-
-public sealed class CreateSignatureUploadUrlRequestValidator : AbstractValidator<CreateSignatureUploadUrlRequest>
-{
-    public CreateSignatureUploadUrlRequestValidator()
-    {
-        RuleFor(x => x.Type).IsInEnum().WithMessage("O tipo da assinatura deve ser Customer ou Driver.");
-        RuleFor(x => x.FreightId).NotEmpty().WithMessage("Informe o frete.");
-        RuleFor(x => x.ContentType).NotEmpty().Must(type => SignatureLimits.AllowedContentTypes.Contains(type))
-            .WithMessage("O tipo do conteúdo deve ser um de: " + string.Join(", ", SignatureLimits.AllowedContentTypes) + ".");
-    }
+    public const int MaxBase64Length = MaxSizeBytes / 3 * 4 + 256;
 }
 
 public sealed class RegisterSignatureRequestValidator : AbstractValidator<RegisterSignatureRequest>
@@ -27,6 +16,7 @@ public sealed class RegisterSignatureRequestValidator : AbstractValidator<Regist
     {
         RuleFor(x => x.Type).IsInEnum().WithMessage("O tipo da assinatura deve ser Customer ou Driver.");
         RuleFor(x => x.FreightId).NotEmpty().WithMessage("Informe o frete.");
-        RuleFor(x => x.StoragePath).NotEmpty().MaximumLength(512);
+        RuleFor(x => x.Image).NotEmpty().WithMessage("Informe a imagem da assinatura em base64.")
+            .MaximumLength(SignatureLimits.MaxBase64Length).WithMessage("A imagem da assinatura é maior que 2 MB.");
     }
 }

@@ -1,21 +1,27 @@
-using FrotaOnline.Application.Abstractions.Storage;
 using FrotaOnline.Application.Common;
 using FrotaOnline.Application.Signatures;
 using FrotaOnline.Application.Signatures.Dtos;
 using FrotaOnline.Application.Signatures.Validators;
 using FrotaOnline.Domain.Enums;
 using FrotaOnline.Tests.Marketplace;
-using FrotaOnline.Tests.Notifications;
 
 namespace FrotaOnline.Tests.Signatures;
 
 public class SignatureServiceTests : MarketplaceTestBase
 {
-    private readonly FakeFileStorage _storage = new() { IsConfigured = true };
-
     private SignatureService Service => new(
-        Deliveries, Drivers, Signatures, _storage, UnitOfWork,
-        new CreateSignatureUploadUrlRequestValidator(), new RegisterSignatureRequestValidator());
+        Deliveries, Drivers, Signatures, UnitOfWork, new RegisterSignatureRequestValidator());
+
+    private static readonly byte[] PngHeader = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+    private static readonly byte[] JpegHeader = { 0xFF, 0xD8, 0xFF, 0xE0 };
+
+    private static string Image(byte[]? header = null, int size = 1024)
+    {
+        var bytes = new byte[size];
+        var prefix = header ?? PngHeader;
+        prefix.CopyTo(bytes, 0);
+        return Convert.ToBase64String(bytes);
+    }
 
     private async Task<(Guid DriverUserId, Guid FreightId)> ScheduledFreightAsync()
     {
@@ -23,20 +29,14 @@ public class SignatureServiceTests : MarketplaceTestBase
         return (userId, Deliveries.Items.Single().FreightRequestId);
     }
 
-    private async Task<string> UploadAsync(Guid userId, SignatureType type, Guid freightId, long size = 1024, string contentType = "image/png")
-    {
-        var ticket = await Service.CreateUploadUrlAsync(userId, new CreateSignatureUploadUrlRequest(type, freightId, contentType), CancellationToken.None);
-        _storage.Objects[ticket.Value.StoragePath] = new StoredObject(size, contentType);
-        return ticket.Value.StoragePath;
-    }
+    private Task SignAsync(Guid userId, SignatureType type, Guid freightId) =>
+        Service.RegisterAsync(userId, new RegisterSignatureRequest(type, freightId, Image()), CancellationToken.None);
 
     [Fact]
     public async Task Customer_SignsTheirFreight_AndTheRowCarriesCustomerDriverAndFreight()
     {
         var (_, freightId) = await ScheduledFreightAsync();
-        var path = await UploadAsync(CustomerId, SignatureType.Customer, freightId);
-
-        var result = await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
+        var result = await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, Image()), CancellationToken.None);
 
         var delivery = Deliveries.Items.Single();
         var saved = Assert.Single(Signatures.Items);
@@ -44,19 +44,91 @@ public class SignatureServiceTests : MarketplaceTestBase
         Assert.Equal(freightId, saved.FreightRequestId);
         Assert.Equal(CustomerId, saved.CustomerId);
         Assert.Equal(delivery.DriverProfileId, saved.DriverProfileId);
-        Assert.Equal(path, saved.StoragePath);
+        Assert.Equal("image/png", saved.ContentType);
+        Assert.Equal(1024, saved.SizeBytes);
     }
 
     [Fact]
     public async Task Driver_SignsTheirFreight()
     {
         var (driverUserId, freightId) = await ScheduledFreightAsync();
-        var path = await UploadAsync(driverUserId, SignatureType.Driver, freightId, contentType: "image/jpeg");
-
-        var result = await Service.RegisterAsync(driverUserId, new RegisterSignatureRequest(SignatureType.Driver, freightId, path), CancellationToken.None);
+        var result = await Service.RegisterAsync(driverUserId, new RegisterSignatureRequest(SignatureType.Driver, freightId, Image()), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(SignatureType.Driver, Assert.Single(Signatures.Items).Type);
+    }
+
+    [Fact]
+    public async Task Register_StoresTheImageCompressed_AndReadsItBackIdentical()
+    {
+        var (_, freightId) = await ScheduledFreightAsync();
+        var image = Image(JpegHeader, 100_000);
+
+        var result = await Service.RegisterAsync(
+            CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, "data:image/jpeg;base64," + image), CancellationToken.None);
+        var read = await Service.GetImageAsync(CustomerId, freightId, SignatureType.Customer, CancellationToken.None);
+
+        var saved = Assert.Single(Signatures.Items);
+        Assert.Equal("image/jpeg", result.Value.ContentType);
+        Assert.True(saved.ImageData.Length < 100_000);
+        Assert.Equal("image/jpeg", read.Value.ContentType);
+        Assert.Equal(Convert.FromBase64String(image), read.Value.Content);
+    }
+
+    [Fact]
+    public async Task Register_WithATooLargeImage_IsRejected()
+    {
+        var (_, freightId) = await ScheduledFreightAsync();
+
+        var result = await Service.RegisterAsync(
+            CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, Image(size: SignatureLimits.MaxSizeBytes + 1)), CancellationToken.None);
+
+        Assert.Equal("signature.file_too_large", result.Error!.Code);
+        Assert.Empty(Signatures.Items);
+    }
+
+    [Fact]
+    public async Task Register_WithANonImageFile_IsRejected()
+    {
+        var (_, freightId) = await ScheduledFreightAsync();
+        var notAnImage = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 });
+
+        var result = await Service.RegisterAsync(
+            CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, notAnImage), CancellationToken.None);
+
+        Assert.Equal("signature.file_type_not_allowed", result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Register_WithInvalidBase64_IsRejected()
+    {
+        var (_, freightId) = await ScheduledFreightAsync();
+
+        var result = await Service.RegisterAsync(
+            CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, "isto nao e base64!"), CancellationToken.None);
+
+        Assert.Equal("signature.invalid_image", result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task GetImage_ByStranger_ReturnsNotFound()
+    {
+        var (_, freightId) = await ScheduledFreightAsync();
+        await SignAsync(CustomerId, SignatureType.Customer, freightId);
+
+        var result = await Service.GetImageAsync(Guid.NewGuid(), freightId, SignatureType.Customer, CancellationToken.None);
+
+        Assert.Equal(ErrorType.NotFound, result.Error!.Type);
+    }
+
+    [Fact]
+    public async Task GetImage_NotCollectedYet_ReturnsNotFound()
+    {
+        var (_, freightId) = await ScheduledFreightAsync();
+
+        var result = await Service.GetImageAsync(CustomerId, freightId, SignatureType.Driver, CancellationToken.None);
+
+        Assert.Equal("signature.not_found", result.Error!.Code);
     }
 
     [Fact]
@@ -64,8 +136,7 @@ public class SignatureServiceTests : MarketplaceTestBase
     {
         var (_, freightId) = await ScheduledFreightAsync();
 
-        var result = await Service.CreateUploadUrlAsync(
-            CustomerId, new CreateSignatureUploadUrlRequest(SignatureType.Driver, freightId, "image/png"), CancellationToken.None);
+        var result = await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Driver, freightId, Image()), CancellationToken.None);
 
         Assert.Equal(ErrorType.NotFound, result.Error!.Type);
     }
@@ -74,9 +145,7 @@ public class SignatureServiceTests : MarketplaceTestBase
     public async Task Driver_CollectsTheCustomersSignatureOnTheirPhone()
     {
         var (driverUserId, freightId) = await ScheduledFreightAsync();
-        var path = await UploadAsync(driverUserId, SignatureType.Customer, freightId);
-
-        var result = await Service.RegisterAsync(driverUserId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
+        var result = await Service.RegisterAsync(driverUserId, new RegisterSignatureRequest(SignatureType.Customer, freightId, Image()), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(CustomerId, Assert.Single(Signatures.Items).CustomerId);
@@ -87,8 +156,7 @@ public class SignatureServiceTests : MarketplaceTestBase
     {
         var (_, freightId) = await ScheduledFreightAsync();
 
-        var result = await Service.CreateUploadUrlAsync(
-            Guid.NewGuid(), new CreateSignatureUploadUrlRequest(SignatureType.Customer, freightId, "image/png"), CancellationToken.None);
+        var result = await Service.RegisterAsync(Guid.NewGuid(), new RegisterSignatureRequest(SignatureType.Customer, freightId, Image()), CancellationToken.None);
 
         Assert.Equal(ErrorType.NotFound, result.Error!.Type);
     }
@@ -96,8 +164,7 @@ public class SignatureServiceTests : MarketplaceTestBase
     [Fact]
     public async Task UnknownFreight_ReturnsNotFound()
     {
-        var result = await Service.CreateUploadUrlAsync(
-            CustomerId, new CreateSignatureUploadUrlRequest(SignatureType.Customer, Guid.NewGuid(), "image/png"), CancellationToken.None);
+        var result = await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, Guid.NewGuid(), Image()), CancellationToken.None);
 
         Assert.Equal(ErrorType.NotFound, result.Error!.Type);
     }
@@ -106,53 +173,11 @@ public class SignatureServiceTests : MarketplaceTestBase
     public async Task SecondSignatureOfTheSameType_ReturnsConflict()
     {
         var (_, freightId) = await ScheduledFreightAsync();
-        var path = await UploadAsync(CustomerId, SignatureType.Customer, freightId);
-        await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
+        await SignAsync(CustomerId, SignatureType.Customer, freightId);
 
-        var again = await Service.CreateUploadUrlAsync(
-            CustomerId, new CreateSignatureUploadUrlRequest(SignatureType.Customer, freightId, "image/png"), CancellationToken.None);
+        var again = await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, Image()), CancellationToken.None);
 
         Assert.Equal("signature.already_collected", again.Error!.Code);
-    }
-
-    [Fact]
-    public async Task Register_WithAPathFromAnotherFreight_IsRejected()
-    {
-        var (_, freightId) = await ScheduledFreightAsync();
-
-        var result = await Service.RegisterAsync(
-            CustomerId,
-            new RegisterSignatureRequest(SignatureType.Customer, freightId, $"signatures/{Guid.NewGuid():N}/customer/x.png"),
-            CancellationToken.None);
-
-        Assert.Equal("signature.invalid_storage_path", result.Error!.Code);
-    }
-
-    [Fact]
-    public async Task Register_WithoutTheUploadedFile_IsRejected()
-    {
-        var (_, freightId) = await ScheduledFreightAsync();
-        var ticket = await Service.CreateUploadUrlAsync(
-            CustomerId, new CreateSignatureUploadUrlRequest(SignatureType.Customer, freightId, "image/png"), CancellationToken.None);
-
-        var result = await Service.RegisterAsync(
-            CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, ticket.Value.StoragePath), CancellationToken.None);
-
-        Assert.Equal("signature.file_not_uploaded", result.Error!.Code);
-    }
-
-    [Fact]
-    public async Task Register_WithATooLargeFile_DeletesItAndFails()
-    {
-        var (_, freightId) = await ScheduledFreightAsync();
-        var path = await UploadAsync(CustomerId, SignatureType.Customer, freightId, size: SignatureLimits.MaxSizeBytes + 1);
-
-        var result = await Service.RegisterAsync(
-            CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
-
-        Assert.Equal("signature.file_too_large", result.Error!.Code);
-        Assert.Contains(path, _storage.Deleted);
-        Assert.Empty(Signatures.Items);
     }
 
     [Fact]
@@ -161,22 +186,9 @@ public class SignatureServiceTests : MarketplaceTestBase
         var (driverUserId, freightId) = await ScheduledFreightAsync();
         await Progress.CancelAsDriverAsync(driverUserId, Deliveries.Items.Single().Id, new FrotaOnline.Application.Deliveries.Dtos.CancelDeliveryRequest("Imprevisto"), CancellationToken.None);
 
-        var result = await Service.CreateUploadUrlAsync(
-            CustomerId, new CreateSignatureUploadUrlRequest(SignatureType.Customer, freightId, "image/png"), CancellationToken.None);
+        var result = await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, Image()), CancellationToken.None);
 
         Assert.Equal("signature.delivery_cancelled", result.Error!.Code);
-    }
-
-    [Fact]
-    public async Task UploadUrl_WithoutStorage_ReturnsConflict()
-    {
-        var (_, freightId) = await ScheduledFreightAsync();
-        _storage.IsConfigured = false;
-
-        var result = await Service.CreateUploadUrlAsync(
-            CustomerId, new CreateSignatureUploadUrlRequest(SignatureType.Customer, freightId, "image/png"), CancellationToken.None);
-
-        Assert.Equal("storage.not_configured", result.Error!.Code);
     }
 
     [Fact]
@@ -198,8 +210,7 @@ public class SignatureServiceTests : MarketplaceTestBase
     {
         var (userId, _, deliveryId, stops) = await ScheduleDeliveryAsync(signed: false);
         var freightId = Deliveries.Items.Single().FreightRequestId;
-        var path = await UploadAsync(CustomerId, SignatureType.Customer, freightId);
-        await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
+        await SignAsync(CustomerId, SignatureType.Customer, freightId);
         await Progress.StartAsync(userId, deliveryId, CancellationToken.None);
         await Progress.CompleteStopAsync(userId, deliveryId, stops[0], new(null, null, null, null), CancellationToken.None);
 
@@ -214,10 +225,8 @@ public class SignatureServiceTests : MarketplaceTestBase
     {
         var (userId, _, deliveryId, stops) = await ScheduleDeliveryAsync(signed: false);
         var freightId = Deliveries.Items.Single().FreightRequestId;
-        var customerPath = await UploadAsync(CustomerId, SignatureType.Customer, freightId);
-        await Service.RegisterAsync(CustomerId, new RegisterSignatureRequest(SignatureType.Customer, freightId, customerPath), CancellationToken.None);
-        var driverPath = await UploadAsync(userId, SignatureType.Driver, freightId);
-        await Service.RegisterAsync(userId, new RegisterSignatureRequest(SignatureType.Driver, freightId, driverPath), CancellationToken.None);
+        await SignAsync(CustomerId, SignatureType.Customer, freightId);
+        await SignAsync(userId, SignatureType.Driver, freightId);
         await Progress.StartAsync(userId, deliveryId, CancellationToken.None);
         await Progress.CompleteStopAsync(userId, deliveryId, stops[0], new(null, null, null, null), CancellationToken.None);
 
@@ -233,8 +242,7 @@ public class SignatureServiceTests : MarketplaceTestBase
         var freightId = Deliveries.Items.Single().FreightRequestId;
 
         var before = await CustomerDeliveries.GetStatusAsync(CustomerId, deliveryId, CancellationToken.None);
-        var path = await UploadAsync(driverUserId, SignatureType.Customer, freightId);
-        await Service.RegisterAsync(driverUserId, new RegisterSignatureRequest(SignatureType.Customer, freightId, path), CancellationToken.None);
+        await SignAsync(driverUserId, SignatureType.Customer, freightId);
         var after = await CustomerDeliveries.GetStatusAsync(CustomerId, deliveryId, CancellationToken.None);
         var driverView = await DriverDelivery.GetAsync(driverUserId, deliveryId, CancellationToken.None);
 

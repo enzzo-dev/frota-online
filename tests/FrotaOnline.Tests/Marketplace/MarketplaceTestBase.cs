@@ -171,7 +171,7 @@ public abstract class MarketplaceTestBase
         {
             foreach (var type in new[] { SignatureType.Customer, SignatureType.Driver })
             {
-                Signatures.Items.Add(Signature.Create(type, freight.Value.Id, CustomerId, profile.Id, $"signatures/{freight.Value.Id:N}/{type}/seed.png"));
+                Signatures.Items.Add(Signature.Create(type, freight.Value.Id, CustomerId, profile.Id, new byte[] { 1 }, "image/png", 1));
             }
         }
 

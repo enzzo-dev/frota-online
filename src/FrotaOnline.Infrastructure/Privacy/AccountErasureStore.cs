@@ -125,11 +125,6 @@ internal sealed class AccountErasureStore : IAccountErasureStore
             .Where(m => m.OwnerUserId == userId)
             .Select(m => m.StorageKey)
             .ToListAsync(cancellationToken);
-        storageKeys.AddRange(await _db.Signatures
-            .AsNoTracking()
-            .Where(s => s.CustomerId == userId || s.DriverProfileId == driverId)
-            .Select(s => s.StoragePath)
-            .ToListAsync(cancellationToken));
         await _db.Signatures
             .Where(s => s.CustomerId == userId || s.DriverProfileId == driverId)
             .ExecuteDeleteAsync(cancellationToken);
