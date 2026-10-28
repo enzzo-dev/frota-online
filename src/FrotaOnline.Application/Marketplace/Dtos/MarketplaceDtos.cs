@@ -188,4 +188,5 @@ public sealed record DriverDeliverySummary(
     string CustomerName,
     DateTime? DeliveredAt,
     decimal PlatformFee,
-    decimal DriverNet);
+    decimal DriverNet,
+    string? CustomerPhone);

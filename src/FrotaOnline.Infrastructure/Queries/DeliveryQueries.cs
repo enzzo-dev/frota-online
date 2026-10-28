@@ -1,5 +1,6 @@
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Addresses.Dtos;
+using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Domain.Enums;
 using FrotaOnline.Application.Marketplace.Dtos;
@@ -48,6 +49,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     VehiclePlate = v.Plate,
                     VehicleModel = v.Model,
                     CustomerName = c.FullName,
+                    CustomerPhone = c.PhoneNumber,
                     TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id),
                     CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id && s.CompletedAt != null),
                     Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
@@ -94,7 +96,8 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     slot?.StartsAt, slot?.EndsAt, r.CargoDescription, r.CargoWeightKg,
                     origin?.District, origin?.City, destination?.District, destination?.City,
                     r.RouteDistanceMeters, r.RouteDurationSeconds, r.VehiclePlate, r.VehicleModel,
-                    FirstName(r.CustomerName), r.DeliveredAt, r.PlatformFee, r.AgreedPrice - r.PlatformFee);
+                    FirstName(r.CustomerName), r.DeliveredAt, r.PlatformFee, r.AgreedPrice - r.PlatformFee,
+                    ContactPhone.For(r.Status, r.CustomerPhone));
             })
             .ToList();
     }
@@ -187,6 +190,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     d.Status,
                     d.AgreedPrice,
                     DriverName = u.FullName,
+                    DriverPhone = u.PhoneNumber,
                     VehicleType = v.Type,
                     VehicleModel = v.Model,
                     VehiclePlate = v.Plate,
@@ -200,7 +204,8 @@ internal sealed class DeliveryQueries : IDeliveryQueries
         return rows
             .Select(r => new CustomerDeliverySummary(
                 r.DeliveryId, r.FreightRequestId, r.Status, r.AgreedPrice, r.DriverName, r.VehicleType,
-                r.VehicleModel, r.VehiclePlate, r.TotalStops, r.CompletedStops, r.Payment, r.CreatedAt))
+                r.VehicleModel, r.VehiclePlate, r.TotalStops, r.CompletedStops, r.Payment, r.CreatedAt,
+                ContactPhone.For(r.Status, r.DriverPhone)))
             .ToList();
     }
 
@@ -258,6 +263,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     d.Status,
                     d.AgreedPrice,
                     DriverName = u.FullName,
+                    DriverPhone = u.PhoneNumber,
                     VehicleType = v.Type,
                     VehicleModel = v.Model,
                     VehiclePlate = v.Plate,
@@ -307,6 +313,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                 s.StopId, s.Sequence, s.Type, s.Address, s.Note,
                 items.TryGetValue(s.StopId, out var list) ? list : Array.Empty<FreightItemResponse>(),
                 s.CompletedAt)).ToList(),
-            events.Select(e => new DeliveryEventResponse(e.Status, e.OccurredAt, e.Note, e.Latitude, e.Longitude, e.HasProof)).ToList());
+            events.Select(e => new DeliveryEventResponse(e.Status, e.OccurredAt, e.Note, e.Latitude, e.Longitude, e.HasProof)).ToList(),
+            ContactPhone.For(header.Status, header.DriverPhone));
     }
 }
