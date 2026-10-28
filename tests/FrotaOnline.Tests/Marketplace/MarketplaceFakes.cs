@@ -2,6 +2,7 @@ using FrotaOnline.Application.Abstractions.Addresses;
 using FrotaOnline.Application.Abstractions.Marketplace;
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Abstractions.Routing;
+using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Application.Terms;
 using FrotaOnline.Domain.Entities;
 using FrotaOnline.Domain.Enums;
@@ -288,5 +289,36 @@ internal sealed class FakeCargoPhotoRepository : ICargoPhotoRepository
     {
         Items.Add(photo);
         return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeFreightViewRepository : IFreightViewRepository
+{
+    public List<FreightView> Items { get; } = new();
+
+    public Task RecordAsync(Guid freightRequestId, Guid driverProfileId, DateTime utcNow, CancellationToken cancellationToken)
+    {
+        var existing = Items.FirstOrDefault(v => v.FreightRequestId == freightRequestId && v.DriverProfileId == driverProfileId);
+        if (existing is null)
+        {
+            Items.Add(FreightView.Create(freightRequestId, driverProfileId, utcNow));
+        }
+        else
+        {
+            existing.Touch(utcNow);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeDriverMetricsQueries : IDriverMetricsQueries
+{
+    public (Guid DriverProfileId, DateTime? From, DateTime? To)? LastCall { get; private set; }
+
+    public Task<DriverMetricsResponse> GetAsync(Guid driverProfileId, DateTime? from, DateTime? to, CancellationToken cancellationToken)
+    {
+        LastCall = (driverProfileId, from, to);
+        return Task.FromResult(new DriverMetricsResponse(5, 2, 3, 1, 1, 1, 0.3333m, 1, 0));
     }
 }

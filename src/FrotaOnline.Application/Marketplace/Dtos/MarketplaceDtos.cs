@@ -190,3 +190,15 @@ public sealed record DriverDeliverySummary(
     decimal PlatformFee,
     decimal DriverNet,
     string? CustomerPhone);
+    decimal DriverNet);
+
+public sealed record DriverMetricsResponse(
+    int FreightsSeen,
+    int FreightsMissed,
+    int ProposalsSent,
+    int ProposalsAccepted,
+    int ProposalsRejected,
+    int ProposalsExpired,
+    decimal AcceptanceRate,
+    int DeliveriesCompleted,
+    int DeliveriesCancelled);

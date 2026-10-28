@@ -196,6 +196,17 @@ internal sealed class WalletAccountConfiguration : IEntityTypeConfiguration<Wall
     }
 }
 
+internal sealed class FreightViewConfiguration : IEntityTypeConfiguration<FreightView>
+{
+    public void Configure(EntityTypeBuilder<FreightView> builder)
+    {
+        builder.HasIndex(x => new { x.FreightRequestId, x.DriverProfileId }).IsUnique();
+        builder.HasIndex(x => new { x.DriverProfileId, x.FirstViewedAt });
+        builder.HasOne<FreightRequest>().WithMany().HasForeignKey(x => x.FreightRequestId);
+        builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
+    }
+}
+
 internal sealed class FreightCargoPhotoConfiguration : IEntityTypeConfiguration<FreightCargoPhoto>
 {
     public void Configure(EntityTypeBuilder<FreightCargoPhoto> builder)
