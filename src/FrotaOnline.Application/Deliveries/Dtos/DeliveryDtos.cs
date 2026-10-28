@@ -40,7 +40,8 @@ public sealed record CustomerDeliverySummary(
     int TotalStops,
     int CompletedStops,
     PaymentStatus? Payment,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? DriverPhone);
 
 public sealed record CustomerDeliveryDetail(
     Guid DeliveryId,
@@ -56,7 +57,8 @@ public sealed record CustomerDeliveryDetail(
     DateTime? DeliveredAt,
     DateTime? CancelledAt,
     IReadOnlyList<FreightStopResponse> Stops,
-    IReadOnlyList<DeliveryEventResponse> Timeline);
+    IReadOnlyList<DeliveryEventResponse> Timeline,
+    string? DriverPhone);
 
 /// <summary>
 /// The few fields a screen polls to know whether anything changed. <see cref="Version"/> changes whenever the status, the

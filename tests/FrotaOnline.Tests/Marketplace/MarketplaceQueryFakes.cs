@@ -1,6 +1,7 @@
 using FrotaOnline.Application.Abstractions.Queries;
 using FrotaOnline.Application.Addresses;
 using FrotaOnline.Application.Admin.Dtos;
+using FrotaOnline.Application.Deliveries;
 using FrotaOnline.Application.Deliveries.Dtos;
 using FrotaOnline.Application.Marketplace.Dtos;
 using FrotaOnline.Domain.Entities;
@@ -182,7 +183,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
                 var (driverName, vehicle) = DriverAndVehicle(d);
                 return new CustomerDeliverySummary(
                     d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, driverName, vehicle.Type, vehicle.Model, vehicle.Plate,
-                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt);
+                    freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), d.CreatedAt,
+                    ContactPhone.For(d.Status, DriverPhone(d)));
             })
             .ToList();
 
@@ -210,7 +212,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
 
         return Task.FromResult<CustomerDeliveryDetail?>(new CustomerDeliveryDetail(
             d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, driverName, vehicle.Type, vehicle.Model, vehicle.Plate,
-            PaymentOf(d), d.PickedUpAt, d.DeliveredAt, d.CancelledAt, stops, timeline));
+            PaymentOf(d), d.PickedUpAt, d.DeliveredAt, d.CancelledAt, stops, timeline,
+            ContactPhone.For(d.Status, DriverPhone(d))));
     }
 
     public Task<DeliveryStatusResponse?> GetStatusForCustomerAsync(Guid customerId, Guid deliveryId, CancellationToken cancellationToken)
@@ -226,6 +229,12 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
         return Task.FromResult<DeliveryStatusResponse?>(DeliveryStatusResponse.Create(
             d.Id, d.Status, freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d), lastEvent,
             customerSigned: SignedBy(d, SignatureType.Customer), driverSigned: SignedBy(d, SignatureType.Driver)));
+    }
+
+    private string? DriverPhone(Delivery d)
+    {
+        var profile = _drivers.Items.First(p => p.Id == d.DriverProfileId);
+        return _users.Items.First(u => u.Id == profile.UserId).PhoneNumber;
     }
 
     private (string DriverName, Vehicle Vehicle) DriverAndVehicle(Delivery d)
@@ -264,7 +273,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
                     slot?.StartsAt, slot?.EndsAt, freight.CargoDescription, freight.CargoWeightKg,
                     origin.District, origin.City, destination.District, destination.City,
                     freight.RouteDistanceMeters, freight.RouteDurationSeconds, vehicle.Plate, vehicle.Model,
-                    firstName, d.DeliveredAt, d.PlatformFee, d.AgreedPrice - d.PlatformFee);
+                    firstName, d.DeliveredAt, d.PlatformFee, d.AgreedPrice - d.PlatformFee,
+                    ContactPhone.For(d.Status, customer?.PhoneNumber));
             })
             .ToList();
 

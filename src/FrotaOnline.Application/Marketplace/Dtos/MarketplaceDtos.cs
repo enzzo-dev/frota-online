@@ -188,6 +188,8 @@ public sealed record DriverDeliverySummary(
     string CustomerName,
     DateTime? DeliveredAt,
     decimal PlatformFee,
+    decimal DriverNet,
+    string? CustomerPhone);
     decimal DriverNet);
 
 public sealed record DriverMetricsResponse(
