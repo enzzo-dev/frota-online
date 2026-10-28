@@ -189,3 +189,14 @@ public sealed record DriverDeliverySummary(
     DateTime? DeliveredAt,
     decimal PlatformFee,
     decimal DriverNet);
+
+public sealed record DriverMetricsResponse(
+    int FreightsSeen,
+    int FreightsMissed,
+    int ProposalsSent,
+    int ProposalsAccepted,
+    int ProposalsRejected,
+    int ProposalsExpired,
+    decimal AcceptanceRate,
+    int DeliveriesCompleted,
+    int DeliveriesCancelled);
