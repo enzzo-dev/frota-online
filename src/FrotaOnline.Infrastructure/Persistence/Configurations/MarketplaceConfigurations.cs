@@ -1,3 +1,4 @@
+using FrotaOnline.Domain.Common;
 using FrotaOnline.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -12,6 +13,7 @@ internal sealed class FreightRequestConfiguration : IEntityTypeConfiguration<Fre
         builder.HasIndex(x => x.CustomerId);
         builder.Property(x => x.CargoDescription).HasMaxLength(1000).IsRequired();
         builder.Property(x => x.CargoWeightKg).HasPrecision(12, 2);
+        builder.Property(x => x.DriverNote).HasMaxLength(FreightLimits.MaxDriverNoteLength);
         builder.Property(x => x.RoutePolyline).HasColumnType("text");
         builder.HasOne<User>().WithMany().HasForeignKey(x => x.CustomerId);
         builder.HasMany(x => x.Stops).WithOne().HasForeignKey(s => s.FreightRequestId);
@@ -191,6 +193,17 @@ internal sealed class WalletAccountConfiguration : IEntityTypeConfiguration<Wall
         builder.HasIndex(x => x.DriverProfileId).IsUnique();
         builder.HasIndex(x => x.ProviderUserId).IsUnique();
         builder.HasOne<DriverProfile>().WithMany().HasForeignKey(x => x.DriverProfileId);
+    }
+}
+
+internal sealed class FreightCargoPhotoConfiguration : IEntityTypeConfiguration<FreightCargoPhoto>
+{
+    public void Configure(EntityTypeBuilder<FreightCargoPhoto> builder)
+    {
+        builder.HasIndex(x => x.FreightRequestId).IsUnique();
+        builder.Property(x => x.ImageData).IsRequired();
+        builder.Property(x => x.ContentType).HasMaxLength(32).IsRequired();
+        builder.HasOne<FreightRequest>().WithMany().HasForeignKey(x => x.FreightRequestId);
     }
 }
 

@@ -510,6 +510,41 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("FeeLedgers");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightCargoPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FreightRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("ImageData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FreightRequestId")
+                        .IsUnique();
+
+                    b.ToTable("FreightCargoPhotos");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -563,6 +598,10 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("DriverNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<DateTime>("ProposalDeadline")
                         .HasColumnType("timestamp with time zone");
@@ -1480,6 +1519,15 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.HasOne("FrotaOnline.Domain.Entities.DriverProfile", null)
                         .WithMany()
                         .HasForeignKey("DriverProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightCargoPhoto", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.FreightRequest", null)
+                        .WithMany()
+                        .HasForeignKey("FreightRequestId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -98,7 +98,7 @@ public sealed class FreightService : IFreightService
 
         var freight = FreightRequest.Create(
             customerId, drafts, request.CargoDescription, request.CargoWeightKg,
-            request.RequiredVehicleType, request.ScheduledPickupAt?.ToUniversalTime(), now);
+            request.RequiredVehicleType, request.ScheduledPickupAt?.ToUniversalTime(), now, request.DriverNote);
 
         // Distance and time for the drivers' list. Best effort: a slow or missing routing engine never blocks the request.
         var routed = freight.Stops

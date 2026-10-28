@@ -16,6 +16,8 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
 
     public string CargoDescription { get; private set; } = string.Empty;
 
+    public string? DriverNote { get; private set; }
+
     /// <summary>Total weight of the whole freight, declared by the customer.</summary>
     public decimal CargoWeightKg { get; private set; }
 
@@ -48,7 +50,8 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
 
     public static FreightRequest Create(
         Guid customerId, IReadOnlyList<FreightStopDraft> stops, string cargoDescription,
-        decimal cargoWeightKg, VehicleType requiredVehicleType, DateTime? scheduledPickupAt, DateTime utcNow)
+        decimal cargoWeightKg, VehicleType requiredVehicleType, DateTime? scheduledPickupAt, DateTime utcNow,
+        string? driverNote = null)
     {
         if (scheduledPickupAt is not null && scheduledPickupAt <= utcNow)
         {
@@ -81,6 +84,12 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
             throw new DomainException("Cada parada deve usar um endereço diferente.");
         }
 
+        var note = string.IsNullOrWhiteSpace(driverNote) ? null : driverNote.Trim();
+        if (note is not null && note.Length > FreightLimits.MaxDriverNoteLength)
+        {
+            throw new DomainException($"A observação para o motorista pode ter no máximo {FreightLimits.MaxDriverNoteLength} caracteres.");
+        }
+
         var deadline = scheduledPickupAt is null
             ? utcNow + ProposalWindows.SameDay
             : Min(utcNow + ProposalWindows.Scheduled, scheduledPickupAt.Value);
@@ -91,6 +100,7 @@ public sealed class FreightRequest : BaseEntity, IAggregateRoot
             CargoDescription = Guard.NotNullOrWhiteSpace(cargoDescription, nameof(cargoDescription)),
             CargoWeightKg = Guard.Positive(cargoWeightKg, nameof(cargoWeightKg)),
             RequiredVehicleType = requiredVehicleType,
+            DriverNote = note,
             ScheduledPickupAt = scheduledPickupAt,
             ProposalDeadline = deadline
         };
