@@ -273,3 +273,20 @@ internal sealed class FakeSignatureRepository : ISignatureRepository
         return Task.CompletedTask;
     }
 }
+
+internal sealed class FakeCargoPhotoRepository : ICargoPhotoRepository
+{
+    public List<FreightCargoPhoto> Items { get; } = new();
+
+    public Task<bool> ExistsAsync(Guid freightRequestId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.Any(p => p.FreightRequestId == freightRequestId));
+
+    public Task<FreightCargoPhoto?> GetAsync(Guid freightRequestId, CancellationToken cancellationToken) =>
+        Task.FromResult(Items.FirstOrDefault(p => p.FreightRequestId == freightRequestId));
+
+    public Task AddAsync(FreightCargoPhoto photo, CancellationToken cancellationToken)
+    {
+        Items.Add(photo);
+        return Task.CompletedTask;
+    }
+}

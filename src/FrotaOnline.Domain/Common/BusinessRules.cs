@@ -30,6 +30,8 @@ public static class FreightLimits
     public const int MaxStops = 20;
 
     public const int MaxItemsPerStop = 50;
+
+    public const int MaxDriverNoteLength = 300;
 }
 
 public static class SubscriptionPricing

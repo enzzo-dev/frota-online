@@ -25,11 +25,12 @@ internal sealed class DeliveryQueries : IDeliveryQueries
     private async Task<List<DriverDeliverySummary>> DriverSummaries(
         Guid driverProfileId, Guid? deliveryId, CancellationToken cancellationToken)
     {
-        // Stop counters are correlated COUNT subqueries: no freight or stop is loaded.
         var rows = await (
                 from d in _db.Deliveries.AsNoTracking()
                 where d.DriverProfileId == driverProfileId && (deliveryId == null || d.Id == deliveryId)
                 join f in _db.FreightRequests.AsNoTracking() on d.FreightRequestId equals f.Id
+                join v in _db.Vehicles.AsNoTracking() on d.VehicleId equals v.Id
+                join c in _db.Users.AsNoTracking() on d.CustomerId equals c.Id
                 orderby d.CreatedAt descending, d.Id
                 select new
                 {
@@ -37,7 +38,16 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     d.FreightRequestId,
                     d.Status,
                     d.AgreedPrice,
+                    d.PlatformFee,
+                    d.DeliveredAt,
                     f.ScheduledPickupAt,
+                    f.CargoDescription,
+                    f.CargoWeightKg,
+                    f.RouteDistanceMeters,
+                    f.RouteDurationSeconds,
+                    VehiclePlate = v.Plate,
+                    VehicleModel = v.Model,
+                    CustomerName = c.FullName,
                     TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id),
                     CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id && s.CompletedAt != null),
                     Payment = _db.Payments.Where(x => x.DeliveryId == d.Id).Select(x => (PaymentStatus?)x.Status).FirstOrDefault(),
@@ -47,12 +57,50 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                 })
             .ToListAsync(cancellationToken);
 
+        if (rows.Count == 0)
+        {
+            return new List<DriverDeliverySummary>();
+        }
+
+        var deliveryIds = rows.Select(r => r.DeliveryId).ToList();
+        var freightIds = rows.Select(r => r.FreightRequestId).ToList();
+
+        var slots = (await _db.DriverAgendaSlots.AsNoTracking()
+                .Where(x => deliveryIds.Contains(x.DeliveryId))
+                .Select(x => new { x.DeliveryId, x.StartsAt, x.EndsAt, x.CreatedAt })
+                .ToListAsync(cancellationToken))
+            .GroupBy(x => x.DeliveryId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+
+        var places = (await (
+                    from s in _db.FreightStops.AsNoTracking()
+                    where freightIds.Contains(s.FreightRequestId)
+                    join a in _db.Addresses.AsNoTracking() on s.AddressId equals a.Id
+                    select new { s.FreightRequestId, s.Sequence, a.District, a.City })
+                .ToListAsync(cancellationToken))
+            .GroupBy(x => x.FreightRequestId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Sequence).ToList());
+
         return rows
-            .Select(r => new DriverDeliverySummary(
-                r.DeliveryId, r.FreightRequestId, r.Status, r.AgreedPrice, r.ScheduledPickupAt,
-                r.TotalStops, r.CompletedStops, r.Payment, r.CustomerSigned, r.DriverSigned, r.CreatedAt))
+            .Select(r =>
+            {
+                slots.TryGetValue(r.DeliveryId, out var slot);
+                places.TryGetValue(r.FreightRequestId, out var stops);
+                var origin = stops?.FirstOrDefault();
+                var destination = stops?.LastOrDefault();
+                return new DriverDeliverySummary(
+                    r.DeliveryId, r.FreightRequestId, r.Status, r.AgreedPrice, r.ScheduledPickupAt,
+                    r.TotalStops, r.CompletedStops, r.Payment, r.CustomerSigned, r.DriverSigned, r.CreatedAt,
+                    slot?.StartsAt, slot?.EndsAt, r.CargoDescription, r.CargoWeightKg,
+                    origin?.District, origin?.City, destination?.District, destination?.City,
+                    r.RouteDistanceMeters, r.RouteDurationSeconds, r.VehiclePlate, r.VehicleModel,
+                    FirstName(r.CustomerName), r.DeliveredAt, r.PlatformFee, r.AgreedPrice - r.PlatformFee);
+            })
             .ToList();
     }
+
+    private static string FirstName(string fullName) =>
+        fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? fullName;
 
     public async Task<DeliveryRouteResponse?> GetRouteAsync(
         Guid driverProfileId, Guid deliveryId, RouteView view, CancellationToken cancellationToken)
@@ -67,6 +115,8 @@ internal sealed class DeliveryQueries : IDeliveryQueries
                     FreightId = f.Id,
                     f.CargoDescription,
                     f.CargoWeightKg,
+                    f.DriverNote,
+                    HasCargoPhoto = _db.FreightCargoPhotos.Any(p => p.FreightRequestId == f.Id),
                     TotalStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id),
                     CompletedStops = _db.FreightStops.Count(s => s.FreightRequestId == f.Id && s.CompletedAt != null),
                 })
@@ -117,7 +167,7 @@ internal sealed class DeliveryQueries : IDeliveryQueries
 
         return new DeliveryRouteResponse(
             header.DeliveryId, header.FreightId, header.CargoDescription, header.CargoWeightKg, view,
-            header.TotalStops, header.CompletedStops, response);
+            header.TotalStops, header.CompletedStops, response, header.DriverNote, header.HasCargoPhoto);
     }
 
     public async Task<IReadOnlyList<CustomerDeliverySummary>> ListByCustomerAsync(

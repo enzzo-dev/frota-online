@@ -26,7 +26,9 @@ internal static class FreightMapper
             .ToList(),
         freight.ApprovedProposalId,
         pendingProposals,
-        freight.CreatedAt);
+        freight.CreatedAt,
+        freight.DriverNote,
+        false);
 
     public static IReadOnlyList<FreightItemResponse> ToItems(FreightStop stop) =>
         stop.Items.Select(i => new FreightItemResponse(i.Description, i.Quantity)).ToList();

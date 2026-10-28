@@ -35,6 +35,7 @@ public abstract class MarketplaceTestBase
     private protected readonly FakeTermAcceptanceChecker Terms = new();
     private protected readonly FakeMediaFileRepository Media = new();
     private protected readonly FakeSignatureRepository Signatures = new();
+    private protected readonly FakeCargoPhotoRepository CargoPhotos = new();
     private protected readonly FakePaymentRepository Payments = new();
     private protected readonly FakeFeeLedgerRepository Fees = new();
     private protected readonly FakeRoutingProvider Routing = new();
@@ -48,8 +49,8 @@ public abstract class MarketplaceTestBase
 
     private protected NotificationPublisher Publisher => new(SentNotifications);
 
-    private protected FakeFreightQueries FreightQueries => new(Freights, Proposals, Addresses, Drivers, Users, Vehicles);
-    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses, Drivers, Users, Vehicles, Payments, Signatures);
+    private protected FakeFreightQueries FreightQueries => new(Freights, Proposals, Addresses, Drivers, Users, Vehicles, CargoPhotos);
+    private protected FakeDeliveryQueries DeliveryQueries => new(Deliveries, Freights, Addresses, Drivers, Users, Vehicles, Payments, Signatures, CargoPhotos, Agenda);
 
     protected readonly Guid CustomerId = Guid.NewGuid();
 

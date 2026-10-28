@@ -18,7 +18,12 @@ public sealed record CreateFreightRequest(
     string CargoDescription,
     decimal CargoWeightKg,
     VehicleType RequiredVehicleType,
-    DateTime? ScheduledPickupAt);
+    DateTime? ScheduledPickupAt,
+    string? DriverNote = null);
+
+public sealed record UploadCargoPhotoRequest(string Image);
+
+public sealed record CargoPhotoImage(string ContentType, byte[] Content);
 
 public sealed record FreightItemResponse(string Description, int Quantity);
 
@@ -46,7 +51,9 @@ public sealed record FreightResponse(
     IReadOnlyList<FreightStopResponse> Stops,
     Guid? ApprovedProposalId,
     int PendingProposals,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? DriverNote,
+    bool HasCargoPhoto);
 
 public sealed record FreightSimpleResponse(Guid Id,
     FreightStatus status,
@@ -59,7 +66,9 @@ public sealed record FreightSimpleResponse(Guid Id,
     int? RouteDurationSeconds,
     int Stops,
     int PendingProposals,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? DriverNote,
+    bool HasCargoPhoto);
 
 /// <summary>Proposal as the customer sees it, ordered by price (rank 1 is the cheapest).</summary>
 public sealed record RankedProposalResponse(
@@ -110,7 +119,9 @@ public sealed record OpenFreightResponse(
     int DeliveryCount,
     int? RouteDistanceMeters,
     int? RouteDurationSeconds,
-    IReadOnlyList<OpenStopResponse> Stops);
+    IReadOnlyList<OpenStopResponse> Stops,
+    string? DriverNote,
+    bool HasCargoPhoto);
 
 /// <summary>Full gives every stop of the run at once; Next gives only the stop the driver must do now.</summary>
 public enum RouteView { Full = 1, Next = 2 }
@@ -133,7 +144,9 @@ public sealed record DeliveryRouteResponse(
     RouteView View,
     int TotalStops,
     int CompletedStops,
-    IReadOnlyList<RouteStopResponse> Stops);
+    IReadOnlyList<RouteStopResponse> Stops,
+    string? DriverNote,
+    bool HasCargoPhoto);
 
 public sealed record SubmitProposalRequest(Guid VehicleId, decimal Price, string? Message);
 
@@ -159,4 +172,20 @@ public sealed record DriverDeliverySummary(
     PaymentStatus? Payment,
     bool CustomerSigned,
     bool DriverSigned,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    DateTime? AgendaStartsAt,
+    DateTime? AgendaEndsAt,
+    string CargoDescription,
+    decimal CargoWeightKg,
+    string? OriginDistrict,
+    string? OriginCity,
+    string? DestinationDistrict,
+    string? DestinationCity,
+    int? RouteDistanceMeters,
+    int? RouteDurationSeconds,
+    string VehiclePlate,
+    string VehicleModel,
+    string CustomerName,
+    DateTime? DeliveredAt,
+    decimal PlatformFee,
+    decimal DriverNet);

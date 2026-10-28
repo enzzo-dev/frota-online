@@ -91,6 +91,14 @@ internal sealed class AccountErasureStore : IAccountErasureStore
         }
 
         // 2. Free text and coordinates the person typed or generated, in rows that must stay.
+        await _db.FreightRequests
+            .Where(f => f.CustomerId == userId && f.DriverNote != null)
+            .ExecuteUpdateAsync(set => set.SetProperty(f => f.DriverNote, (string?)null), cancellationToken);
+
+        await _db.FreightCargoPhotos
+            .Where(p => _db.FreightRequests.Any(f => f.Id == p.FreightRequestId && f.CustomerId == userId))
+            .ExecuteDeleteAsync(cancellationToken);
+
         await _db.FreightStops
             .Where(s => s.Note != null && _db.FreightRequests.Any(f => f.Id == s.FreightRequestId && f.CustomerId == userId))
             .ExecuteUpdateAsync(set => set.SetProperty(s => s.Note, (string?)null), cancellationToken);

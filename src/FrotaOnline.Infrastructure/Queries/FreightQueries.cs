@@ -48,6 +48,8 @@ internal sealed class FreightQueries : IFreightQueries
                 f.ProposalDeadline,
                 f.RouteDistanceMeters,
                 f.RouteDurationSeconds,
+                f.DriverNote,
+                HasCargoPhoto = _db.FreightCargoPhotos.Any(p => p.FreightRequestId == f.Id),
             })
             .ToListAsync(cancellationToken);
 
@@ -83,7 +85,7 @@ internal sealed class FreightQueries : IFreightQueries
                 return new OpenFreightResponse(
                     h.Id, h.CargoDescription, h.CargoWeightKg, h.RequiredVehicleType, h.ScheduledPickupAt, h.ProposalDeadline,
                     rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery),
-                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows);
+                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows, h.DriverNote, h.HasCargoPhoto);
             })
             .ToList();
     }
@@ -164,6 +166,8 @@ internal sealed class FreightQueries : IFreightQueries
                 f.RouteDistanceMeters,
                 f.RouteDurationSeconds,
                 f.CreatedAt,
+                f.DriverNote,
+                HasCargoPhoto = _db.FreightCargoPhotos.Any(p => p.FreightRequestId == f.Id),
                 PendingProposals = _db.Proposals.Count(
                     p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending),
             })
@@ -189,7 +193,7 @@ internal sealed class FreightQueries : IFreightQueries
                 return new FreightSimpleResponse(
                     h.Id, h.Status, h.CargoDescription, h.CargoWeightKg, h.ProposalDeadline,
                     rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery),
-                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows.Count(), h.PendingProposals, h.CreatedAt);
+                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows.Count(), h.PendingProposals, h.CreatedAt, h.DriverNote, h.HasCargoPhoto);
             })
             .ToList();
     }
@@ -212,6 +216,8 @@ internal sealed class FreightQueries : IFreightQueries
                 f.RouteDistanceMeters,
                 f.RouteDurationSeconds,
                 f.CreatedAt,
+                f.DriverNote,
+                HasCargoPhoto = _db.FreightCargoPhotos.Any(p => p.FreightRequestId == f.Id),
                 PendingProposals = _db.Proposals.Count(
                     p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending),
             })
@@ -257,7 +263,8 @@ internal sealed class FreightQueries : IFreightQueries
                 return new FreightResponse(
                     h.Id, h.Status, h.CargoDescription, h.CargoWeightKg, h.RequiredVehicleType, h.ScheduledPickupAt,
                     h.ProposalDeadline, rows.Count(r => r.Type == StopType.Pickup), rows.Count(r => r.Type == StopType.Delivery),
-                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows, h.ApprovedProposalId, h.PendingProposals, h.CreatedAt);
+                    h.RouteDistanceMeters, h.RouteDurationSeconds, rows, h.ApprovedProposalId, h.PendingProposals, h.CreatedAt,
+                    h.DriverNote, h.HasCargoPhoto);
             })
             .ToList();
     }

@@ -22,6 +22,7 @@ internal sealed class FakeFreightQueries : IFreightQueries
     private readonly FakeDriverRepository _drivers;
     private readonly FakeUserRepository _users;
     private readonly FakeVehicleRepository _vehicles;
+    private readonly FakeCargoPhotoRepository _photos;
 
     public FakeFreightQueries(
         FakeFreightRepository freights,
@@ -29,8 +30,10 @@ internal sealed class FakeFreightQueries : IFreightQueries
         FakeAddressRepository addresses,
         FakeDriverRepository drivers,
         FakeUserRepository users,
-        FakeVehicleRepository vehicles)
+        FakeVehicleRepository vehicles,
+        FakeCargoPhotoRepository photos)
     {
+        _photos = photos;
         _freights = freights;
         _proposals = proposals;
         _addresses = addresses;
@@ -63,7 +66,8 @@ internal sealed class FakeFreightQueries : IFreightQueries
                             address.Longitude is null ? null : Math.Round(address.Longitude.Value, 2),
                             StopItemsFake.Of(s));
                     })
-                    .ToList()))
+                    .ToList(),
+                f.DriverNote, HasPhoto(f.Id)))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<OpenFreightResponse>>(rows);
@@ -78,7 +82,8 @@ internal sealed class FakeFreightQueries : IFreightQueries
             .Select(f => new FreightSimpleResponse(
                 f.Id, f.Status, f.CargoDescription, f.CargoWeightKg, f.ProposalDeadline, f.PickupCount, f.DeliveryCount,
                 f.RouteDistanceMeters, f.RouteDurationSeconds, f.Stops.Count,
-                _proposals.Items.Count(p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending), f.CreatedAt))
+                _proposals.Items.Count(p => p.FreightRequestId == f.Id && p.Status == ProposalStatus.Pending), f.CreatedAt,
+                f.DriverNote, HasPhoto(f.Id)))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<FreightSimpleResponse>>(rows);
@@ -119,6 +124,8 @@ internal sealed class FakeFreightQueries : IFreightQueries
 
     private Address FindAddress(Guid id) => _addresses.Items.First(a => a.Id == id);
 
+    private bool HasPhoto(Guid freightId) => _photos.Items.Any(p => p.FreightRequestId == freightId);
+
     private FreightResponse ToResponse(FreightRequest freight) => new(
         freight.Id, freight.Status, freight.CargoDescription, freight.CargoWeightKg, freight.RequiredVehicleType,
         freight.ScheduledPickupAt, freight.ProposalDeadline, freight.PickupCount, freight.DeliveryCount,
@@ -130,7 +137,8 @@ internal sealed class FakeFreightQueries : IFreightQueries
             .ToList(),
         freight.ApprovedProposalId,
         _proposals.Items.Count(p => p.FreightRequestId == freight.Id && p.Status == ProposalStatus.Pending),
-        freight.CreatedAt);
+        freight.CreatedAt,
+        freight.DriverNote, HasPhoto(freight.Id));
 }
 
 internal sealed class FakeDeliveryQueries : IDeliveryQueries
@@ -143,12 +151,16 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
     private readonly FakeVehicleRepository _vehicles;
     private readonly FakePaymentRepository _payments;
     private readonly FakeSignatureRepository _signatures;
+    private readonly FakeCargoPhotoRepository _photos;
+    private readonly FakeDriverAgendaRepository _agenda;
 
     public FakeDeliveryQueries(
         FakeDeliveryRepository deliveries, FakeFreightRepository freights, FakeAddressRepository addresses,
         FakeDriverRepository drivers, FakeUserRepository users, FakeVehicleRepository vehicles, FakePaymentRepository payments,
-        FakeSignatureRepository signatures)
+        FakeSignatureRepository signatures, FakeCargoPhotoRepository photos, FakeDriverAgendaRepository agenda)
     {
+        _photos = photos;
+        _agenda = agenda;
         _deliveries = deliveries;
         _freights = freights;
         _addresses = addresses;
@@ -223,6 +235,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
         return (user.FullName, _vehicles.Items.First(v => v.Id == d.VehicleId));
     }
 
+    private Address FindAddress(Guid id) => _addresses.Items.First(a => a.Id == id);
+
     private bool SignedBy(Delivery d, SignatureType type) =>
         _signatures.Items.Any(s => s.FreightRequestId == d.FreightRequestId && s.Type == type);
 
@@ -236,10 +250,21 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
             .Select(d =>
             {
                 var freight = _freights.Items.First(f => f.Id == d.FreightRequestId);
+                var slot = _agenda.Items.Where(a => a.DeliveryId == d.Id).OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+                var ordered = freight.Stops.OrderBy(s => s.Sequence).ToList();
+                var origin = FindAddress(ordered[0].AddressId);
+                var destination = FindAddress(ordered[^1].AddressId);
+                var vehicle = _vehicles.Items.First(v => v.Id == d.VehicleId);
+                var customer = _users.Items.FirstOrDefault(u => u.Id == d.CustomerId);
+                var firstName = customer?.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
                 return new DriverDeliverySummary(
                     d.Id, d.FreightRequestId, d.Status, d.AgreedPrice, freight.ScheduledPickupAt,
                     freight.Stops.Count, freight.Stops.Count(s => s.IsCompleted), PaymentOf(d),
-                    SignedBy(d, SignatureType.Customer), SignedBy(d, SignatureType.Driver), d.CreatedAt);
+                    SignedBy(d, SignatureType.Customer), SignedBy(d, SignatureType.Driver), d.CreatedAt,
+                    slot?.StartsAt, slot?.EndsAt, freight.CargoDescription, freight.CargoWeightKg,
+                    origin.District, origin.City, destination.District, destination.City,
+                    freight.RouteDistanceMeters, freight.RouteDurationSeconds, vehicle.Plate, vehicle.Model,
+                    firstName, d.DeliveredAt, d.PlatformFee, d.AgreedPrice - d.PlatformFee);
             })
             .ToList();
 
@@ -271,7 +296,8 @@ internal sealed class FakeDeliveryQueries : IDeliveryQueries
 
         return Task.FromResult<DeliveryRouteResponse?>(new DeliveryRouteResponse(
             delivery.Id, freight.Id, freight.CargoDescription, freight.CargoWeightKg, view,
-            ordered.Count, ordered.Count(s => s.IsCompleted), stops));
+            ordered.Count, ordered.Count(s => s.IsCompleted), stops,
+            freight.DriverNote, _photos.Items.Any(p => p.FreightRequestId == freight.Id)));
     }
 }
 

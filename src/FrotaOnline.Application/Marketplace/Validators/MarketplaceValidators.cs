@@ -28,6 +28,8 @@ public sealed class CreateFreightRequestValidator : AbstractValidator<CreateFrei
         RuleFor(x => x.CargoDescription).NotEmpty().MaximumLength(1000);
         RuleFor(x => x.CargoWeightKg).GreaterThan(0).LessThanOrEqualTo(60_000);
         RuleFor(x => x.RequiredVehicleType).IsInEnum();
+        RuleFor(x => x.DriverNote).MaximumLength(FreightLimits.MaxDriverNoteLength)
+            .WithMessage($"A observação para o motorista pode ter no máximo {FreightLimits.MaxDriverNoteLength} caracteres.");
     }
 }
 
@@ -62,5 +64,14 @@ public sealed class SubmitProposalRequestValidator : AbstractValidator<SubmitPro
         RuleFor(x => x.Price).GreaterThan(0).LessThanOrEqualTo(1_000_000)
             .PrecisionScale(10, 2, false).WithMessage("O preço pode ter no máximo duas casas decimais.");
         RuleFor(x => x.Message).MaximumLength(500);
+    }
+}
+
+public sealed class UploadCargoPhotoRequestValidator : AbstractValidator<UploadCargoPhotoRequest>
+{
+    public UploadCargoPhotoRequestValidator()
+    {
+        RuleFor(x => x.Image).NotEmpty().WithMessage("Informe a foto da carga em base64.")
+            .MaximumLength(CargoPhotoLimits.MaxBase64Length).WithMessage("A foto da carga é maior que 2 MB.");
     }
 }
