@@ -684,6 +684,43 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
                     b.ToTable("FreightStops");
                 });
 
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightView", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DriverProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("FirstViewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FreightRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("LastViewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DriverProfileId", "FirstViewedAt");
+
+                    b.HasIndex("FreightRequestId", "DriverProfileId")
+                        .IsUnique();
+
+                    b.ToTable("FreightViews");
+                });
+
             modelBuilder.Entity("FrotaOnline.Domain.Entities.MediaFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1560,6 +1597,21 @@ namespace FrotaOnline.Infrastructure.Persistence.Migrations
 
                     b.HasOne("FrotaOnline.Domain.Entities.FreightRequest", null)
                         .WithMany("Stops")
+                        .HasForeignKey("FreightRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FrotaOnline.Domain.Entities.FreightView", b =>
+                {
+                    b.HasOne("FrotaOnline.Domain.Entities.DriverProfile", null)
+                        .WithMany()
+                        .HasForeignKey("DriverProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FrotaOnline.Domain.Entities.FreightRequest", null)
+                        .WithMany()
                         .HasForeignKey("FreightRequestId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();

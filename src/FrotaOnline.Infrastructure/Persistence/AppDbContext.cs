@@ -20,6 +20,7 @@ public sealed class AppDbContext : DbContext, IUnitOfWork
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<Signature> Signatures => Set<Signature>();
     public DbSet<FreightCargoPhoto> FreightCargoPhotos => Set<FreightCargoPhoto>();
+    public DbSet<FreightView> FreightViews => Set<FreightView>();
     public DbSet<TermDocument> TermDocuments => Set<TermDocument>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
     public DbSet<FreightRequest> FreightRequests => Set<FreightRequest>();

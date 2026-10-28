@@ -145,6 +145,7 @@ internal sealed class AccountErasureStore : IAccountErasureStore
         if (driverId is not null)
         {
             await _db.WalletAccounts.Where(a => a.DriverProfileId == driverId).ExecuteDeleteAsync(cancellationToken);
+            await _db.FreightViews.Where(v => v.DriverProfileId == driverId).ExecuteDeleteAsync(cancellationToken);
         }
 
         await _db.CustomerProfiles.Where(c => c.UserId == userId).ExecuteDeleteAsync(cancellationToken);
